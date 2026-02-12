@@ -1,5 +1,7 @@
+"use client";
+
 import React from 'react';
-import { useSearchParams, Link } from 'react-router-dom';
+import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -7,8 +9,8 @@ import { Gavel, Mail, Lock, User, ArrowRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -25,6 +27,7 @@ const Auth = () => {
   const mode = searchParams.get('mode') || 'login';
   const [isLoading, setIsLoading] = React.useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const { register, handleSubmit, formState: { errors } } = useForm<AuthFormValues>({
     resolver: zodResolver(authSchema),
@@ -39,7 +42,7 @@ const Auth = () => {
     setIsLoading(true);
     try {
       if (mode === 'signup') {
-        const { error } = await supabase.auth.signUp({
+        const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
           options: {
@@ -48,27 +51,46 @@ const Auth = () => {
             }
           }
         });
-        if (error) throw error;
+
+        if (signUpError) throw signUpError;
+
+        if (authData.user) {
+          // Tentativa manual de criar perfil caso a trigger falhe
+          const { error: profileError } = await supabase
+            .from('profiles')
+            .upsert({
+              id: authData.user.id,
+              full_name: data.fullName,
+              email: data.email,
+            });
+          
+          if (profileError) console.warn("Aviso: Perfil não pôde ser criado manualmente, mas o usuário foi registrado.", profileError);
+        }
+
         toast({
-          title: "Conta criada!",
-          description: "Verifique seu e-mail para confirmar o cadastro.",
+          title: "Verifique seu e-mail",
+          description: "Enviamos um link de confirmação para " + data.email,
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        const { error: signInError } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
         });
-        if (error) throw error;
+        
+        if (signInError) throw signInError;
+
         toast({
-          title: "Bem-vindo de volta!",
+          title: "Bem-vindo!",
           description: "Login realizado com sucesso.",
         });
+        navigate('/app');
       }
     } catch (error: any) {
+      console.error("Erro de Auth:", error);
       toast({
         variant: "destructive",
-        title: "Erro na autenticação",
-        description: error.message,
+        title: "Falha na operação",
+        description: error.message || "Ocorreu um erro inesperado. Verifique suas credenciais.",
       });
     } finally {
       setIsLoading(false);
@@ -85,16 +107,11 @@ const Auth = () => {
           <h1 className="text-3xl font-bold text-slate-900">
             {mode === 'signup' ? 'Crie sua conta' : 'Acesse sua conta'}
           </h1>
-          <p className="text-slate-500 mt-2">
-            {mode === 'signup' 
-              ? 'Junte-se a milhares de compradores e encontre as melhores ofertas.' 
-              : 'Entre para gerenciar seus lances e acompanhar leilões.'}
-          </p>
         </div>
 
         <Card className="border-none shadow-xl shadow-slate-200/50 rounded-2xl overflow-hidden">
           <CardHeader className="pb-0">
-            <Tabs defaultValue={mode} className="w-full">
+            <Tabs value={mode} className="w-full">
               <TabsList className="grid w-full grid-cols-2 mb-8">
                 <Link to="/auth?mode=login" className="w-full">
                   <TabsTrigger value="login" className="w-full">Login</TabsTrigger>
@@ -139,14 +156,7 @@ const Auth = () => {
               </div>
 
               <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="password">Senha</Label>
-                  {mode === 'login' && (
-                    <Link to="/auth/forgot" className="text-xs text-orange-600 hover:underline">
-                      Esqueceu a senha?
-                    </Link>
-                  )}
-                </div>
+                <Label htmlFor="password">Senha</Label>
                 <div className="relative">
                   <Lock className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
                   <Input 
@@ -168,21 +178,11 @@ const Auth = () => {
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  <>
-                    {mode === 'signup' ? 'Criar Conta' : 'Entrar'}
-                    <ArrowRight className="ml-2 h-5 w-5" />
-                  </>
+                  mode === 'signup' ? 'Criar Conta' : 'Entrar'
                 )}
               </Button>
             </form>
           </CardContent>
-          <CardFooter className="bg-slate-50 border-t px-8 py-4">
-            <p className="text-xs text-center text-slate-500 w-full">
-              Ao continuar, você concorda com nossos{' '}
-              <Link to="/terms" className="text-orange-600 hover:underline">Termos de Uso</Link> e{' '}
-              <Link to="/privacy" className="text-orange-600 hover:underline">Política de Privacidade</Link>.
-            </p>
-          </CardFooter>
         </Card>
       </div>
     </div>

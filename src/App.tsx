@@ -10,6 +10,7 @@ import Auctions from "./pages/Auctions";
 import AuctionDetail from "./pages/AuctionDetail";
 import LotDetail from "./pages/LotDetail";
 import Dashboard from "./pages/Dashboard";
+import Admin from "./pages/Admin";
 
 const queryClient = new QueryClient();
 
@@ -28,6 +29,7 @@ const App = () => (
               <Route path="/auctions/:id" element={<AuctionDetail />} />
               <Route path="/lots/:id" element={<LotDetail />} />
               <Route path="/app" element={<Dashboard />} />
+              <Route path="/admin" element={<Admin />} />
             </Routes>
           </main>
           <Footer />

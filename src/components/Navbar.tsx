@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Car, Gavel, User, Menu, X, LogIn } from 'lucide-react';
+import { Car, Gavel, User, Menu, X, LogIn, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 
@@ -12,7 +12,7 @@ const Navbar = () => {
     { name: 'Início', href: '/' },
     { name: 'Leilões', href: '/auctions' },
     { name: 'Como Funciona', href: '/how-it-works' },
-    { name: 'Ajuda', href: '/help' },
+    { name: 'Admin', href: '/admin', icon: Settings }, // Link adicionado
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -39,10 +39,11 @@ const Navbar = () => {
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  "text-sm font-medium transition-colors hover:text-orange-500",
+                  "text-sm font-medium transition-colors hover:text-orange-500 flex items-center gap-1",
                   isActive(item.href) ? "text-orange-500" : "text-slate-600"
                 )}
               >
+                {item.icon && <item.icon size={14} />}
                 {item.name}
               </Link>
             ))}

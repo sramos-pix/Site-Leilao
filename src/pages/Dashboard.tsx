@@ -30,7 +30,7 @@ const Dashboard = () => {
             <Button variant="outline" className="rounded-xl bg-white border-none shadow-sm">
               <Bell size={20} className="mr-2" />
               Notificações
-            </Badge>
+            </Button>
             <Link to="/app/profile">
               <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
                 <User size={20} className="mr-2" />

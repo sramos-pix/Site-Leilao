@@ -4,7 +4,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import LotForm from '@/components/admin/LotForm';
@@ -19,20 +18,32 @@ const Admin = () => {
 
   const fetchData = async () => {
     setIsLoading(true);
+    console.log("Tentando conectar ao Supabase...");
     try {
       const { data: auctionsData, error: auctionError } = await supabase
         .from('auctions')
         .select('*, lots(count)')
         .order('created_at', { ascending: false });
       
-      if (auctionError) throw auctionError;
+      if (auctionError) {
+        console.error("Erro detalhado do Supabase (Auctions):", auctionError);
+        throw auctionError;
+      }
+      
       setAuctions(auctionsData || []);
       
-      const { data: profilesData } = await supabase.from('profiles').select('*');
+      const { data: profilesData, error: profileError } = await supabase.from('profiles').select('*');
+      if (profileError) console.error("Erro detalhado do Supabase (Profiles):", profileError);
       setUsers(profilesData || []);
+      
+      console.log("Dados carregados com sucesso!");
     } catch (error: any) {
-      console.error("Erro ao buscar dados:", error);
-      toast({ variant: "destructive", title: "Erro de conexão", description: "Não foi possível carregar os dados do banco." });
+      console.error("Falha na conexão:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Erro de conexão", 
+        description: error.message || "Não foi possível carregar os dados. Verifique o console (F12)." 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -85,7 +96,7 @@ const Admin = () => {
               {auctions.length === 0 && !isLoading ? (
                 <Card className="border-dashed border-2 bg-transparent py-12 text-center">
                   <Gavel className="mx-auto text-slate-300 mb-4" size={48} />
-                  <p className="text-slate-500">Nenhum leilão encontrado no banco de dados.</p>
+                  <p className="text-slate-500">Nenhum leilão encontrado. Crie um novo leilão para começar.</p>
                 </Card>
               ) : (
                 auctions.map((auction) => (
@@ -109,7 +120,7 @@ const Admin = () => {
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl">
                             <DialogHeader>
-                              <DialogTitle>Cadastrar Veículo</DialogTitle>
+                              <DialogTitle>Cadastrar Veículo em {auction.title}</DialogTitle>
                             </DialogHeader>
                             <LotForm auctionId={auction.id} onSuccess={fetchData} />
                           </DialogContent>

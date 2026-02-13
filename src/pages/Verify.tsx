@@ -18,7 +18,6 @@ const Verify = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
-      console.log("Arquivo selecionado:", selectedFile.name);
       setFile(selectedFile);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -29,8 +28,6 @@ const Verify = () => {
   };
 
   const handleUpload = async () => {
-    console.log("Iniciando processo de upload...");
-    
     if (!file) {
       toast.error("Por favor, selecione um arquivo primeiro.");
       return;
@@ -43,53 +40,38 @@ const Verify = () => {
       const { data: { user }, error: userError } = await supabase.auth.getUser();
       
       if (userError || !user) {
-        console.error("Erro ao obter usuário:", userError);
         throw new Error("Você precisa estar logado para enviar documentos.");
       }
-
-      console.log("Usuário autenticado:", user.id);
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${Date.now()}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
 
-      console.log("Tentando upload para bucket 'documents' no caminho:", filePath);
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      // 1. Upload para o Storage
+      const { error: uploadError } = await supabase.storage
         .from('documents')
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: true
         });
 
-      if (uploadError) {
-        console.error("Erro no Storage:", uploadError);
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
-      console.log("Upload concluído com sucesso:", uploadData);
-
+      // 2. Pegar URL Pública
       const { data: { publicUrl } } = supabase.storage
         .from('documents')
         .getPublicUrl(filePath);
 
-      console.log("URL pública gerada:", publicUrl);
-
+      // 3. Atualizar Perfil (Removida a coluna updated_at que causava erro)
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
           kyc_status: 'pending',
-          document_url: publicUrl,
-          updated_at: new Date().toISOString()
+          document_url: publicUrl
         })
         .eq('id', user.id);
 
-      if (updateError) {
-        console.error("Erro ao atualizar perfil:", updateError);
-        throw updateError;
-      }
-
-      console.log("Perfil atualizado com sucesso.");
+      if (updateError) throw updateError;
       
       toast.dismiss(loadingToast);
       toast.success("Documento enviado para análise!");
@@ -101,8 +83,8 @@ const Verify = () => {
 
     } catch (error: any) {
       toast.dismiss(loadingToast);
-      console.error("Falha crítica no processo:", error);
-      toast.error(error.message || "Erro ao processar envio. Verifique sua conexão.");
+      console.error("Erro no processo:", error);
+      toast.error(error.message || "Erro ao processar envio.");
     } finally {
       setIsUploading(false);
     }
@@ -194,12 +176,6 @@ const Verify = () => {
                   "Enviar para Análise"
                 )}
               </Button>
-              
-              {!file && (
-                <p className="text-center text-xs text-slate-400">
-                  Selecione um arquivo para habilitar o envio
-                </p>
-              )}
             </div>
           </CardContent>
         </Card>

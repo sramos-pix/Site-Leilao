@@ -8,23 +8,47 @@ interface CountdownTimerProps {
 }
 
 const CountdownTimer = ({ randomScarcity = false, endsAt }: CountdownTimerProps) => {
-  const [timeLeft, setTimeLeft] = useState('');
+  const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
   useEffect(() => {
+    let initialSeconds = 0;
+
     if (endsAt) {
-      // Se houver uma data real, poderíamos calcular a diferença aqui.
-      // Por enquanto, vamos manter o formato visual consistente.
-      setTimeLeft(typeof endsAt === 'string' ? endsAt : '2h 15m');
-      return;
+      const end = new Date(endsAt).getTime();
+      const now = new Date().getTime();
+      initialSeconds = Math.max(0, Math.floor((end - now) / 1000));
+    } else if (randomScarcity) {
+      // Gera um tempo aleatório entre 30 min e 4 horas para cada instância
+      initialSeconds = Math.floor(Math.random() * (14400 - 1800) + 1800);
+    } else {
+      initialSeconds = 7200; // 2 horas padrão
     }
 
-    const hours = randomScarcity ? Math.floor(Math.random() * 5) + 1 : 2;
-    const minutes = Math.floor(Math.random() * 59);
-    
-    setTimeLeft(`${hours}h ${minutes}m`);
+    setSecondsLeft(initialSeconds);
   }, [randomScarcity, endsAt]);
 
-  return <span>{timeLeft}</span>;
+  useEffect(() => {
+    if (secondsLeft <= 0) return;
+
+    const timer = setInterval(() => {
+      setSecondsLeft((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [secondsLeft]);
+
+  const formatTime = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+
+    if (h > 0) {
+      return `${h}h ${m}m ${s}s`;
+    }
+    return `${m}m ${s}s`;
+  };
+
+  return <span>{formatTime(secondsLeft)}</span>;
 };
 
 export default CountdownTimer;

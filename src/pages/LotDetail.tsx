@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, Heart, Share2, Clock, Gavel, 
@@ -31,13 +31,17 @@ const LotDetail = () => {
   const [isFavorite, setIsFavorite] = useState(false);
   const [user, setUser] = useState<any>(null);
 
-  // Histórico fictício de lances
-  const mockBids = [
-    { id: 1, email: 'carlos.silva@gmail.com', amount: 212000, time: 'há 2 minutos' },
-    { id: 2, email: 'ana.oliveira@uol.com.br', amount: 210000, time: 'há 15 minutos' },
-    { id: 3, email: 'marcos.v@hotmail.com', amount: 205000, time: 'há 1 hora' },
-    { id: 4, email: 'fernanda.lima@outlook.com', amount: 200000, time: 'há 3 horas' },
-  ];
+  // Gera histórico de lances dinâmico baseado no valor atual
+  const dynamicBids = useMemo(() => {
+    if (!lot) return [];
+    const current = lot.current_bid || lot.start_bid;
+    return [
+      { id: 1, email: 'carlos.silva@gmail.com', amount: current, time: 'há 2 minutos' },
+      { id: 2, email: 'ana.oliveira@uol.com.br', amount: current * 0.98, time: 'há 15 minutos' },
+      { id: 3, email: 'marcos.v@hotmail.com', amount: current * 0.95, time: 'há 1 hora' },
+      { id: 4, email: 'fernanda.lima@outlook.com', amount: current * 0.92, time: 'há 3 horas' },
+    ];
+  }, [lot]);
 
   useEffect(() => {
     const fetchLotData = async () => {
@@ -260,7 +264,7 @@ const LotDetail = () => {
               </div>
 
               <div className="space-y-4">
-                {mockBids.map((bid, index) => (
+                {dynamicBids.map((bid, index) => (
                   <div 
                     key={bid.id} 
                     className={`flex items-center justify-between p-5 rounded-3xl transition-all ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50 border border-transparent'}`}
@@ -357,7 +361,6 @@ const LotDetail = () => {
   );
 };
 
-// Componente de ícone de troféu para o lance vencedor
 const Trophy = ({ size }: { size: number }) => (
   <svg 
     width={size} 

@@ -5,12 +5,13 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Gavel, Mail, Lock, User, Phone, MapPin, ShieldCheck, Loader2, FileText } from 'lucide-react';
+import { Gavel, Mail, Lock, User, Phone, MapPin, ShieldCheck, Loader2, FileText, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -31,6 +32,7 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'login';
   const [isLoading, setIsLoading] = React.useState(false);
+  const [rateLimitError, setRateLimitError] = React.useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -40,6 +42,7 @@ const Auth = () => {
 
   const onSubmit = async (data: AuthFormValues) => {
     setIsLoading(true);
+    setRateLimitError(false);
     try {
       if (mode === 'signup') {
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -53,7 +56,13 @@ const Auth = () => {
           }
         });
 
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          if (signUpError.message.includes('rate limit')) {
+            setRateLimitError(true);
+            throw new Error("Limite de envios de e-mail excedido. Por favor, tente novamente em alguns minutos ou use outro e-mail.");
+          }
+          throw signUpError;
+        }
 
         if (authData.user) {
           const { error: profileError } = await supabase
@@ -107,10 +116,17 @@ const Auth = () => {
           <h1 className="text-3xl font-bold text-slate-900">
             {mode === 'signup' ? 'Cadastro de Licitante' : 'Acesse sua conta'}
           </h1>
-          <p className="text-slate-500 mt-2">
-            {mode === 'signup' ? 'Preencha seus dados para participar dos leilões' : 'Bem-vindo de volta'}
-          </p>
         </div>
+
+        {rateLimitError && (
+          <Alert variant="destructive" className="mb-6 bg-red-50 border-red-200 text-red-800 rounded-2xl">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Limite de Segurança</AlertTitle>
+            <AlertDescription>
+              O sistema de e-mail atingiu o limite temporário. Tente usar um e-mail diferente ou aguarde 1 hora para tentar com este mesmo endereço.
+            </AlertDescription>
+          </Alert>
+        )}
 
         <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
           <CardHeader className="pb-0">
@@ -128,7 +144,6 @@ const Auth = () => {
           <CardContent>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Seção: Dados Pessoais */}
                 <div className="space-y-4">
                   <h3 className="font-bold text-slate-900 flex items-center gap-2">
                     <User size={18} className="text-orange-500" /> Dados Pessoais
@@ -143,10 +158,6 @@ const Auth = () => {
                         <Label>CPF / CNPJ</Label>
                         <Input {...register('documentId')} placeholder="000.000.000-00" />
                       </div>
-                      <div className="space-y-2">
-                        <Label>Telefone / WhatsApp</Label>
-                        <Input {...register('phone')} placeholder="(11) 99999-9999" />
-                      </div>
                     </>
                   )}
                   <div className="space-y-2">
@@ -159,7 +170,6 @@ const Auth = () => {
                   </div>
                 </div>
 
-                {/* Seção: Endereço e KYC */}
                 {mode === 'signup' && (
                   <div className="space-y-4">
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
@@ -179,18 +189,6 @@ const Auth = () => {
                         <Input {...register('state')} placeholder="SP" maxLength={2} />
                       </div>
                     </div>
-
-                    <div className="mt-6 p-4 bg-orange-50 rounded-2xl border border-orange-100">
-                      <h3 className="font-bold text-orange-900 flex items-center gap-2 mb-2 text-sm">
-                        <ShieldCheck size={16} /> Verificação KYC
-                      </h3>
-                      <p className="text-xs text-orange-800/70 mb-3">
-                        Para habilitar lances, você precisará enviar fotos do seu documento no painel após o cadastro.
-                      </p>
-                      <div className="flex items-center gap-2 text-[10px] font-bold text-orange-600 uppercase">
-                        <FileText size={12} /> Documento com foto obrigatório
-                      </div>
-                    </div>
                   </div>
                 )}
               </div>
@@ -203,7 +201,7 @@ const Auth = () => {
                 {isLoading ? (
                   <Loader2 className="h-5 w-5 animate-spin" />
                 ) : (
-                  mode === 'signup' ? 'Finalizar Cadastro e Validar' : 'Entrar na Plataforma'
+                  mode === 'signup' ? 'Finalizar Cadastro' : 'Entrar na Plataforma'
                 )}
               </Button>
             </form>

@@ -96,11 +96,11 @@ const LotDetail = () => {
 
   // Lances combinados: Reais no topo, fictícios abaixo
   const allBids = useMemo(() => {
-    const currentMax = lot?.current_bid || lot?.start_bid || 0;
-    
+    // O valor base para os fictícios deve ser o menor lance real ou o lance inicial
+    // Isso garante que NENHUM fictício fique acima de um lance real
     const baseForMock = realBids.length > 0 
       ? realBids[realBids.length - 1].amount 
-      : currentMax;
+      : (lot?.start_bid || 0);
 
     const mockBids = [
       { id: 'm1', amount: baseForMock - 1500, created_at: new Date(Date.now() - 1800000).toISOString(), profiles: { email: 'carlos.silva***@gmail.com' } },
@@ -108,8 +108,9 @@ const LotDetail = () => {
       { id: 'm3', amount: baseForMock - 5800, created_at: new Date(Date.now() - 5400000).toISOString(), profiles: { email: 'ana.paula***@outlook.com' } },
       { id: 'm4', amount: baseForMock - 8000, created_at: new Date(Date.now() - 7200000).toISOString(), profiles: { email: 'ricardo.m***@hotmail.com' } },
       { id: 'm5', amount: baseForMock - 10500, created_at: new Date(Date.now() - 9000000).toISOString(), profiles: { email: 'fernanda.l***@terra.com.br' } },
-    ].filter(m => m.amount > (lot?.start_bid || 0) * 0.3 && m.amount < baseForMock);
+    ].filter(m => m.amount > (lot?.start_bid || 0) * 0.5 && m.amount < baseForMock);
 
+    // Unimos e ordenamos por valor decrescente
     const combined = [...realBids, ...mockBids];
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot]);
@@ -197,7 +198,6 @@ const LotDetail = () => {
 
               <div className="space-y-4">
                 {allBids.map((bid, index) => {
-                  // Extrai o email do perfil (real) ou do objeto fictício
                   const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
                   const email = profile?.email || 'usuário@***';
 

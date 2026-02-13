@@ -61,13 +61,12 @@ const FeaturedAuctions = () => {
           </div>
         </div>
 
-        {/* Aumentado o padding vertical (py-12) e margem negativa (-my-12) para acomodar sombras grandes */}
-        <div className="overflow-hidden -my-12 py-12" ref={emblaRef}>
+        <div className="overflow-hidden -my-8 py-8" ref={emblaRef}>
           <div className="flex gap-4">
             {Array.isArray(featuredLots) && featuredLots.length > 0 ? (
               featuredLots.map((item) => (
                 <div key={item.id} className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_50%] lg:flex-[0_0_33.33%] px-2">
-                  <Card className="group border-none shadow-lg hover:shadow-[0_30px_60px_-15px_rgba(0,0,0,0.2)] transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white">
+                  <Card className="group border-none shadow-md hover:shadow-xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white">
                     <div className="relative aspect-[4/3] overflow-hidden">
                       {item.cover_image_url ? (
                         <img 

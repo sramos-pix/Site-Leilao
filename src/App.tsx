@@ -5,8 +5,7 @@ import { Routes, Route } from 'react-router-dom';
 import Index from './pages/Index';
 import Auctions from './pages/Auctions';
 import LotDetail from './pages/LotDetail';
-import Login from './pages/Login';
-import Register from './pages/Register';
+import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Verify from './pages/Verify';
@@ -23,8 +22,9 @@ function App() {
         <Route path="/" element={<Index />} />
         <Route path="/auctions" element={<Auctions />} />
         <Route path="/lots/:id" element={<LotDetail />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/login" element={<Auth />} />
+        <Route path="/register" element={<Auth />} />
         
         {/* Rotas do App com Layout */}
         <Route path="/app" element={<AppLayout><Dashboard /></AppLayout>} />

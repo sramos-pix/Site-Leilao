@@ -192,7 +192,7 @@ const Auth = () => {
                   <TabsTrigger value="login" className="w-full">Login</TabsTrigger>
                 </Link>
                 <Link to="/auth?mode=signup" className="w-full">
-                  <TabsTrigger value="signup" className="w-full">Cadastro Completo</TabsTrigger>
+                  <TabsTrigger value="signup" className="w-full">Cadastro</TabsTrigger>
                 </Link>
               </TabsList>
             </Tabs>

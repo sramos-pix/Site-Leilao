@@ -37,6 +37,7 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Busca perfil
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -45,12 +46,27 @@ const Dashboard = () => {
       
       setProfile(profileData);
 
-      const { data: bidsData } = await supabase
+      // Busca lances do usuário com dados do lote e fotos
+      const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
-        .select('*, lots(*, lot_images(*))')
+        .select(`
+          id,
+          amount,
+          lot_id,
+          created_at,
+          lots (
+            id,
+            title,
+            cover_image_url,
+            lot_photos (
+              public_url
+            )
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
+      if (bidsError) throw bidsError;
       if (bidsData) setActiveBids(bidsData);
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
@@ -62,9 +78,9 @@ const Dashboard = () => {
   React.useEffect(() => {
     fetchDashboardData();
 
-    // Inscrição em tempo real para novos lances
+    // Escuta mudanças em tempo real na tabela de lances para este usuário
     const channel = supabase
-      .channel('dashboard-updates')
+      .channel('user-bids-changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bids' },
@@ -112,64 +128,11 @@ const Dashboard = () => {
                     </TooltipContent>
                   </Tooltip>
                 )}
-                {profile?.kyc_status === 'rejected' && (
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <XCircle className="text-red-500 cursor-help" size={24} />
-                    </TooltipTrigger>
-                    <TooltipContent className="bg-red-600 text-white border-none rounded-lg">
-                      <p>Documento Rejeitado</p>
-                    </TooltipContent>
-                  </Tooltip>
-                )}
               </TooltipProvider>
             </div>
             <p className="text-slate-500">Bem-vindo ao seu painel de controle.</p>
           </div>
           <div className="flex gap-3">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="rounded-xl bg-white border-none shadow-sm relative">
-                  <Bell size={20} className="mr-2" />
-                  Notificações
-                  {(profile?.kyc_status === 'verified' || profile?.kyc_status === 'rejected') && (
-                    <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full"></span>
-                  )}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 rounded-2xl p-2">
-                <DropdownMenuLabel>Suas Notificações</DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                {profile?.kyc_status === 'verified' && (
-                  <DropdownMenuItem className="flex gap-3 p-4 rounded-xl cursor-default">
-                    <div className="bg-green-100 p-2 rounded-full text-green-600">
-                      <CheckCircle2 size={18} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm">Perfil Aprovado!</p>
-                      <p className="text-xs text-slate-500">Sua conta foi verificada com sucesso. Você já pode dar lances.</p>
-                    </div>
-                  </DropdownMenuItem>
-                )}
-                {profile?.kyc_status === 'rejected' && (
-                  <DropdownMenuItem className="flex gap-3 p-4 rounded-xl cursor-default">
-                    <div className="bg-red-100 p-2 rounded-full text-red-600">
-                      <AlertCircle size={18} />
-                    </div>
-                    <div>
-                      <p className="font-bold text-sm text-red-600">Documento Rejeitado</p>
-                      <p className="text-xs text-slate-500">Houve um problema com seu documento. Por favor, envie novamente.</p>
-                    </div>
-                  </DropdownMenuItem>
-                )}
-                {!profile?.kyc_status || profile?.kyc_status === 'pending' ? (
-                  <div className="p-8 text-center text-slate-400 text-sm italic">
-                    Nenhuma notificação nova.
-                  </div>
-                ) : null}
-              </DropdownMenuContent>
-            </DropdownMenu>
-            
             <Link to="/app/profile">
               <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
                 <User size={20} className="mr-2" />
@@ -187,7 +150,6 @@ const Dashboard = () => {
                   <div className={`p-3 rounded-xl ${stat.bg}`}>
                     <stat.icon className={stat.color} size={24} />
                   </div>
-                  <Badge variant="outline" className="border-slate-100 text-slate-400">Geral</Badge>
                 </div>
                 <div className="mt-4">
                   <p className="text-sm font-medium text-slate-500">{stat.label}</p>
@@ -200,14 +162,17 @@ const Dashboard = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900">Seus Lances Recentes</h2>
-              <Link to="/app/bids" className="text-sm text-orange-600 font-semibold hover:underline">Ver todos</Link>
-            </div>
+            <h2 className="text-xl font-bold text-slate-900">Seus Lances Recentes</h2>
             
             <div className="space-y-4">
-              {activeBids.length > 0 ? activeBids.slice(0, 5).map((bid) => {
-                const coverImage = bid.lots?.lot_images?.[0]?.image_url || bid.lots?.image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400";
+              {activeBids.length > 0 ? activeBids.map((bid) => {
+                // Lógica robusta para encontrar a imagem: 
+                // 1. Foto marcada como capa na galeria
+                // 2. Campo cover_image_url do lote
+                // 3. Primeira foto da galeria
+                // 4. Fallback
+                const lotPhotos = bid.lots?.lot_photos || [];
+                const coverImage = bid.lots?.cover_image_url || (lotPhotos.length > 0 ? lotPhotos[0].public_url : "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400");
                 
                 return (
                   <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
@@ -257,13 +222,6 @@ const Dashboard = () => {
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-slate-900">Ações Rápidas</h2>
             <div className="grid grid-cols-1 gap-3">
-              <Button className="w-full justify-between bg-white text-slate-900 hover:bg-slate-50 border-none shadow-sm h-14 rounded-xl px-6">
-                <span className="flex items-center gap-3">
-                  <Wallet className="text-orange-500" size={20} />
-                  Adicionar Saldo
-                </span>
-                <ChevronRight size={16} className="text-slate-400" />
-              </Button>
               <Link to="/app/verify">
                 <Button className="w-full justify-between bg-white text-slate-900 hover:bg-slate-50 border-none shadow-sm h-14 rounded-xl px-6">
                   <span className="flex items-center gap-3">
@@ -288,13 +246,13 @@ const Dashboard = () => {
                     {!profile?.kyc_status 
                       ? 'Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões e dar lances.'
                       : profile?.kyc_status === 'pending' 
-                      ? 'Seus documentos estão em análise. Você será notificado em breve assim que puder dar lances.' 
-                      : 'Seu documento foi rejeitado. Por favor, envie um novo documento para poder participar.'}
+                      ? 'Seus documentos estão em análise. Você será notificado em breve.' 
+                      : 'Seu documento foi rejeitado. Por favor, envie um novo documento.'}
                   </p>
                   {(!profile?.kyc_status || profile?.kyc_status === 'rejected') && (
                     <Link to="/app/verify">
                       <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
-                        {!profile?.kyc_status ? 'Enviar Documentos Agora' : 'Reenviar Documentos'}
+                        Enviar Documentos
                       </Button>
                     </Link>
                   )}

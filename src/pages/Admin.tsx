@@ -32,7 +32,6 @@ const Admin = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Busca simplificada para evitar erro de coluna caso o schema esteja desatualizado
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
         .select('*')
@@ -60,7 +59,7 @@ const Admin = () => {
       toast({ 
         variant: "destructive", 
         title: "Erro ao carregar dados", 
-        description: "Verifique se a tabela 'profiles' possui a coluna 'document_id'." 
+        description: "Ocorreu um erro ao buscar as informações." 
       });
     } finally {
       setIsLoading(false);
@@ -74,7 +73,7 @@ const Admin = () => {
     const rows = users.map(u => [
       u.full_name,
       u.email,
-      u.document_id || u.cpf || '', // Tenta document_id ou cpf
+      u.document_id || u.cpf || '',
       u.phone,
       u.city,
       u.state,
@@ -329,8 +328,18 @@ const Admin = () => {
                       {users.map(user => (
                         <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
                           <td className="px-6 py-4">
-                            <div className="font-bold text-slate-900">{user.full_name || 'Sem Nome'}</div>
-                            <div className="text-xs text-slate-500">{user.email}</div>
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <button className="text-left hover:opacity-70 transition-opacity">
+                                  <div className="font-bold text-slate-900">{user.full_name || 'Sem Nome'}</div>
+                                  <div className="text-xs text-slate-500">{user.email}</div>
+                                </button>
+                              </DialogTrigger>
+                              <DialogContent className="max-w-2xl">
+                                <DialogHeader><DialogTitle>Perfil Completo: {user.full_name}</DialogTitle></DialogHeader>
+                                <UserManager user={user} onSuccess={() => fetchData()} />
+                              </DialogContent>
+                            </Dialog>
                           </td>
                           <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.document_id || user.cpf || '---'}</td>
                           <td className="px-6 py-4">

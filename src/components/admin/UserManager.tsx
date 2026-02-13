@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   User, Mail, Phone, MapPin, 
-  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, Search
+  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, Eye, EyeOff, Lock
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { validateCPF } from '@/lib/validations';
@@ -22,6 +22,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSearchingCep, setIsSearchingCep] = React.useState(false);
+  const [showPassword, setShowPassword] = React.useState(false);
 
   const { register, handleSubmit, setValue, watch, formState: { isDirty, errors } } = useForm({
     defaultValues: {
@@ -29,6 +30,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
       email: user.email || '',
       document_id: user.document_id || user.cpf || user.cnpj || '',
       phone: user.phone || '',
+      password: user.password || '', // Assume que a senha está salva na tabela profiles
       zip_code: user.zip_code || user.cep || '',
       address: user.address || '',
       number: user.number || '',
@@ -78,6 +80,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
           email: data.email,
           document_id: data.document_id,
           phone: data.phone,
+          password: data.password,
           address: data.address,
           number: data.number,
           complement: data.complement,
@@ -181,6 +184,23 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
           <div className="space-y-2">
             <Label>Telefone</Label>
             <Input {...register('phone')} className="rounded-xl" placeholder="(00) 00000-0000" />
+          </div>
+          <div className="space-y-2">
+            <Label>Senha de Acesso</Label>
+            <div className="relative">
+              <Input 
+                {...register('password')} 
+                type={showPassword ? "text" : "password"}
+                className="rounded-xl pr-10" 
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
           </div>
         </div>
       </div>

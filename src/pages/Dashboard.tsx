@@ -47,7 +47,6 @@ const Dashboard = () => {
         .order('created_at', { ascending: false });
 
       const now = new Date();
-      // Corrigindo acesso ao objeto lot (Supabase retorna como objeto único ou array dependendo da config, forçamos a verificação)
       const filteredBids = bidsData?.filter(b => {
         const lot = Array.isArray(b.lots) ? b.lots[0] : b.lots;
         return lot && new Date(lot.ends_at) > now && lot.status !== 'finished';

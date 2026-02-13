@@ -4,7 +4,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Gavel, LayoutDashboard, History, User, 
-  LogOut, Bell, Menu, X, ShieldAlert, AlertCircle, Home
+  LogOut, Bell, Menu, X, AlertCircle, Home, Trophy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -70,8 +70,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/app' },
-    { icon: Gavel, label: 'Meus Lances', path: '/app/bids' },
-    { icon: History, label: 'Histórico', path: '/app/history' },
+    { icon: Trophy, label: 'Meus Arremates', path: '/app/history' },
     { icon: User, label: 'Meu Perfil', path: '/app/profile' },
   ];
 
@@ -118,7 +117,11 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
               <DropdownMenuContent align="end" className="w-80 p-2 rounded-2xl shadow-xl border-none">
                 <div className="p-3 border-b border-slate-50 mb-2"><h4 className="font-bold text-slate-900">Notificações</h4></div>
                 {notifications.length > 0 ? notifications.map((n) => (
-                  <DropdownMenuItem key={n.id} className="flex flex-col items-start p-3 rounded-xl hover:bg-slate-50 cursor-default">
+                  <DropdownMenuItem 
+                    key={n.id} 
+                    className="flex flex-col items-start p-3 rounded-xl hover:bg-slate-50 cursor-pointer"
+                    onClick={() => navigate('/app/history')}
+                  >
                     <span className="font-bold text-sm text-slate-900">{n.title}</span>
                     <span className="text-xs text-slate-500 leading-relaxed">{n.message}</span>
                   </DropdownMenuItem>

@@ -22,6 +22,7 @@ import { supabase } from '@/lib/supabase';
 const Dashboard = () => {
   const [profile, setProfile] = React.useState<any>(null);
   const [activeBids, setActiveBids] = React.useState<any[]>([]);
+  const [favoritesCount, setFavoritesCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
 
   const fetchDashboardData = async () => {
@@ -29,6 +30,7 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Busca Perfil
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -37,14 +39,23 @@ const Dashboard = () => {
       
       setProfile(profileData);
 
+      // Busca Lances
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`id, amount, lot_id, created_at, lots ( id, title, cover_image_url )`)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      // Filtra lances que podem ter ficado órfãos (lote deletado)
       setActiveBids(bidsData?.filter(b => b.lots) || []);
+
+      // Busca Contagem de Favoritos
+      const { count } = await supabase
+        .from('favorites')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      
+      setFavoritesCount(count || 0);
+
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
     } finally {
@@ -54,11 +65,22 @@ const Dashboard = () => {
 
   React.useEffect(() => {
     fetchDashboardData();
-    const channel = supabase
-      .channel('dashboard-realtime')
+    
+    // Realtime para lances e favoritos
+    const bidsChannel = supabase
+      .channel('dashboard-bids')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchDashboardData())
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    const favsChannel = supabase
+      .channel('dashboard-favs')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'favorites' }, () => fetchDashboardData())
+      .subscribe();
+
+    return () => { 
+      supabase.removeChannel(bidsChannel);
+      supabase.removeChannel(favsChannel);
+    };
   }, []);
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-orange-500" /></div>;
@@ -66,7 +88,7 @@ const Dashboard = () => {
   const stats = [
     { label: 'Lances Ativos', value: activeBids.length.toString(), icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50' },
     { label: 'Vitórias', value: '00', icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50' },
-    { label: 'Favoritos', value: '00', icon: Heart, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'Favoritos', value: favoritesCount.toString().padStart(2, '0'), icon: Heart, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Saldo Depósito', value: 'R$ 0,00', icon: Wallet, color: 'text-green-600', bg: 'bg-green-50' },
   ];
 

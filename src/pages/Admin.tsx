@@ -104,7 +104,7 @@ const Admin = () => {
     const rows = users.map(u => [
       u.full_name,
       u.email,
-      u.document_id || u.cpf || '',
+      u.document_id || u.cpf || u.cnpj || '',
       u.phone,
       u.city,
       u.state,
@@ -372,7 +372,7 @@ const Admin = () => {
                               </DialogContent>
                             </Dialog>
                           </td>
-                          <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.document_id || user.cpf || '---'}</td>
+                          <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.document_id || user.cpf || user.cnpj || '---'}</td>
                           <td className="px-6 py-4">
                             <Badge className={cn(
                               "border-none px-3 py-1",

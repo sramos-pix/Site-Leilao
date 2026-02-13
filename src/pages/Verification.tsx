@@ -41,11 +41,7 @@ const Verification = () => {
 
   const handleUpload = async () => {
     if (!docType || !file) {
-      toast({ 
-        variant: "destructive", 
-        title: "Campos incompletos", 
-        description: "Selecione o tipo de documento e anexe uma foto." 
-      });
+      toast({ variant: "destructive", title: "Campos incompletos" });
       return;
     }
 
@@ -55,20 +51,34 @@ const Verification = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Simulação de upload e atualização de status
-      // Em produção, aqui faríamos o upload para o Supabase Storage
-      const { error } = await supabase
+      // 1. Upload do arquivo para o Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
+      const filePath = `verification-docs/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('documents')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Pegar a URL pública
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // 3. Salvar a URL no perfil do usuário (precisa da coluna document_url no banco)
+      const { error: updateError } = await supabase
         .from('profiles')
-        .update({ kyc_status: 'pending' })
+        .update({ 
+          kyc_status: 'pending',
+          document_url: publicUrl 
+        })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
-      toast({ 
-        title: "Documentos enviados!", 
-        description: "Nossa equipe analisará seus documentos em até 24 horas." 
-      });
-      
+      toast({ title: "Documentos enviados!", description: "Análise em andamento." });
       setTimeout(() => navigate('/app'), 2000);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao enviar", description: error.message });
@@ -80,102 +90,60 @@ const Verification = () => {
   return (
     <div className="min-h-screen bg-slate-50 py-12">
       <div className="container mx-auto px-4 max-w-2xl">
-        <Button 
-          variant="ghost" 
-          onClick={() => navigate('/app')}
-          className="mb-6 text-slate-500 hover:text-slate-900"
-        >
-          <ChevronLeft size={20} className="mr-1" /> Voltar ao Painel
+        <Button variant="ghost" onClick={() => navigate('/app')} className="mb-6">
+          <ChevronLeft size={20} className="mr-1" /> Voltar
         </Button>
 
         <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
           <CardHeader className="bg-slate-900 text-white p-8">
-            <div className="flex items-center gap-4 mb-4">
-              <div className="p-3 bg-orange-500 rounded-2xl">
-                <ShieldCheck size={32} />
-              </div>
-              <div>
-                <CardTitle className="text-2xl">Verificação de Identidade</CardTitle>
-                <CardDescription className="text-slate-400">
-                  Para sua segurança e conformidade com as regras de leilão.
-                </CardDescription>
-              </div>
-            </div>
+            <CardTitle>Verificação de Identidade</CardTitle>
           </CardHeader>
           
           <CardContent className="p-8 space-y-8">
             <div className="space-y-4">
-              <Label className="text-lg font-bold text-slate-900">1. Tipo de Documento</Label>
+              <Label>1. Tipo de Documento</Label>
               <Select onValueChange={setDocType}>
-                <SelectTrigger className="h-14 rounded-xl border-2 focus:border-orange-500">
-                  <SelectValue placeholder="Selecione o documento que deseja enviar" />
+                <SelectTrigger className="h-14 rounded-xl">
+                  <SelectValue placeholder="Selecione o documento" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cnh">CNH (Carteira de Motorista)</SelectItem>
-                  <SelectItem value="rg">RG (Identidade)</SelectItem>
-                  <SelectItem value="passport">Passaporte</SelectItem>
-                  <SelectItem value="cnpj">Cartão CNPJ (Empresas)</SelectItem>
+                  <SelectItem value="cnh">CNH</SelectItem>
+                  <SelectItem value="rg">RG</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-4">
-              <Label className="text-lg font-bold text-slate-900">2. Foto do Documento</Label>
-              
+              <Label>2. Foto do Documento</Label>
               {!preview ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 hover:border-orange-300 transition-all group">
-                    <Camera className="text-slate-400 group-hover:text-orange-500 mb-2" size={32} />
-                    <span className="text-sm font-bold text-slate-500 group-hover:text-slate-900">Tirar Foto</span>
+                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50">
+                    <Camera size={32} className="text-slate-400 mb-2" />
+                    <span className="text-sm font-bold">Tirar Foto</span>
                     <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
                   </label>
-                  
-                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 hover:border-orange-300 transition-all group">
-                    <Upload className="text-slate-400 group-hover:text-orange-500 mb-2" size={32} />
-                    <span className="text-sm font-bold text-slate-500 group-hover:text-slate-900">Galeria / Arquivo</span>
-                    <input type="file" accept="image/*,application/pdf" className="hidden" onChange={handleFileChange} />
+                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50">
+                    <Upload size={32} className="text-slate-400 mb-2" />
+                    <span className="text-sm font-bold">Galeria</span>
+                    <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                   </label>
                 </div>
               ) : (
                 <div className="relative rounded-2xl overflow-hidden border-2 border-orange-100">
                   <img src={preview} alt="Preview" className="w-full h-64 object-cover" />
-                  <button 
-                    onClick={removeFile}
-                    className="absolute top-4 right-4 p-2 bg-red-500 text-white rounded-full shadow-lg hover:bg-red-600 transition-colors"
-                  >
+                  <button onClick={removeFile} className="absolute top-4 right-4 p-2 bg-red-500 text-white rounded-full">
                     <X size={20} />
                   </button>
-                  <div className="absolute bottom-0 left-0 right-0 bg-black/50 backdrop-blur-sm p-3 text-white text-center text-sm font-medium">
-                    {file?.name}
-                  </div>
                 </div>
               )}
-            </div>
-
-            <div className="bg-blue-50 p-6 rounded-2xl border border-blue-100 flex gap-4">
-              <AlertCircle className="text-blue-600 shrink-0" size={24} />
-              <div className="text-sm text-blue-800 leading-relaxed">
-                <p className="font-bold mb-1">Dicas para uma aprovação rápida:</p>
-                <ul className="list-disc list-inside space-y-1 opacity-80">
-                  <li>Certifique-se que a foto está nítida e sem reflexos.</li>
-                  <li>O documento deve estar dentro da validade.</li>
-                  <li>Todos os dados (nome, CPF, foto) devem estar visíveis.</li>
-                </ul>
-              </div>
             </div>
 
             <Button 
               onClick={handleUpload}
               disabled={isUploading || !file || !docType}
-              className="w-full bg-orange-500 hover:bg-orange-600 text-white py-8 rounded-2xl text-xl font-bold shadow-lg shadow-orange-200 transition-all active:scale-[0.98]"
+              className="w-full bg-orange-500 py-8 rounded-2xl text-xl font-bold"
             >
-              {isUploading ? (
-                <>
-                  <Loader2 className="mr-2 animate-spin" /> Enviando...
-                </>
-              ) : (
-                'ENVIAR PARA ANÁLISE'
-              )}
+              {isUploading ? <Loader2 className="animate-spin" /> : 'ENVIAR PARA ANÁLISE'}
             </Button>
           </CardContent>
         </Card>

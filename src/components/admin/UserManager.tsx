@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Save, Trash2, ShieldCheck, ShieldAlert, MapPin, Phone, CreditCard, Mail } from 'lucide-react';
+import { Loader2, Save, Trash2, ShieldCheck, ShieldAlert, MapPin, CreditCard, AlertTriangle } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
 
@@ -18,6 +18,7 @@ interface UserManagerProps {
 
 const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const { toast } = useToast();
   const [formData, setFormData] = useState({
     full_name: user.full_name || '',
@@ -45,6 +46,27 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
       toast({ variant: "destructive", title: "Erro ao salvar", description: error.message });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    setIsDeleting(true);
+    try {
+      // Nota: Isso remove apenas o perfil da tabela 'profiles'. 
+      // Para remover o usuário do Auth, seria necessário uma Edge Function ou Admin API.
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id);
+
+      if (error) throw error;
+
+      toast({ title: "Usuário Removido", description: "O perfil foi excluído com sucesso." });
+      onSuccess();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -124,7 +146,36 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         </Select>
       </div>
 
-      <div className="pt-6 flex justify-end gap-3">
+      <div className="pt-6 flex justify-between items-center gap-3">
+        <AlertDialog>
+          <AlertDialogTrigger asChild>
+            <Button variant="ghost" className="text-red-500 hover:text-red-700 hover:bg-red-50 rounded-xl">
+              <Trash2 size={18} className="mr-2" /> Excluir Usuário
+            </Button>
+          </AlertDialogTrigger>
+          <AlertDialogContent className="rounded-3xl">
+            <AlertDialogHeader>
+              <AlertDialogTitle className="flex items-center gap-2">
+                <AlertTriangle className="text-red-500" /> Confirmar Exclusão
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                Esta ação excluirá permanentemente o perfil de <strong>{user.full_name}</strong>. 
+                Lances e históricos vinculados a este ID podem ser afetados. Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                onClick={handleDeleteUser}
+                className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
+                disabled={isDeleting}
+              >
+                {isDeleting ? <Loader2 className="animate-spin" size={18} /> : "Sim, Excluir"}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
         <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-8" onClick={handleSave} disabled={isLoading}>
           {isLoading ? <Loader2 className="animate-spin mr-2" size={18} /> : <Save className="mr-2" size={18} />}
           Salvar Alterações

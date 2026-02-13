@@ -3,7 +3,7 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
-  Gavel, LayoutDashboard, History, User, 
+  Gavel, LayoutDashboard, User, 
   LogOut, Bell, Menu, X, AlertCircle, Home, Trophy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -47,19 +47,6 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   React.useEffect(() => {
     fetchProfileAndNotifications();
-
-    const channel = supabase
-      .channel('user-notifications')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (payload) => {
-        setNotifications(prev => [payload.new, ...prev].slice(0, 5));
-        toast({
-          title: payload.new.title,
-          description: payload.new.message,
-        });
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleLogout = async () => {
@@ -79,7 +66,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {userProfile?.kyc_status === 'rejected' && (
-        <div className="bg-red-600 text-white py-3 px-4 flex items-center justify-center gap-3 animate-pulse">
+        <div className="bg-red-600 text-white py-3 px-4 flex items-center justify-center gap-3">
           <AlertCircle size={20} />
           <p className="text-sm font-bold">Seu documento foi rejeitado. Por favor, envie um novo documento.</p>
           <Button variant="outline" size="sm" className="bg-white text-red-600 border-none hover:bg-slate-100 rounded-lg h-8" onClick={() => navigate('/app/verify')}>Reenviar Agora</Button>
@@ -99,7 +86,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <nav className="hidden md:flex items-center gap-1">
             {menuItems.map((item) => (
               <Link key={item.path} to={item.path}>
-                <Button variant="ghost" className={cn("gap-2 rounded-xl", location.pathname === item.path ? "bg-orange-50 text-orange-600 hover:bg-orange-100" : "text-slate-600")}>
+                <Button variant="ghost" className={cn("gap-2 rounded-xl font-bold", location.pathname === item.path ? "bg-orange-50 text-orange-600 hover:bg-orange-100" : "text-slate-600")}>
                   <item.icon size={18} /> {item.label}
                 </Button>
               </Link>
@@ -142,7 +129,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <Link to="/" onClick={() => setIsMenuOpen(false)}><Button variant="ghost" className="w-full justify-start gap-3 rounded-xl text-slate-600"><Home size={20} /> Início</Button></Link>
           {menuItems.map((item) => (
             <Link key={item.path} to={item.path} onClick={() => setIsMenuOpen(false)}>
-              <Button variant="ghost" className={cn("w-full justify-start gap-3 rounded-xl", location.pathname === item.path ? "bg-orange-50 text-orange-600" : "text-slate-600")}><item.icon size={20} /> {item.label}</Button>
+              <Button variant="ghost" className={cn("w-full justify-start gap-3 rounded-xl font-bold", location.pathname === item.path ? "bg-orange-50 text-orange-600" : "text-slate-600")}><item.icon size={20} /> {item.label}</Button>
             </Link>
           ))}
         </div>

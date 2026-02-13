@@ -1,21 +1,69 @@
+"use client";
+
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
   LayoutDashboard, Gavel, Wallet, Heart, 
   Trophy, User, Bell, ChevronRight, TrendingUp,
-  Clock, AlertCircle, ShieldCheck
+  Clock, AlertCircle, ShieldCheck, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { formatCurrency } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 
 const Dashboard = () => {
+  const [profile, setProfile] = React.useState<any>(null);
+  const [activeBids, setActiveBids] = React.useState<any[]>([]);
+  const [isLoading, setIsLoading] = React.useState(true);
+
+  const fetchDashboardData = async () => {
+    setIsLoading(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      
+      setProfile(profileData);
+
+      const { data: bidsData } = await supabase
+        .from('bids')
+        .select('*, lots(*)')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (bidsData) setActiveBids(bidsData);
+    } catch (error) {
+      console.error("Erro ao carregar dashboard:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
+      </div>
+    );
+  }
+
   const stats = [
-    { label: 'Lances Ativos', value: '12', icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Vitórias', value: '03', icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50' },
-    { label: 'Favoritos', value: '08', icon: Heart, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Saldo Depósito', value: 'R$ 1.000', icon: Wallet, color: 'text-green-600', bg: 'bg-green-50' },
+    { label: 'Lances Ativos', value: activeBids.length.toString(), icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50' },
+    { label: 'Vitórias', value: '00', icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'Favoritos', value: '00', icon: Heart, color: 'text-red-600', bg: 'bg-red-50' },
+    { label: 'Saldo Depósito', value: 'R$ 0,00', icon: Wallet, color: 'text-green-600', bg: 'bg-green-50' },
   ];
 
   return (
@@ -23,7 +71,7 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Olá, João Silva</h1>
+            <h1 className="text-3xl font-bold text-slate-900">Olá, {profile?.full_name || 'Usuário'}</h1>
             <p className="text-slate-500">Bem-vindo ao seu painel de controle.</p>
           </div>
           <div className="flex gap-3">
@@ -40,7 +88,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Stats Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {stats.map((stat) => (
             <Card key={stat.label} className="border-none shadow-sm rounded-2xl overflow-hidden">
@@ -49,7 +96,7 @@ const Dashboard = () => {
                   <div className={`p-3 rounded-xl ${stat.bg}`}>
                     <stat.icon className={stat.color} size={24} />
                   </div>
-                  <Badge variant="outline" className="border-slate-100 text-slate-400">Este mês</Badge>
+                  <Badge variant="outline" className="border-slate-100 text-slate-400">Geral</Badge>
                 </div>
                 <div className="mt-4">
                   <p className="text-sm font-medium text-slate-500">{stat.label}</p>
@@ -61,21 +108,20 @@ const Dashboard = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Active Bids */}
           <div className="lg:col-span-2 space-y-6">
             <div className="flex items-center justify-between">
-              <h2 className="text-xl font-bold text-slate-900">Lances em Andamento</h2>
+              <h2 className="text-xl font-bold text-slate-900">Seus Lances Recentes</h2>
               <Link to="/app/bids" className="text-sm text-orange-600 font-semibold hover:underline">Ver todos</Link>
             </div>
             
             <div className="space-y-4">
-              {[1, 2].map((i) => (
-                <Card key={i} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
+              {activeBids.length > 0 ? activeBids.map((bid) => (
+                <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
                   <CardContent className="p-0">
                     <div className="flex flex-col sm:flex-row">
                       <div className="w-full sm:w-48 h-32 bg-slate-200">
                         <img 
-                          src={`https://images.unsplash.com/photo-${i === 1 ? '1555215695-3004980ad54e' : '1606664515524-ed2f786a0bd6'}?auto=format&fit=crop&q=80&w=400`} 
+                          src={bid.lots?.image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
                           className="w-full h-full object-cover"
                           alt="Veículo"
                         />
@@ -83,33 +129,36 @@ const Dashboard = () => {
                       <div className="flex-1 p-6 flex flex-col justify-between">
                         <div className="flex justify-between items-start">
                           <div>
-                            <h3 className="font-bold text-slate-900">{i === 1 ? 'BMW 320i M Sport' : 'Audi A4 Performance'}</h3>
-                            <p className="text-xs text-slate-500">Lote {i} • Leilão Frota Executiva</p>
+                            <h3 className="font-bold text-slate-900">{bid.lots?.title}</h3>
+                            <p className="text-xs text-slate-500">Lote {bid.lot_id}</p>
                           </div>
-                          <Badge className={i === 1 ? "bg-green-100 text-green-600 border-none" : "bg-red-100 text-red-600 border-none"}>
-                            {i === 1 ? 'Ganhando' : 'Perdendo'}
-                          </Badge>
+                          <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
                         </div>
                         <div className="flex justify-between items-end mt-4">
                           <div>
                             <p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p>
-                            <p className="font-bold text-slate-900">{formatCurrency(i === 1 ? 215000 : 185000)}</p>
+                            <p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p>
                           </div>
-                          <Link to={`/lots/${i}`}>
-                            <Button size="sm" variant="outline" className="rounded-lg">
-                              Ver Lote
-                            </Button>
+                          <Link to={`/lots/${bid.lot_id}`}>
+                            <Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button>
                           </Link>
                         </div>
                       </div>
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              )) : (
+                <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-slate-100">
+                  <Gavel className="mx-auto text-slate-300 mb-4" size={48} />
+                  <p className="text-slate-500">Você ainda não deu nenhum lance.</p>
+                  <Link to="/">
+                    <Button variant="link" className="text-orange-500 font-bold">Explorar Leilões</Button>
+                  </Link>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Sidebar: Notifications & Actions */}
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-slate-900">Ações Rápidas</h2>
             <div className="grid grid-cols-1 gap-3">
@@ -129,22 +178,24 @@ const Dashboard = () => {
               </Button>
             </div>
 
-            <Card className="border-none shadow-sm rounded-2xl bg-slate-900 text-white">
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <AlertCircle className="text-orange-500" size={20} />
-                  Aviso Importante
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-slate-400 leading-relaxed">
-                  Você tem um pagamento pendente referente ao lote arrematado no Leilão #42. O prazo encerra em 24h.
-                </p>
-                <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
-                  Pagar Agora
-                </Button>
-              </CardContent>
-            </Card>
+            {profile?.kyc_status !== 'verified' && (
+              <Card className="border-none shadow-sm rounded-2xl bg-slate-900 text-white">
+                <CardHeader>
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <AlertCircle className="text-orange-500" size={20} />
+                    Aviso Importante
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-sm text-slate-400 leading-relaxed">
+                    Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões com lances altos.
+                  </p>
+                  <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
+                    Enviar Documentos
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

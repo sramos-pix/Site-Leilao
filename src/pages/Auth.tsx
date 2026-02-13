@@ -48,8 +48,6 @@ const Auth = () => {
     resolver: zodResolver(authSchema),
   });
 
-  const cepValue = watch('cep');
-
   const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
     const cep = e.target.value.replace(/\D/g, '');
     if (cep.length !== 8) return;
@@ -58,19 +56,15 @@ const Auth = () => {
     try {
       const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
       const data = await response.json();
-
       if (data.erro) {
-        toast({ variant: "destructive", title: "CEP não encontrado", description: "Verifique o número digitado." });
+        toast({ variant: "destructive", title: "CEP não encontrado" });
         return;
       }
-
       setValue('address', `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ''}`);
       setValue('city', data.localidade);
       setValue('state', data.uf);
-      
-      toast({ title: "Endereço encontrado", description: `${data.localidade} - ${data.uf}` });
     } catch (error) {
-      toast({ variant: "destructive", title: "Erro ao buscar CEP", description: "Tente preencher manualmente." });
+      toast({ variant: "destructive", title: "Erro ao buscar CEP" });
     } finally {
       setIsSearchingCep(false);
     }
@@ -81,28 +75,13 @@ const Auth = () => {
     setRateLimitError(false);
     try {
       if (mode === 'signup') {
-        if (!data.documentId || !validateCPF(data.documentId)) {
-          throw new Error("Por favor, insira um CPF válido para continuar.");
-        }
-
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
-          options: {
-            data: {
-              full_name: data.fullName,
-              phone: data.phone,
-            }
-          }
+          options: { data: { full_name: data.fullName } }
         });
 
-        if (signUpError) {
-          if (signUpError.message.includes('rate limit')) {
-            setRateLimitError(true);
-            throw new Error("Limite de envios excedido. Tente novamente em instantes.");
-          }
-          throw signUpError;
-        }
+        if (signUpError) throw signUpError;
 
         if (authData.user) {
           await supabase.from('profiles').upsert({
@@ -118,25 +97,18 @@ const Auth = () => {
           });
         }
 
-        toast({
-          title: "Cadastro realizado!",
-          description: "Verifique seu e-mail para confirmar a conta.",
-        });
+        toast({ title: "Cadastro realizado!", description: "Bem-vindo à plataforma." });
+        navigate('/app');
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: data.email,
           password: data.password,
         });
-        
         if (signInError) throw signInError;
         navigate('/app');
       }
     } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Erro",
-        description: error.message,
-      });
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -153,16 +125,6 @@ const Auth = () => {
             {mode === 'signup' ? 'Cadastro de Licitante' : 'Acesse sua conta'}
           </h1>
         </div>
-
-        {rateLimitError && (
-          <Alert variant="destructive" className="mb-6 bg-red-50 border-red-200 text-red-800 rounded-2xl">
-            <AlertCircle className="h-4 w-4" />
-            <AlertTitle>Limite de Segurança</AlertTitle>
-            <AlertDescription>
-              O sistema de e-mail atingiu o limite temporário. Tente novamente em alguns minutos.
-            </AlertDescription>
-          </Alert>
-        )}
 
         <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
           <CardHeader className="pb-0">
@@ -189,7 +151,6 @@ const Auth = () => {
                       <div className="space-y-2">
                         <Label>Nome Completo</Label>
                         <Input {...register('fullName')} placeholder="João Silva" />
-                        {errors.fullName && <p className="text-xs text-red-500">{errors.fullName.message}</p>}
                       </div>
                       <div className="space-y-2">
                         <Label>CPF</Label>
@@ -201,12 +162,10 @@ const Auth = () => {
                   <div className="space-y-2">
                     <Label>E-mail</Label>
                     <Input type="email" {...register('email')} placeholder="seu@email.com" />
-                    {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Senha</Label>
                     <Input type="password" {...register('password')} placeholder="••••••••" />
-                    {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
                   </div>
                 </div>
 
@@ -218,16 +177,9 @@ const Auth = () => {
                     <div className="space-y-2">
                       <Label>CEP</Label>
                       <div className="relative">
-                        <Input 
-                          {...register('cep')} 
-                          placeholder="00000-000" 
-                          onBlur={handleCepBlur}
-                        />
-                        {isSearchingCep && (
-                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />
-                        )}
+                        <Input {...register('cep')} placeholder="00000-000" onBlur={handleCepBlur} />
+                        {isSearchingCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />}
                       </div>
-                      {errors.cep && <p className="text-xs text-red-500">{errors.cep.message}</p>}
                     </div>
                     <div className="space-y-2">
                       <Label>Endereço Completo</Label>
@@ -256,11 +208,7 @@ const Auth = () => {
                 className="w-full bg-orange-500 hover:bg-orange-600 text-white py-7 rounded-2xl text-lg font-bold shadow-lg shadow-orange-200"
                 disabled={isLoading}
               >
-                {isLoading ? (
-                  <Loader2 className="h-5 w-5 animate-spin" />
-                ) : (
-                  mode === 'signup' ? 'Finalizar Cadastro' : 'Entrar na Plataforma'
-                )}
+                {isLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : (mode === 'signup' ? 'Finalizar Cadastro' : 'Entrar na Plataforma')}
               </Button>
             </form>
           </CardContent>

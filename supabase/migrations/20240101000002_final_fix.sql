@@ -1,59 +1,49 @@
--- 1. Limpeza (Cuidado: isso apaga dados existentes nas tabelas abaixo)
-DROP TABLE IF EXISTS bids;
-DROP TABLE IF EXISTS lots;
-DROP TABLE IF EXISTS auctions;
-DROP TABLE IF EXISTS profiles;
-
--- 2. Criação das Tabelas
-CREATE TABLE profiles (
-  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-  full_name TEXT,
-  email TEXT,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
-CREATE TABLE auctions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+-- 1. Criar Tabela de Leilões
+CREATE TABLE IF NOT EXISTS auctions (
+  id UUID PRIMARY KEY DEFAULT auth.uid(),
   title TEXT NOT NULL,
   description TEXT,
   location TEXT,
-  starts_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  ends_at TIMESTAMP WITH TIME ZONE NOT NULL,
+  starts_at TIMESTAMPTZ NOT NULL,
+  ends_at TIMESTAMPTZ NOT NULL,
   status TEXT DEFAULT 'scheduled',
-  buyer_fee_percent DECIMAL DEFAULT 5,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  buyer_fee_percent NUMERIC DEFAULT 5,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE lots (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+-- 2. Criar Tabela de Lotes (Veículos)
+CREATE TABLE IF NOT EXISTS lots (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   auction_id UUID REFERENCES auctions(id) ON DELETE CASCADE,
-  lot_number INTEGER NOT NULL,
+  lot_number INTEGER,
   title TEXT NOT NULL,
   brand TEXT,
   model TEXT,
   year INTEGER,
   mileage_km INTEGER,
-  start_bid DECIMAL NOT NULL,
-  current_bid DECIMAL,
-  min_increment DECIMAL DEFAULT 500,
+  start_bid NUMERIC,
+  current_bid NUMERIC,
+  min_increment NUMERIC DEFAULT 500,
   condition_notes TEXT,
-  ends_at TIMESTAMP WITH TIME ZONE NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+  ends_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
-CREATE TABLE bids (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  lot_id UUID REFERENCES lots(id) ON DELETE CASCADE,
-  user_id UUID REFERENCES auth.users ON DELETE CASCADE,
-  amount DECIMAL NOT NULL,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+-- 3. Criar Tabela de Perfis
+CREATE TABLE IF NOT EXISTS profiles (
+  id UUID PRIMARY KEY REFERENCES auth.users(id) ON DELETE CASCADE,
+  full_name TEXT,
+  email TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Desabilitar RLS para facilitar o desenvolvimento inicial
-ALTER TABLE profiles DISABLE ROW LEVEL SECURITY;
-ALTER TABLE auctions DISABLE ROW LEVEL SECURITY;
-ALTER TABLE lots DISABLE ROW LEVEL SECURITY;
-ALTER TABLE bids DISABLE ROW LEVEL SECURITY;
+-- 4. Habilitar RLS (Row Level Security)
+ALTER TABLE auctions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE lots ENABLE ROW LEVEL SECURITY;
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
 
--- 4. Permissões de acesso
-GRANT ALL ON ALL TABLES IN SCHEMA public TO anon, authenticated, service_role;
+-- 5. Criar Políticas de Acesso Público (Para teste inicial)
+CREATE POLICY "Permitir leitura pública de leilões" ON auctions FOR SELECT USING (true);
+CREATE POLICY "Permitir leitura pública de lotes" ON lots FOR SELECT USING (true);
+CREATE POLICY "Permitir inserção pública de leilões (Admin)" ON auctions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Permitir inserção pública de lotes (Admin)" ON lots FOR INSERT WITH CHECK (true);

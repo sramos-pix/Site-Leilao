@@ -66,7 +66,7 @@ const FeaturedLots = () => {
                   </Badge>
                   <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full text-[11px] font-bold">
                     <Clock size={12} /> 
-                    <CountdownTimer randomScarcity={true} />
+                    <CountdownTimer randomScarcity={true} lotId={lot.id} />
                   </Badge>
                 </div>
                 <Button 

@@ -39,6 +39,20 @@ const Navbar = () => {
     navigate('/');
   };
 
+  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
+    if (href.startsWith('/#')) {
+      if (location.pathname === '/') {
+        e.preventDefault();
+        const id = href.replace('/#', '');
+        const element = document.getElementById(id);
+        if (element) {
+          element.scrollIntoView({ behavior: 'smooth' });
+        }
+      }
+      setIsOpen(false);
+    }
+  };
+
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -60,6 +74,7 @@ const Navbar = () => {
               <Link
                 key={item.name}
                 to={item.href}
+                onClick={(e) => handleNavClick(e, item.href)}
                 className={cn(
                   "text-sm font-bold transition-colors hover:text-orange-500",
                   isActive(item.href) ? "text-orange-500" : "text-slate-600"
@@ -111,7 +126,10 @@ const Navbar = () => {
             <Link
               key={item.name}
               to={item.href}
-              onClick={() => setIsOpen(false)}
+              onClick={(e) => {
+                handleNavClick(e, item.href);
+                setIsOpen(false);
+              }}
               className={cn(
                 "block px-4 py-3 rounded-xl text-base font-bold",
                 isActive(item.href) ? "bg-orange-50 text-orange-600" : "text-slate-600"

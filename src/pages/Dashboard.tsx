@@ -267,16 +267,16 @@ const Dashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-slate-400 leading-relaxed">
-                    {profile?.kyc_status === 'pending' 
-                      ? 'Seus documentos estão em análise. Você será notificado em breve.' 
-                      : profile?.kyc_status === 'rejected'
-                      ? 'Seu documento foi rejeitado. Por favor, envie um novo documento para poder participar.'
-                      : 'Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões.'}
+                    {!profile?.kyc_status 
+                      ? 'Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões e dar lances.'
+                      : profile?.kyc_status === 'pending' 
+                      ? 'Seus documentos estão em análise. Você será notificado em breve assim que puder dar lances.' 
+                      : 'Seu documento foi rejeitado. Por favor, envie um novo documento para poder participar.'}
                   </p>
                   {profile?.kyc_status !== 'pending' && (
                     <Link to="/app/verify">
                       <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
-                        {profile?.kyc_status === 'rejected' ? 'Reenviar Documentos' : 'Enviar Documentos'}
+                        {!profile?.kyc_status ? 'Enviar Documentos Agora' : 'Reenviar Documentos'}
                       </Button>
                     </Link>
                   )}

@@ -22,8 +22,6 @@ const History = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Busca lotes onde o usuário logado é o vencedor
-      // Removemos a trava estrita de status 'finished' caso o admin tenha contemplado mas o status ainda não tenha virado
       const { data, error } = await supabase
         .from('lots')
         .select('*')
@@ -52,7 +50,7 @@ const History = () => {
           <h1 className="text-3xl font-black text-slate-900">Meus Arremates</h1>
           <p className="text-slate-500">Histórico de veículos vencidos e instruções de pagamento.</p>
         </div>
-        <Badge className="bg-orange-500 text-white border-none px-6 py-3 rounded-2xl font-black text-lg shadow-lg shadow-orange-100">
+        <Badge className="bg-orange-100 text-orange-600 border-none px-4 py-2 rounded-xl font-bold">
           {wins.length} {wins.length === 1 ? 'Veículo Arrematado' : 'Veículos Arrematados'}
         </Badge>
       </div>

@@ -34,7 +34,6 @@ const LotDetail = () => {
     const fetchLotData = async () => {
       setIsLoading(true);
       try {
-        // Busca o lote
         const { data: lotData, error: lotError } = await supabase
           .from('lots')
           .select('*')
@@ -43,7 +42,6 @@ const LotDetail = () => {
 
         if (lotError) throw lotError;
 
-        // Busca as fotos
         const { data: photosData } = await supabase
           .from('lot_photos')
           .select('*')
@@ -53,14 +51,12 @@ const LotDetail = () => {
         setLot(lotData);
         setPhotos(photosData || []);
         
-        // Define a foto inicial (capa ou a primeira disponível)
         if (photosData && photosData.length > 0) {
           setActivePhoto(photosData[0].public_url);
         } else if (lotData.cover_image_url) {
           setActivePhoto(lotData.cover_image_url);
         }
 
-        // Define o lance inicial sugerido
         const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
         setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
 
@@ -83,7 +79,6 @@ const LotDetail = () => {
         title: "Lance efetuado!", 
         description: `Seu lance de ${formatCurrency(bidAmount)} foi registrado.` 
       });
-      // Atualiza o valor do lote localmente para feedback imediato
       setLot({ ...lot, current_bid: bidAmount });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao dar lance", description: error.message });
@@ -118,11 +113,15 @@ const LotDetail = () => {
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-6">
-            {/* Galeria de Imagens */}
             <div className="space-y-4">
-              <div className="aspect-[16/9] rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-200 border-4 border-white">
+              {/* Container da Imagem com Zoom no Hover */}
+              <div className="aspect-[16/9] rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-200 border-4 border-white group cursor-zoom-in">
                 {activePhoto ? (
-                  <img src={activePhoto} alt={lot.title} className="w-full h-full object-cover" />
+                  <img 
+                    src={activePhoto} 
+                    alt={lot.title} 
+                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-125" 
+                  />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-slate-400">
                     <AlertTriangle size={48} />
@@ -210,7 +209,8 @@ const LotDetail = () => {
                   <Clock size={20} className="animate-pulse" />
                   <span className="text-xs font-black uppercase tracking-widest">Tempo Restante</span>
                 </div>
-                <CountdownTimer endsAt={lot.ends_at} />
+                {/* Ativando o randomScarcity para gerar urgência */}
+                <CountdownTimer randomScarcity={true} />
               </div>
               
               <CardContent className="p-8 space-y-8">

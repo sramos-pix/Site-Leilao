@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   User, Mail, Phone, MapPin, 
-  CheckCircle2, XCircle, ShieldCheck, Save, Loader2
+  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, AlertTriangle
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 
@@ -40,6 +40,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   const onSaveProfile = async (data: any) => {
     setIsLoading(true);
     try {
+      // Tentativa de atualização
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -57,7 +58,12 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('column')) {
+          throw new Error("Erro de Banco de Dados: Algumas colunas de endereço ainda não foram criadas no Supabase. Por favor, execute o script SQL de migração.");
+        }
+        throw error;
+      }
 
       toast({ title: "Sucesso", description: "Dados do usuário atualizados com sucesso." });
       onSuccess();
@@ -96,7 +102,6 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
 
   return (
     <form onSubmit={handleSubmit(onSaveProfile)} className="space-y-8 py-4 max-h-[75vh] overflow-y-auto pr-2">
-      {/* Cabeçalho de Status */}
       <div className="flex items-center justify-between bg-slate-900 p-5 rounded-2xl text-white sticky top-0 z-10 shadow-lg">
         <div className="flex items-center gap-3">
           <ShieldCheck className="text-orange-500" />
@@ -129,7 +134,6 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         </div>
       </div>
 
-      {/* Dados Pessoais */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-slate-900 font-bold border-b pb-2">
           <User size={18} className="text-orange-500" />
@@ -155,7 +159,6 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         </div>
       </div>
 
-      {/* Endereço */}
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-slate-900 font-bold border-b pb-2">
           <MapPin size={18} className="text-orange-500" />

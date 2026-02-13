@@ -33,11 +33,11 @@ const AdminOverview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
-  // Ref para bloquear atualizações do Realtime durante e logo após a exclusão
+  // Lista de IDs que foram excluídos nesta sessão para evitar que reapareçam via Realtime
+  const [deletedBidIds, setDeletedBidIds] = useState<Set<string>>(new Set());
   const ignoreRealtimeRef = useRef(false);
 
   const fetchStats = async (force = false) => {
-    // Se não for um fetch forçado e estivermos ignorando o realtime, cancela
     if (!force && ignoreRealtimeRef.current) return;
 
     setIsLoading(true);
@@ -49,24 +49,27 @@ const AdminOverview = () => {
         supabase.from('bids').select('*', { count: 'exact', head: true })
       ]);
 
-      setStats({
-        auctions: auctions.count || 0,
-        lots: lots.count || 0,
-        users: users.count || 0,
-        bids: bidsCount.count || 0
-      });
-
       const { data: bids, error: bidsError } = await supabase
         .from('bids')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(15);
+        .limit(20);
 
       if (bidsError) throw bidsError;
 
-      if (bids && bids.length > 0) {
-        const userIds = [...new Set(bids.map(b => b.user_id))];
-        const lotIds = [...new Set(bids.map(b => b.lot_id))];
+      // Filtra lances que já marcamos como excluídos nesta sessão
+      const validBids = (bids || []).filter(b => !deletedBidIds.has(b.id));
+
+      setStats({
+        auctions: auctions.count || 0,
+        lots: lots.count || 0,
+        users: users.count || 0,
+        bids: Math.max(0, (bidsCount.count || 0) - deletedBidIds.size)
+      });
+
+      if (validBids.length > 0) {
+        const userIds = [...new Set(validBids.map(b => b.user_id))];
+        const lotIds = [...new Set(validBids.map(b => b.lot_id))];
 
         const [profilesRes, lotsRes] = await Promise.all([
           supabase.from('profiles').select('id, full_name, email').in('id', userIds),
@@ -76,7 +79,7 @@ const AdminOverview = () => {
         const profilesMap = (profilesRes.data || []).reduce((acc: any, p) => ({ ...acc, [p.id]: p }), {});
         const lotsMap = (lotsRes.data || []).reduce((acc: any, l) => ({ ...acc, [l.id]: l }), {});
 
-        const enrichedBids = bids.map(bid => ({
+        const enrichedBids = validBids.map(bid => ({
           ...bid,
           profiles: profilesMap[bid.user_id],
           lots: lotsMap[bid.lot_id]
@@ -98,9 +101,12 @@ const AdminOverview = () => {
     if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}?`)) return;
     
     setIsDeleting(bidId);
-    ignoreRealtimeRef.current = true; // Começa a ignorar o Realtime
+    ignoreRealtimeRef.current = true;
     
-    // Atualização otimista da UI (remove da tela na hora)
+    // Adiciona o ID à lista de bloqueio IMEDIATAMENTE
+    setDeletedBidIds(prev => new Set(prev).add(bidId));
+    
+    // Atualização otimista da UI
     setRecentBids(prev => prev.filter(b => b.id !== bidId));
     setStats(prev => ({ ...prev, bids: Math.max(0, prev.bids - 1) }));
 
@@ -135,15 +141,20 @@ const AdminOverview = () => {
       });
       
     } catch (error: any) {
+      // Se der erro, removemos do bloqueio para que ele reapareça
+      setDeletedBidIds(prev => {
+        const next = new Set(prev);
+        next.delete(bidId);
+        return next;
+      });
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
-      fetchStats(true); // Se der erro, força o recarregamento
+      fetchStats(true);
     } finally {
       setIsDeleting(null);
-      // Mantém ignorando o Realtime por mais 2 segundos para o banco "respirar"
       setTimeout(() => {
         ignoreRealtimeRef.current = false;
-        fetchStats(true); // Faz um fetch final limpo
-      }, 2000);
+        fetchStats(true);
+      }, 3000);
     }
   };
 
@@ -151,9 +162,8 @@ const AdminOverview = () => {
     fetchStats(true);
     
     const channel = supabase
-      .channel('admin-realtime-bids')
+      .channel('admin-realtime-bids-v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => {
-        // Só processa o evento se não estivermos no período de "ignore"
         if (!ignoreRealtimeRef.current) {
           fetchStats();
         }
@@ -161,7 +171,7 @@ const AdminOverview = () => {
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [deletedBidIds]); // Re-executa se a lista de bloqueio mudar
 
   const handleUserClick = (userId: string) => {
     navigate(`/admin?id=${userId}`, { replace: true });

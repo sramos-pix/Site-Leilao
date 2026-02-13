@@ -59,36 +59,41 @@ const LotManager = () => {
       
       for (const file of files) {
         // 1. Upload para o Storage
-        const { storagePath, publicUrl } = await uploadLotPhoto(selectedLot.id, file);
+        let uploadResult;
+        try {
+          uploadResult = await uploadLotPhoto(selectedLot.id, file);
+        } catch (err: any) {
+          throw new Error(`Falha no Storage: ${err.message}. Verifique se o bucket 'vehicle-photos' existe e é público.`);
+        }
         
         // 2. Registro no Banco
         const isFirst = lotPhotos.length === 0;
         const { error: dbError } = await supabase.from('lot_photos').insert({
           lot_id: selectedLot.id,
-          storage_path: storagePath,
-          public_url: publicUrl,
+          storage_path: uploadResult.storagePath,
+          public_url: uploadResult.publicUrl,
           is_cover: isFirst
         });
 
-        if (dbError) throw new Error(`Erro no Banco: ${dbError.message}`);
+        if (dbError) {
+          throw new Error(`Falha no Banco (RLS): ${dbError.message}. Execute 'ALTER TABLE lot_photos DISABLE ROW LEVEL SECURITY' no SQL Editor.`);
+        }
 
         // 3. Atualizar capa se necessário
         if (isFirst) {
-          await supabase.from('lots').update({ cover_image_url: publicUrl }).eq('id', selectedLot.id);
+          await supabase.from('lots').update({ cover_image_url: uploadResult.publicUrl }).eq('id', selectedLot.id);
         }
       }
       
-      toast({ title: "Upload concluído com sucesso!" });
+      toast({ title: "Upload concluído!" });
       fetchLotPhotos(selectedLot.id);
       fetchData();
     } catch (error: any) {
-      console.error("Erro no upload:", error);
+      console.error("Erro completo:", error);
       toast({ 
         variant: "destructive", 
-        title: "Falha no Upload", 
-        description: error.message.includes("row-level security") 
-          ? "Erro de permissão (RLS). Verifique as políticas no Supabase." 
-          : error.message 
+        title: "Erro de Permissão", 
+        description: error.message 
       });
     } finally {
       setIsSubmitting(false);
@@ -224,6 +229,14 @@ const LotManager = () => {
                       <DialogContent className="max-w-3xl rounded-3xl">
                         <DialogHeader><DialogTitle>Fotos: {lot.title}</DialogTitle></DialogHeader>
                         <div className="space-y-6 py-4">
+                          <div className="bg-blue-50 p-4 rounded-2xl flex gap-3 border border-blue-100">
+                            <AlertCircle className="text-blue-600 shrink-0" size={20} />
+                            <div className="text-xs text-blue-800 leading-tight">
+                              <p className="font-bold mb-1">Dica de Configuração:</p>
+                              <p>Certifique-se de que o bucket <strong>vehicle-photos</strong> no Supabase está marcado como <strong>Public</strong>.</p>
+                            </div>
+                          </div>
+
                           <div className="flex items-center justify-center w-full">
                             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors border-slate-200">
                               <div className="flex flex-col items-center justify-center pt-5 pb-6">

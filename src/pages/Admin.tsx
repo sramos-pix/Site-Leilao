@@ -1,12 +1,13 @@
 "use client";
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
   Users, Gavel, Package, Settings, 
   Search, Filter, MoreVertical, Edit, 
   Trash2, CheckCircle2, XCircle, Clock,
-  ShieldCheck, AlertCircle, Loader2, FileText, Download
+  ShieldCheck, AlertCircle, Loader2, FileText, Download, LogOut
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -36,6 +37,7 @@ const Admin = () => {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('users');
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -57,6 +59,12 @@ const Admin = () => {
   React.useEffect(() => {
     fetchData();
   }, []);
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem('admin_auth');
+    toast({ title: "Logout realizado", description: "Sessão administrativa encerrada." });
+    navigate('/');
+  };
 
   const handleDeleteUser = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este usuário? Esta ação não pode ser desfeita.')) return;
@@ -124,6 +132,16 @@ const Admin = () => {
             <Settings size={20} className="mr-3" /> Configurações
           </Button>
         </nav>
+
+        <div className="pt-6 border-t border-slate-800">
+          <Button 
+            variant="ghost" 
+            onClick={handleAdminLogout}
+            className="w-full justify-start rounded-xl text-red-400 hover:text-white hover:bg-red-600/20"
+          >
+            <LogOut size={20} className="mr-3" /> Sair do Painel
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}

@@ -7,39 +7,88 @@ import { ChevronLeft, ChevronRight, Clock, Gavel, Heart } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import CountdownTimer from './CountdownTimer';
 import { supabase } from '@/lib/supabase';
+import { useToast } from '@/components/ui/use-toast';
 
 const FeaturedAuctions = () => {
   const [featuredLots, setFeaturedLots] = useState([]);
+  const [userFavorites, setUserFavorites] = useState<string[]>([]);
   const [emblaRef, emblaApi] = useEmblaCarousel({ align: 'start', loop: true });
+  const { toast } = useToast();
 
   const scrollPrev = React.useCallback(() => emblaApi && emblaApi.scrollPrev(), [emblaApi]);
   const scrollNext = React.useCallback(() => emblaApi && emblaApi.scrollNext(), [emblaApi]);
 
-  useEffect(() => {
-    const fetchFeaturedLots = async () => {
-      try {
-        const { data, error } = await supabase
-          .from('lots')
-          .select('*')
-          .eq('is_weekly_highlight', true);
+  const fetchData = async () => {
+    try {
+      const { data: lotsData, error: lotsError } = await supabase
+        .from('lots')
+        .select('*')
+        .eq('is_weekly_highlight', true);
 
-        if (error) {
-          console.error("Erro ao buscar destaques:", error);
-          setFeaturedLots([]);
-        } else {
-          setFeaturedLots(data || []);
-        }
-      } catch (error) {
-        console.error("Erro inesperado ao buscar destaques:", error);
-        setFeaturedLots([]);
+      if (lotsError) throw lotsError;
+      setFeaturedLots(lotsData || []);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: favsData } = await supabase
+          .from('favorites')
+          .select('lot_id')
+          .eq('user_id', user.id);
+        
+        setUserFavorites(favsData?.map(f => f.lot_id) || []);
       }
-    };
+    } catch (error) {
+      console.error("Erro ao buscar dados:", error);
+    }
+  };
 
-    fetchFeaturedLots();
+  useEffect(() => {
+    fetchData();
   }, []);
+
+  const toggleFavorite = async (lotId: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast({
+        title: "Acesso restrito",
+        description: "Você precisa estar logado para favoritar itens.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const isFavorited = userFavorites.includes(lotId);
+
+    try {
+      if (isFavorited) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('lot_id', lotId);
+        
+        setUserFavorites(prev => prev.filter(id => id !== lotId));
+        toast({ title: "Removido dos favoritos" });
+      } else {
+        await supabase
+          .from('favorites')
+          .insert({ user_id: user.id, lot_id: lotId });
+        
+        setUserFavorites(prev => [...prev, lotId]);
+        toast({ title: "Adicionado aos favoritos!" });
+      }
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível atualizar seus favoritos.",
+        variant: "destructive"
+      });
+    }
+  };
 
   return (
     <section className="py-20 bg-slate-50">
@@ -91,9 +140,15 @@ const FeaturedAuctions = () => {
                       <Button 
                         variant="secondary" 
                         size="icon" 
-                        className="absolute top-4 right-4 rounded-full bg-white/90 backdrop-blur-md border-none shadow-sm hover:bg-orange-500 hover:text-white transition-colors"
+                        onClick={() => toggleFavorite(item.id)}
+                        className={cn(
+                          "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300",
+                          userFavorites.includes(item.id) 
+                            ? "bg-red-500 text-white hover:bg-red-600" 
+                            : "bg-white/90 text-slate-600 hover:bg-orange-500 hover:text-white"
+                        )}
                       >
-                        <Heart size={18} />
+                        <Heart size={18} fill={userFavorites.includes(item.id) ? "currentColor" : "none"} />
                       </Button>
                     </div>
 

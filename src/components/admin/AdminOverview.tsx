@@ -31,6 +31,7 @@ const AdminOverview = () => {
   const fetchStats = async () => {
     setIsLoading(true);
     try {
+      // 1. Buscar contadores básicos
       const [auctions, lots, users, bids] = await Promise.all([
         supabase.from('auctions').select('*', { count: 'exact', head: true }),
         supabase.from('lots').select('*', { count: 'exact', head: true }),
@@ -45,20 +46,42 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
-      // Busca os 10 lances mais recentes com dados do usuário e do lote
-      const { data: bidsData } = await supabase
+      // 2. Buscar lances com dados relacionados
+      // Nota: Se 'profiles' ou 'lots' não estiverem vindo, verifique se as Foreign Keys estão corretas no DB
+      const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
           id,
           amount,
           created_at,
-          profiles (full_name, email),
-          lots (title)
+          user_id,
+          lot_id,
+          profiles!inner (full_name, email),
+          lots!inner (title)
         `)
         .order('created_at', { ascending: false })
         .limit(10);
 
-      setRecentBids(bidsData || []);
+      if (bidsError) {
+        console.error("Erro na consulta de lances:", bidsError);
+        // Fallback: tentar buscar sem o !inner caso algum registro esteja órfão
+        const { data: fallbackData } = await supabase
+          .from('bids')
+          .select(`
+            id,
+            amount,
+            created_at,
+            profiles (full_name, email),
+            lots (title)
+          `)
+          .order('created_at', { ascending: false })
+          .limit(10);
+        
+        setRecentBids(fallbackData || []);
+      } else {
+        setRecentBids(bidsData || []);
+      }
+
     } catch (error) {
       console.error("Erro ao carregar estatísticas:", error);
     } finally {
@@ -69,9 +92,8 @@ const AdminOverview = () => {
   useEffect(() => {
     fetchStats();
 
-    // Realtime para novos lances no dashboard admin
     const channel = supabase
-      .channel('admin-dashboard-bids')
+      .channel('admin-dashboard-bids-realtime')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'bids' },
@@ -159,12 +181,12 @@ const AdminOverview = () => {
                           </div>
                           <div className="flex flex-col">
                             <span className="font-bold text-slate-900">{bid.profiles?.full_name || 'Usuário'}</span>
-                            <span className="text-xs text-slate-500">{bid.profiles?.email}</span>
+                            <span className="text-xs text-slate-500">{bid.profiles?.email || 'Sem e-mail'}</span>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium text-slate-700">{bid.lots?.title}</span>
+                        <span className="font-medium text-slate-700">{bid.lots?.title || `Lote #${bid.lot_id}`}</span>
                       </TableCell>
                       <TableCell>
                         <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>

@@ -3,7 +3,7 @@ import {
   Plus, Gavel, Users, RefreshCw, 
   Package, BarChart3, Settings, LogOut,
   TrendingUp, AlertTriangle, FileText, History,
-  Download, Edit3
+  Download, Edit3, UserCog
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { useToast } from '@/components/ui/use-toast';
 import LotForm from '@/components/admin/LotForm';
 import AuctionForm from '@/components/admin/AuctionForm';
 import LotManager from '@/components/admin/LotManager';
+import UserManager from '@/components/admin/UserManager';
 import { Link } from 'react-router-dom';
 import { formatCurrency } from '@/lib/utils';
 
@@ -24,24 +25,36 @@ const Admin = () => {
   const [auditLogs, setAuditLogs] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAuctionDialogOpen, setIsAuctionDialogOpen] = React.useState(false);
-  const [selectedAuctionId, setSelectedAuctionId] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const [auctionsRes, profilesRes, logsRes] = await Promise.all([
-        supabase.from('auctions').select('*, lots(count)').order('created_at', { ascending: false }),
-        supabase.from('profiles').select('*').order('created_at', { ascending: false }),
-        supabase.from('audit_logs').select('*').order('created_at', { ascending: false }).limit(10)
-      ]);
+      // Buscando perfis com uma query limpa para garantir que novos usuários apareçam
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      const { data: auctionsData } = await supabase
+        .from('auctions')
+        .select('*, lots(count)')
+        .order('created_at', { ascending: false });
+
+      const { data: logsData } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
       
-      if (auctionsRes.data) setAuctions(auctionsRes.data);
-      if (profilesRes.data) setUsers(profilesRes.data);
-      if (logsRes.data) setAuditLogs(logsRes.data);
+      if (profilesError) throw profilesError;
+      
+      if (auctionsData) setAuctions(auctionsData);
+      if (profilesData) setUsers(profilesData);
+      if (logsData) setAuditLogs(logsData);
       
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro de conexão", description: error.message });
+      toast({ variant: "destructive", title: "Erro ao carregar dados", description: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -50,10 +63,9 @@ const Admin = () => {
   const handleExportReport = (auction: any) => {
     toast({
       title: "Gerando Relatório",
-      description: `O relatório do leilão "${auction.title}" está sendo processado e será baixado em instantes.`,
+      description: `O relatório do leilão "${auction.title}" está sendo processado.`,
     });
     
-    // Simulação de download de CSV/PDF
     setTimeout(() => {
       const content = `Relatório de Leilão: ${auction.title}\nStatus: ${auction.status}\nData: ${new Date().toLocaleDateString()}`;
       const blob = new Blob([content], { type: 'text/plain' });
@@ -94,8 +106,8 @@ const Admin = () => {
         <div className="max-w-7xl mx-auto">
           <header className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-slate-900">Visão Geral</h1>
-              <p className="text-slate-500">Métricas e controle operacional em tempo real.</p>
+              <h1 className="text-3xl font-bold text-slate-900">Painel de Controle</h1>
+              <p className="text-slate-500">Gerencie leilões, usuários e operações.</p>
             </div>
             <div className="flex gap-3">
               <Dialog open={isAuctionDialogOpen} onOpenChange={setIsAuctionDialogOpen}>
@@ -107,58 +119,11 @@ const Admin = () => {
                   <AuctionForm onSuccess={() => { setIsAuctionDialogOpen(false); fetchData(); }} />
                 </DialogContent>
               </Dialog>
-              <Button variant="outline" onClick={fetchData} className="bg-white rounded-xl"><RefreshCw size={18} className={isLoading ? "animate-spin" : ""} /></Button>
+              <Button variant="outline" onClick={fetchData} className="bg-white rounded-xl shadow-sm">
+                <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
+              </Button>
             </div>
           </header>
-
-          {/* Dashboard Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-            <Card className="border-none shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="p-2 bg-green-50 rounded-lg text-green-600"><TrendingUp size={20} /></div>
-                  <Badge className="bg-green-100 text-green-700 border-none">+12%</Badge>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-slate-500">GMV (Volume Total)</p>
-                  <p className="text-2xl font-bold">{formatCurrency(1250000)}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-none shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="p-2 bg-orange-50 rounded-lg text-orange-600"><Gavel size={20} /></div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-slate-500">Leilões Ativos</p>
-                  <p className="text-2xl font-bold">{auctions.filter(a => a.status === 'live').length}</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-none shadow-sm bg-red-50 border-red-100">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="p-2 bg-red-100 rounded-lg text-red-600"><AlertTriangle size={20} /></div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-red-600 font-medium">Pagamentos Atrasados</p>
-                  <p className="text-2xl font-bold text-red-700">04</p>
-                </div>
-              </CardContent>
-            </Card>
-            <Card className="border-none shadow-sm">
-              <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                  <div className="p-2 bg-blue-50 rounded-lg text-blue-600"><Users size={20} /></div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm text-slate-500">Cadastros Pendentes</p>
-                  <p className="text-2xl font-bold">{users.filter(u => u.kyc_status === 'pending').length}</p>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
 
           <Tabs defaultValue="auctions" className="w-full">
             <TabsList className="bg-white p-1 rounded-2xl shadow-sm border border-slate-100 mb-8">
@@ -193,13 +158,7 @@ const Admin = () => {
                             <LotManager auctionId={auction.id} />
                           </DialogContent>
                         </Dialog>
-                        
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="rounded-xl"
-                          onClick={() => handleExportReport(auction)}
-                        >
+                        <Button variant="outline" size="sm" className="rounded-xl" onClick={() => handleExportReport(auction)}>
                           <Download size={16} className="mr-2" /> Relatório
                         </Button>
                       </div>
@@ -210,7 +169,7 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="users">
-              <Card className="border-none shadow-sm bg-white overflow-hidden">
+              <Card className="border-none shadow-sm bg-white overflow-hidden rounded-2xl">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm">
                     <thead className="bg-slate-50 border-b">
@@ -222,23 +181,43 @@ const Admin = () => {
                       </tr>
                     </thead>
                     <tbody className="divide-y">
-                      {users.map(user => (
-                        <tr key={user.id} className="hover:bg-slate-50">
-                          <td className="px-6 py-4">
-                            <div className="font-medium">{user.full_name}</div>
-                            <div className="text-xs text-slate-500">{user.email}</div>
-                          </td>
-                          <td className="px-6 py-4 font-mono text-xs">{user.document_id}</td>
-                          <td className="px-6 py-4">
-                            <Badge className={user.kyc_status === 'verified' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}>
-                              {user.kyc_status}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4">
-                            <Button variant="ghost" size="sm" className="text-orange-600">Ver Detalhes</Button>
-                          </td>
-                        </tr>
-                      ))}
+                      {users.length === 0 ? (
+                        <tr><td colSpan={4} className="px-6 py-8 text-center text-slate-500">Nenhum usuário encontrado.</td></tr>
+                      ) : (
+                        users.map(user => (
+                          <tr key={user.id} className="hover:bg-slate-50 transition-colors">
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-slate-900">{user.full_name || 'Sem Nome'}</div>
+                              <div className="text-xs text-slate-500">{user.email}</div>
+                            </td>
+                            <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.document_id || '---'}</td>
+                            <td className="px-6 py-4">
+                              <Badge className={
+                                user.kyc_status === 'verified' ? 'bg-green-100 text-green-700 border-none' : 
+                                user.kyc_status === 'rejected' ? 'bg-red-100 text-red-700 border-none' :
+                                'bg-orange-100 text-orange-700 border-none'
+                              }>
+                                {user.kyc_status === 'verified' ? 'Verificado' : user.kyc_status === 'rejected' ? 'Rejeitado' : 'Pendente'}
+                              </Badge>
+                            </td>
+                            <td className="px-6 py-4">
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-50 rounded-lg">
+                                    <UserCog size={16} className="mr-2" /> Editar
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                  <DialogHeader>
+                                    <DialogTitle>Gerenciar Usuário</DialogTitle>
+                                  </DialogHeader>
+                                  <UserManager user={user} onSuccess={() => fetchData()} />
+                                </DialogContent>
+                              </Dialog>
+                            </td>
+                          </tr>
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -246,7 +225,7 @@ const Admin = () => {
             </TabsContent>
 
             <TabsContent value="audit">
-              <Card className="border-none shadow-sm bg-white p-6">
+              <Card className="border-none shadow-sm bg-white p-6 rounded-2xl">
                 <div className="space-y-6">
                   {auditLogs.length === 0 ? (
                     <p className="text-center text-slate-500 py-8">Nenhum log de auditoria registrado.</p>

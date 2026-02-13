@@ -11,13 +11,13 @@ const Footer = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="col-span-1 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-6">
-              {/* Substituiremos o src abaixo pelo nome do arquivo que você enviar */}
+              {/* Assim que você mandar o link, eu coloco no src abaixo */}
               <img 
                 src="/logo.png" 
                 alt="AutoBid Logo" 
-                className="h-10 w-auto object-contain"
+                className="h-12 w-auto object-contain"
                 onError={(e) => {
-                  // Fallback caso a imagem ainda não exista
+                  // Fallback: se a imagem não carregar, mostra o texto estilizado
                   e.currentTarget.style.display = 'none';
                 }}
               />
@@ -40,7 +40,6 @@ const Footer = () => {
             <ul className="space-y-2 text-sm">
               <li><Link to="/auctions" className="hover:text-orange-500 transition-colors">Leilões Ativos</Link></li>
               <li><Link to="/how-it-works" className="hover:text-orange-500 transition-colors">Como Funciona</Link></li>
-              <li><Link to="/help" className="hover:text-orange-500 transition-colors">Central de Ajuda</Link></li>
               <li><Link to="/contact" className="hover:text-orange-500 transition-colors">Contato</Link></li>
             </ul>
           </div>
@@ -50,7 +49,6 @@ const Footer = () => {
             <ul className="space-y-2 text-sm">
               <li><Link to="/terms" className="hover:text-orange-500 transition-colors">Termos de Uso</Link></li>
               <li><Link to="/privacy" className="hover:text-orange-500 transition-colors">Privacidade</Link></li>
-              <li><Link to="/rules" className="hover:text-orange-500 transition-colors">Regras do Leilão</Link></li>
             </ul>
           </div>
 
@@ -64,10 +62,6 @@ const Footer = () => {
               <li className="flex items-center gap-2">
                 <Phone size={16} className="text-orange-500" />
                 0800 123 4567
-              </li>
-              <li className="flex items-center gap-2">
-                <MapPin size={16} className="text-orange-500" />
-                São Paulo, SP - Brasil
               </li>
             </ul>
           </div>

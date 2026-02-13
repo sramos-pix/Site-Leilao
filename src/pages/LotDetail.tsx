@@ -115,7 +115,7 @@ const LotDetail = () => {
   const allBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Mapeia lances reais do banco
+    // 1. Lances Reais
     const bids = realBids.map(b => ({
       id: b.id,
       amount: b.amount,
@@ -125,35 +125,44 @@ const LotDetail = () => {
       display_name: b.user_id === user?.id ? "Você" : "Licitante"
     }));
 
-    // 2. Gera lances fictícios baseados no valor inicial
+    // 2. Lances Fictícios com E-mails Mascarados
     const fakeEmails = [
       "ca***@gmail.com", "an***@hotmail.com", "ro***@outlook.com", 
       "ju***@yahoo.com", "ma***@gmail.com", "fe***@uol.com.br"
     ];
     
-    // Usamos o ID do lote para manter os mesmos e-mails fictícios para o mesmo carro
     const seed = (id || "1").length;
     const fakes = [];
-    
-    // Geramos 6 lances fictícios que ficam "abaixo" do valor atual
     const baseValue = lot.start_bid;
-    for (let i = 1; i <= 6; i++) {
-      const fakeAmount = baseValue + (i * 800);
-      // Só adicionamos o fictício se ele for menor que o lance atual mais alto
-      const currentMax = bids.length > 0 ? bids[0].amount : lot.current_bid || lot.start_bid;
+    const currentMax = bids.length > 0 ? bids[0].amount : lot.current_bid || lot.start_bid;
+
+    // Geramos lances fictícios que fazem sentido com o valor do lote
+    for (let i = 1; i <= 5; i++) {
+      const fakeAmount = baseValue + (i * 1200);
       
+      // Só mostra o fictício se ele for menor que o lance atual (para não "vencer" o leilão sozinho)
       if (fakeAmount < currentMax) {
         fakes.push({
           id: `fake-${i}`,
           amount: fakeAmount,
-          created_at: new Date(Date.now() - (i * 3600000 * 5)).toISOString(),
+          created_at: new Date(Date.now() - (i * 3600000 * 2)).toISOString(),
           is_fake: true,
           display_name: fakeEmails[(seed + i) % fakeEmails.length]
         });
       }
     }
 
-    // 3. Junta tudo e ordena por valor (maior primeiro)
+    // 3. Se não houver nenhum lance (nem real nem fictício), garante pelo menos um fictício inicial
+    if (bids.length === 0 && fakes.length === 0) {
+      fakes.push({
+        id: 'fake-initial',
+        amount: lot.start_bid,
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        is_fake: true,
+        display_name: fakeEmails[seed % fakeEmails.length]
+      });
+    }
+
     return [...bids, ...fakes].sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id, user]);
 

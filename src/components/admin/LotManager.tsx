@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, CheckCircle2, X, Edit } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, CheckCircle2, X, Edit, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 
@@ -56,25 +56,36 @@ const LotManager = () => {
     
     try {
       for (const file of Array.from(e.target.files)) {
-        const { storagePath, publicUrl } = await uploadLotPhoto(selectedLot.id, file);
-        
-        const isFirst = lotPhotos.length === 0;
-        await supabase.from('lot_photos').insert({
-          lot_id: selectedLot.id,
-          storage_path: storagePath,
-          public_url: publicUrl,
-          is_cover: isFirst
-        });
+        try {
+          const { storagePath, publicUrl } = await uploadLotPhoto(selectedLot.id, file);
+          
+          const isFirst = lotPhotos.length === 0;
+          await supabase.from('lot_photos').insert({
+            lot_id: selectedLot.id,
+            storage_path: storagePath,
+            public_url: publicUrl,
+            is_cover: isFirst
+          });
 
-        if (isFirst) {
-          await supabase.from('lots').update({ cover_image_url: publicUrl }).eq('id', selectedLot.id);
+          if (isFirst) {
+            await supabase.from('lots').update({ cover_image_url: publicUrl }).eq('id', selectedLot.id);
+          }
+        } catch (uploadErr: any) {
+          if (uploadErr.message?.includes('bucket_not_found') || uploadErr.error === 'bucket_not_found') {
+            throw new Error("O bucket 'vehicle-photos' não foi encontrado no Supabase Storage. Por favor, crie-o como um bucket público.");
+          }
+          throw uploadErr;
         }
       }
       toast({ title: "Fotos enviadas!" });
       fetchLotPhotos(selectedLot.id);
       fetchData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro no upload", description: error.message });
+      toast({ 
+        variant: "destructive", 
+        title: "Erro no upload", 
+        description: error.message 
+      });
     } finally {
       setIsSubmitting(false);
     }

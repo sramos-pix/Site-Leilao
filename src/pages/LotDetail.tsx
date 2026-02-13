@@ -5,14 +5,15 @@ import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, Heart, Share2, Clock, Gavel, 
   ShieldCheck, MapPin, Calendar, Gauge, 
-  Fuel, Settings2, Loader2, AlertTriangle
+  Fuel, Settings2, Loader2, AlertTriangle,
+  History, User
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, maskEmail } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -29,6 +30,14 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [user, setUser] = useState<any>(null);
+
+  // Histórico fictício de lances
+  const mockBids = [
+    { id: 1, email: 'carlos.silva@gmail.com', amount: 212000, time: 'há 2 minutos' },
+    { id: 2, email: 'ana.oliveira@uol.com.br', amount: 210000, time: 'há 15 minutos' },
+    { id: 3, email: 'marcos.v@hotmail.com', amount: 205000, time: 'há 1 hora' },
+    { id: 4, email: 'fernanda.lima@outlook.com', amount: 200000, time: 'há 3 horas' },
+  ];
 
   useEffect(() => {
     const fetchLotData = async () => {
@@ -63,7 +72,6 @@ const LotDetail = () => {
         const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
         setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
 
-        // Verificar se é favorito
         if (currentUser) {
           const { data: favData } = await supabase
             .from('favorites')
@@ -241,6 +249,47 @@ const LotDetail = () => {
                 </div>
               </div>
             </div>
+
+            {/* Histórico de Lances */}
+            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+              <div className="flex items-center gap-3 mb-8">
+                <div className="p-2 bg-orange-100 text-orange-600 rounded-xl">
+                  <History size={24} />
+                </div>
+                <h3 className="text-2xl font-black text-slate-900">Histórico de Lances</h3>
+              </div>
+
+              <div className="space-y-4">
+                {mockBids.map((bid, index) => (
+                  <div 
+                    key={bid.id} 
+                    className={`flex items-center justify-between p-5 rounded-3xl transition-all ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50 border border-transparent'}`}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                        {index === 0 ? <Trophy size={20} /> : <User size={20} />}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900">{maskEmail(bid.email)}</p>
+                        <p className="text-xs text-slate-400 font-medium">{bid.time}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>
+                        {formatCurrency(bid.amount)}
+                      </p>
+                      {index === 0 && <Badge className="bg-orange-500 text-[10px] font-black">LANCE ATUAL</Badge>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-center">
+                <p className="text-slate-400 text-sm font-medium">
+                  Total de <span className="text-white font-bold">14 lances</span> realizados neste lote.
+                </p>
+              </div>
+            </div>
           </div>
 
           <div className="lg:col-span-4">
@@ -307,5 +356,26 @@ const LotDetail = () => {
     </div>
   );
 };
+
+// Componente de ícone de troféu para o lance vencedor
+const Trophy = ({ size }: { size: number }) => (
+  <svg 
+    width={size} 
+    height={size} 
+    viewBox="0 0 24 24" 
+    fill="none" 
+    stroke="currentColor" 
+    strokeWidth="2" 
+    strokeLinecap="round" 
+    strokeLinejoin="round"
+  >
+    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
+    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
+    <path d="M4 22h16" />
+    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
+    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
+    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
+  </svg>
+);
 
 export default LotDetail;

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from '@/components/ui/use-toast';
 import UserManager from '@/components/admin/UserManager';
+import AuctionManager from '@/components/admin/AuctionManager';
 
 const Admin = () => {
   const [users, setUsers] = React.useState<any[]>([]);
@@ -296,10 +297,14 @@ const Admin = () => {
           </>
         )}
 
-        {activeTab !== 'users' && (
+        {activeTab === 'lots' && (
+          <AuctionManager />
+        )}
+
+        {activeTab === 'settings' && (
           <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
             <AlertCircle className="text-slate-300 mb-4" size={48} />
-            <p className="text-slate-500">Esta seção está sendo carregada ou não possui itens.</p>
+            <p className="text-slate-500">Configurações do sistema em desenvolvimento.</p>
           </div>
         )}
       </div>

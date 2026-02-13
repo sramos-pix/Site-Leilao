@@ -1,7 +1,7 @@
 /**
  * CHECKPOINT DE SEGURANÇA
  * Data: {new Date().toLocaleString('pt-BR')}
- * Status: Admin restaurado, Verificação com câmera/PDF ativa, Dashboard funcional.
+ * Status: Logout admin funcional. Iniciando integração de Lotes.
  */
 import { createRoot } from "react-dom/client";
 import App from "./App.tsx";

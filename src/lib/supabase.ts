@@ -1,18 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 
-// O Vite exige o prefixo VITE_ para variáveis expostas ao cliente
+// No Vite, variáveis de ambiente devem começar com VITE_
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
-// Se as variáveis VITE_ não existirem, tenta as sem prefixo (fallback)
-const finalUrl = supabaseUrl || import.meta.env.SUPABASE_URL;
-const finalKey = supabaseAnonKey || import.meta.env.SUPABASE_ANON_KEY;
-
-if (!finalUrl || !finalKey || finalUrl.includes('placeholder')) {
-  console.error('❌ ERRO CRÍTICO: Chaves do Supabase ausentes. Clique em "Add Supabase" e depois em "Rebuild".');
-}
+// Log para diagnóstico (visível no console do navegador F12)
+console.log('Supabase URL configurada:', supabaseUrl ? 'Sim' : 'Não');
+console.log('Supabase Key configurada:', supabaseAnonKey ? 'Sim' : 'Não');
 
 export const supabase = createClient(
-  finalUrl || 'https://placeholder.supabase.co',
-  finalKey || 'placeholder-key'
+  supabaseUrl || 'https://placeholder.supabase.co',
+  supabaseAnonKey || 'placeholder-key'
 );
+
+// Função auxiliar para testar a conexão
+export const checkConnection = async () => {
+  try {
+    const { data, error } = await supabase.from('auctions').select('count').limit(1);
+    if (error) throw error;
+    return { connected: true, error: null };
+  } catch (err: any) {
+    return { connected: false, error: err.message };
+  }
+};

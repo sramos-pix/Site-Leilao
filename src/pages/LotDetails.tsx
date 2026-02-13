@@ -120,7 +120,8 @@ const LotDetails = () => {
 
   if (loading) return <div className="flex items-center justify-center min-h-screen"><Clock className="animate-spin text-orange-500" /></div>;
 
-  const isFinished = lot.status === 'finished';
+  // Consideramos finalizado se houver um winner_id definido
+  const isFinished = !!lot.winner_id;
   const isWinner = user && lot.winner_id === user.id;
 
   return (
@@ -205,7 +206,7 @@ const LotDetails = () => {
                       <p className="text-green-100 mb-6">Parabéns! Seu lance foi o vencedor. Nossa equipe entrará em contato em breve.</p>
                       <div className="bg-white/10 p-4 rounded-2xl">
                         <p className="text-xs uppercase font-bold opacity-70">Valor Final</p>
-                        <p className="text-2xl font-black">{formatCurrency(lot.final_price || lot.current_bid)}</p>
+                        <p className="text-2xl font-black">{formatCurrency(lot.current_bid)}</p>
                       </div>
                     </>
                   ) : (

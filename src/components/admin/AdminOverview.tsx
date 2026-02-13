@@ -69,7 +69,7 @@ const AdminOverview = () => {
 
         const [profilesRes, lotsRes] = await Promise.all([
           supabase.from('profiles').select('id, full_name, email').in('id', userIds),
-          supabase.from('lots').select('id, title, status').in('id', lotIds)
+          supabase.from('lots').select('id, title, winner_id').in('id', lotIds)
         ]);
 
         const profilesMap = (profilesRes.data || []).reduce((acc: any, p) => ({ ...acc, [p.id]: p }), {});
@@ -100,40 +100,24 @@ const AdminOverview = () => {
     setIsProcessing(bid.id);
 
     try {
-      // 1. Atualiza o lote para finalizado e define o vencedor
-      // Removida a coluna final_price que não existe no banco
+      // 1. Atualiza o lote definindo o vencedor. 
+      // Removida a coluna 'status' e 'final_price' que estão causando erro de esquema.
       const { error: lotError } = await supabase
         .from('lots')
         .update({ 
-          status: 'finished',
           winner_id: bid.user_id,
-          current_bid: bid.amount // Usamos current_bid como o valor final
+          current_bid: bid.amount
         })
         .eq('id', bid.lot_id);
 
       if (lotError) {
         console.error("Erro ao atualizar lote:", lotError);
-        throw new Error(`Falha ao atualizar status do lote: ${lotError.message}`);
-      }
-
-      // 2. Tenta criar uma notificação (opcional)
-      try {
-        await supabase
-          .from('notifications')
-          .insert({
-            user_id: bid.user_id,
-            title: '🎉 Parabéns! Você venceu!',
-            message: `Seu lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}" foi contemplado.`,
-            type: 'success',
-            read: false
-          });
-      } catch (e) {
-        console.warn("Aviso: Notificação não enviada (tabela pode não existir).");
+        throw new Error(`Falha ao atualizar lote: ${lotError.message}`);
       }
 
       toast({ 
         title: "Lance Contemplado!", 
-        description: "O leilão foi encerrado com sucesso." 
+        description: "O vencedor foi definido com sucesso." 
       });
       
       await fetchStats(true);
@@ -282,7 +266,7 @@ const AdminOverview = () => {
                   recentBids.map((bid) => {
                     const userName = bid.profiles?.full_name || 'Usuário';
                     const userEmail = bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
-                    const isFinished = bid.lots?.status === 'finished';
+                    const isFinished = !!bid.lots?.winner_id;
 
                     return (
                       <TableRow key={bid.id} className={`group ${isFinished ? 'bg-slate-50/50' : ''}`}>

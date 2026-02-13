@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Gavel, Menu, X, User, LayoutDashboard, LogOut } from 'lucide-react';
+import { Gavel, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -46,8 +46,18 @@ const Navbar = () => {
         <div className="flex h-16 justify-between items-center">
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2">
-              <div className="bg-orange-500 p-1.5 rounded-lg">
-                <Gavel className="h-6 w-6 text-white" />
+              <img 
+                src="/logo.png" 
+                alt="AutoBid Logo" 
+                className="h-8 w-auto object-contain"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none';
+                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
+                  if (fallback) fallback.style.display = 'flex';
+                }}
+              />
+              <div className="hidden bg-orange-500 p-1.5 rounded-lg">
+                <Gavel className="h-5 w-5 text-white" />
               </div>
               <span className="text-xl font-bold tracking-tight text-slate-900">
                 AUTO<span className="text-orange-500">BID</span>

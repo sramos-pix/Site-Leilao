@@ -6,7 +6,7 @@ import {
   ChevronLeft, Heart, Share2, Clock, Gavel, 
   ShieldCheck, MapPin, Calendar, Gauge, 
   Fuel, Settings2, Loader2, AlertTriangle,
-  History, User
+  History, User, TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -259,6 +259,11 @@ const LotDetail = () => {
                 <div className="text-center bg-slate-50 py-6 rounded-3xl border border-slate-100">
                   <p className="text-xs text-slate-400 uppercase font-black mb-2">Lance Atual</p>
                   <p className="text-4xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                  <div className="mt-4 pt-4 border-t border-slate-200 flex items-center justify-center gap-2 text-slate-500">
+                    <TrendingUp size={14} className="text-orange-500" />
+                    <span className="text-[10px] font-bold uppercase tracking-wider">Incremento Mínimo:</span>
+                    <span className="text-sm font-black text-slate-700">{formatCurrency(lot.bid_increment || 1000)}</span>
+                  </div>
                 </div>
                 <div className="space-y-4">
                   <div className="space-y-3">

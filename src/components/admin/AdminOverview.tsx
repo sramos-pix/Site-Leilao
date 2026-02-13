@@ -50,6 +50,7 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
+      // Consulta aprimorada com joins explícitos
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -58,23 +59,22 @@ const AdminOverview = () => {
           created_at,
           user_id,
           lot_id,
-          profiles (
+          profiles:user_id (
             full_name,
             email
           ),
-          lots (
-            title,
-            current_bid
+          lots:lot_id (
+            title
           )
         `)
         .order('created_at', { ascending: false })
         .limit(15);
 
-      if (!bidsError) {
-        setRecentBids(bidsData || []);
-      }
-    } catch (error) {
+      if (bidsError) throw bidsError;
+      setRecentBids(bidsData || []);
+    } catch (error: any) {
       console.error("Erro ao carregar estatísticas:", error);
+      toast({ variant: "destructive", title: "Erro ao carregar dados", description: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -120,8 +120,8 @@ const AdminOverview = () => {
   useEffect(() => {
     fetchStats();
     const channel = supabase
-      .channel('admin-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bids' }, () => fetchStats())
+      .channel('admin-realtime-bids')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchStats())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -197,7 +197,6 @@ const AdminOverview = () => {
                   </TableRow>
                 ) : recentBids.length > 0 ? (
                   recentBids.map((bid) => {
-                    // Tratamento robusto para perfis e lotes (podem vir como objeto ou array)
                     const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
                     const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
                     

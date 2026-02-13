@@ -6,7 +6,7 @@ import {
   ChevronLeft, Heart, Share2, Clock, Gavel, 
   ShieldCheck, MapPin, Calendar, Gauge, 
   Fuel, Settings2, Loader2, AlertTriangle,
-  History, User
+  History, User, TrendingUp
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -256,10 +256,17 @@ const LotDetail = () => {
                 <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
               </div>
               <CardContent className="p-8 space-y-8">
-                <div className="text-center bg-slate-50 py-6 rounded-3xl border border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase font-black mb-2">Lance Atual</p>
-                  <p className="text-4xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="text-center bg-slate-50 py-6 rounded-3xl border border-slate-100">
+                    <p className="text-[10px] text-slate-400 uppercase font-black mb-1">Lance Atual</p>
+                    <p className="text-xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                  </div>
+                  <div className="text-center bg-orange-50 py-6 rounded-3xl border border-orange-100">
+                    <p className="text-[10px] text-orange-400 uppercase font-black mb-1">Incremento</p>
+                    <p className="text-xl font-black text-orange-600">+ {formatCurrency(lot.bid_increment || 1000)}</p>
+                  </div>
                 </div>
+                
                 <div className="space-y-4">
                   <div className="space-y-3">
                     <Label className="text-slate-500 font-bold text-xs uppercase ml-1">Seu Lance</Label>
@@ -272,6 +279,7 @@ const LotDetail = () => {
                         className="w-full text-2xl font-black h-20 pl-16 text-center rounded-3xl border-2 border-slate-100 focus:border-orange-500 outline-none" 
                       />
                     </div>
+                    <p className="text-[10px] text-center text-slate-400 italic">Lance mínimo sugerido: {formatCurrency((lot.current_bid || lot.start_bid) + (lot.bid_increment || 1000))}</p>
                   </div>
                   <Button 
                     onClick={handleBid} 

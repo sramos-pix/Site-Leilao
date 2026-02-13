@@ -96,21 +96,22 @@ const LotDetail = () => {
 
   // Lances combinados: Reais no topo, fictícios abaixo
   const allBids = useMemo(() => {
-    // O valor base para os fictícios deve ser o menor lance real ou o lance inicial
-    // Isso garante que NENHUM fictício fique acima de um lance real
+    // Valor base para os fictícios: menor lance real ou lance inicial
     const baseForMock = realBids.length > 0 
       ? realBids[realBids.length - 1].amount 
       : (lot?.start_bid || 0);
 
+    // Geramos lances fictícios que são sempre menores que o menor lance real
     const mockBids = [
       { id: 'm1', amount: baseForMock - 1500, created_at: new Date(Date.now() - 1800000).toISOString(), profiles: { email: 'carlos.silva***@gmail.com' } },
       { id: 'm2', amount: baseForMock - 3200, created_at: new Date(Date.now() - 3600000).toISOString(), profiles: { email: 'marcos.ant***@uol.com.br' } },
       { id: 'm3', amount: baseForMock - 5800, created_at: new Date(Date.now() - 5400000).toISOString(), profiles: { email: 'ana.paula***@outlook.com' } },
       { id: 'm4', amount: baseForMock - 8000, created_at: new Date(Date.now() - 7200000).toISOString(), profiles: { email: 'ricardo.m***@hotmail.com' } },
       { id: 'm5', amount: baseForMock - 10500, created_at: new Date(Date.now() - 9000000).toISOString(), profiles: { email: 'fernanda.l***@terra.com.br' } },
-    ].filter(m => m.amount > (lot?.start_bid || 0) * 0.5 && m.amount < baseForMock);
+    ].filter(m => m.amount > 0); // Filtro simples para garantir que existam
 
     // Unimos e ordenamos por valor decrescente
+    // Isso garante que os lances reais (maiores) fiquem no topo
     const combined = [...realBids, ...mockBids];
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot]);

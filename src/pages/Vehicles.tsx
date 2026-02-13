@@ -80,12 +80,10 @@ const Vehicles = () => {
                       alt={lot.title} 
                       className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                     />
-                    <div className="absolute top-4 left-4 flex flex-col gap-2">
-                      <Badge className="w-fit bg-orange-500 text-white border-none px-3 py-1 rounded-none text-[10px] font-black uppercase tracking-tighter">
-                        LOTE #{lot.lot_number}
-                      </Badge>
-                      <Badge className="w-fit bg-slate-900/90 backdrop-blur-md text-white border-none px-3 py-1.5 rounded-full text-[11px] font-bold flex items-center gap-2 shadow-xl">
-                        <Clock size={14} className="text-orange-500 animate-pulse" /> 
+                    <div className="absolute top-4 left-4 flex gap-2">
+                      <Badge className="bg-slate-900 text-white border-none px-3 py-1 rounded-none text-[11px] font-bold uppercase">LOTE #{lot.lot_number}</Badge>
+                      <Badge className="bg-orange-500 text-white border-none px-4 py-1.5 rounded-full text-[11px] font-black flex items-center gap-2 shadow-lg shadow-orange-500/30">
+                        <Clock size={14} className="animate-pulse" /> 
                         <CountdownTimer randomScarcity={true} lotId={lot.id} />
                       </Badge>
                     </div>

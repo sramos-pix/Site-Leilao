@@ -51,56 +51,48 @@ const LotManager = () => {
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!selectedLot || !e.target.files) return;
+    if (!selectedLot || !e.target.files || e.target.files.length === 0) return;
     setIsSubmitting(true);
     
     try {
-      for (const file of Array.from(e.target.files)) {
-        console.log(`[DEBUG] Iniciando upload: ${file.name}`);
-        
+      const files = Array.from(e.target.files);
+      
+      for (const file of files) {
         // 1. Upload para o Storage
-        let storageResult;
-        try {
-          storageResult = await uploadLotPhoto(selectedLot.id, file);
-          console.log("[DEBUG] Storage OK:", storageResult.storagePath);
-        } catch (storageErr: any) {
-          console.error("[DEBUG] Erro no Storage:", storageErr);
-          throw new Error(`Erro no Storage: ${storageErr.message || 'Verifique as políticas do bucket vehicle-photos'}`);
-        }
+        const { storagePath, publicUrl } = await uploadLotPhoto(selectedLot.id, file);
         
-        // 2. Registro no Banco de Dados
+        // 2. Registro no Banco
         const isFirst = lotPhotos.length === 0;
         const { error: dbError } = await supabase.from('lot_photos').insert({
           lot_id: selectedLot.id,
-          storage_path: storageResult.storagePath,
-          public_url: storageResult.publicUrl,
+          storage_path: storagePath,
+          public_url: publicUrl,
           is_cover: isFirst
         });
 
-        if (dbError) {
-          console.error("[DEBUG] Erro no Banco (lot_photos):", dbError);
-          throw new Error(`Erro no Banco: ${dbError.message}. Execute 'alter table lot_photos disable row level security' no SQL Editor.`);
-        }
+        if (dbError) throw new Error(`Erro no Banco: ${dbError.message}`);
 
-        // 3. Atualizar capa se for a primeira foto
+        // 3. Atualizar capa se necessário
         if (isFirst) {
-          const { error: updateError } = await supabase.from('lots').update({ cover_image_url: storageResult.publicUrl }).eq('id', selectedLot.id);
-          if (updateError) console.warn("[DEBUG] Erro ao atualizar capa:", updateError.message);
+          await supabase.from('lots').update({ cover_image_url: publicUrl }).eq('id', selectedLot.id);
         }
       }
       
-      toast({ title: "Fotos enviadas com sucesso!" });
+      toast({ title: "Upload concluído com sucesso!" });
       fetchLotPhotos(selectedLot.id);
       fetchData();
     } catch (error: any) {
-      console.error("[DEBUG] Falha crítica:", error);
+      console.error("Erro no upload:", error);
       toast({ 
         variant: "destructive", 
         title: "Falha no Upload", 
-        description: error.message 
+        description: error.message.includes("row-level security") 
+          ? "Erro de permissão (RLS). Verifique as políticas no Supabase." 
+          : error.message 
       });
     } finally {
       setIsSubmitting(false);
+      if (e.target) e.target.value = '';
     }
   };
 
@@ -230,28 +222,34 @@ const LotManager = () => {
                         <Button variant="ghost" size="icon" className="text-blue-500"><ImageIcon size={18} /></Button>
                       </DialogTrigger>
                       <DialogContent className="max-w-3xl rounded-3xl">
-                        <DialogHeader><DialogTitle>Fotos do Veículo: {lot.title}</DialogTitle></DialogHeader>
+                        <DialogHeader><DialogTitle>Fotos: {lot.title}</DialogTitle></DialogHeader>
                         <div className="space-y-6 py-4">
-                          <div className="bg-red-50 p-4 rounded-2xl flex gap-3 border border-red-100">
-                            <AlertCircle className="text-red-600 shrink-0" size={20} />
-                            <div className="text-xs text-red-800 leading-tight">
-                              <p className="font-bold mb-1">Ação Necessária no Supabase:</p>
-                              <p>Se o erro persistir, execute: <strong>alter table lot_photos disable row level security;</strong> no SQL Editor do Supabase.</p>
-                            </div>
-                          </div>
-
                           <div className="flex items-center justify-center w-full">
-                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50">
+                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors border-slate-200">
                               <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                <Plus className="w-8 h-8 text-slate-400 mb-2" />
-                                <p className="text-sm text-slate-500">Clique para subir fotos</p>
+                                {isSubmitting ? (
+                                  <Loader2 className="w-8 h-8 text-orange-500 animate-spin mb-2" />
+                                ) : (
+                                  <Plus className="w-8 h-8 text-slate-400 mb-2" />
+                                )}
+                                <p className="text-sm text-slate-500">
+                                  {isSubmitting ? "Enviando fotos..." : "Clique para selecionar fotos"}
+                                </p>
                               </div>
-                              <input type="file" multiple className="hidden" onChange={handlePhotoUpload} accept="image/*" />
+                              <input 
+                                type="file" 
+                                multiple 
+                                className="hidden" 
+                                onChange={handlePhotoUpload} 
+                                accept="image/*" 
+                                disabled={isSubmitting}
+                              />
                             </label>
                           </div>
+
                           <div className="grid grid-cols-3 gap-4">
                             {lotPhotos.map(photo => (
-                              <div key={photo.id} className="relative group aspect-video rounded-xl overflow-hidden border">
+                              <div key={photo.id} className="relative group aspect-video rounded-xl overflow-hidden border border-slate-100">
                                 <img src={photo.public_url} className="w-full h-full object-cover" />
                                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                                   <Button size="icon" variant="ghost" className="text-white" onClick={() => setAsCover(photo)}>
@@ -261,7 +259,7 @@ const LotManager = () => {
                                     <X />
                                   </Button>
                                 </div>
-                                {photo.is_cover && <Badge className="absolute top-2 left-2 bg-green-500">CAPA</Badge>}
+                                {photo.is_cover && <Badge className="absolute top-2 left-2 bg-green-500 border-none">CAPA</Badge>}
                               </div>
                             ))}
                           </div>

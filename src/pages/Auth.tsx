@@ -143,7 +143,7 @@ const Auth = () => {
             city: data.city,
             state: data.state,
             document_id: data.documentId,
-            kyc_status: null 
+            kyc_status: null
           });
         }
 
@@ -163,6 +163,8 @@ const Auth = () => {
           }
           throw signInError;
         }
+        
+        toast({ title: "Bem-vindo de volta!", description: "Login realizado com sucesso." });
         navigate('/app');
       }
     } catch (error: any) {

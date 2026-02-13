@@ -18,8 +18,8 @@ const CountdownTimer = ({ randomScarcity = false, endsAt }: CountdownTimerProps)
       const now = new Date().getTime();
       initialSeconds = Math.max(0, Math.floor((end - now) / 1000));
     } else if (randomScarcity) {
-      // Gera um tempo aleatório entre 30 min e 4 horas para cada instância
-      initialSeconds = Math.floor(Math.random() * (14400 - 1800) + 1800);
+      // Gera um tempo aleatório entre 5 min (300s) e 15 min (900s) para urgência máxima
+      initialSeconds = Math.floor(Math.random() * (900 - 300) + 300);
     } else {
       initialSeconds = 7200; // 2 horas padrão
     }
@@ -42,13 +42,19 @@ const CountdownTimer = ({ randomScarcity = false, endsAt }: CountdownTimerProps)
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
 
+    const pad = (n: number) => n.toString().padStart(2, '0');
+
     if (h > 0) {
-      return `${h}h ${m}m ${s}s`;
+      return `${h}h ${pad(m)}m ${pad(s)}s`;
     }
-    return `${m}m ${s}s`;
+    return `${pad(m)}m ${pad(s)}s`;
   };
 
-  return <span>{formatTime(secondsLeft)}</span>;
+  return (
+    <span className={secondsLeft < 300 ? "text-red-500 font-bold animate-pulse" : ""}>
+      {formatTime(secondsLeft)}
+    </span>
+  );
 };
 
 export default CountdownTimer;

@@ -1,20 +1,41 @@
+"use client";
+
 import React from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { Gavel, Menu, X, LogIn, Settings } from 'lucide-react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { Gavel, Menu, X, User, LayoutDashboard, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = React.useState(false);
+  const [user, setUser] = React.useState<any>(null);
   const location = useLocation();
+  const navigate = useNavigate();
   
-  // Navegação simplificada para o usuário final
+  React.useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const navigation = [
     { name: 'Início', href: '/' },
     { name: 'Leilões', href: '/auctions' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    navigate('/');
+  };
 
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
@@ -46,12 +67,27 @@ const Navbar = () => {
               </Link>
             ))}
             <div className="flex items-center gap-4 ml-4 border-l pl-8">
-              <Link to="/auth">
-                <Button variant="ghost" className="text-slate-600">Entrar</Button>
-              </Link>
-              <Link to="/auth?mode=signup">
-                <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6">Cadastrar</Button>
-              </Link>
+              {user ? (
+                <div className="flex items-center gap-3">
+                  <Link to="/app">
+                    <Button variant="ghost" className="text-slate-600 gap-2">
+                      <LayoutDashboard size={18} /> Painel
+                    </Button>
+                  </Link>
+                  <Button variant="ghost" size="icon" onClick={handleLogout} className="text-slate-400 hover:text-red-500">
+                    <LogOut size={18} />
+                  </Button>
+                </div>
+              ) : (
+                <>
+                  <Link to="/auth">
+                    <Button variant="ghost" className="text-slate-600">Entrar</Button>
+                  </Link>
+                  <Link to="/auth?mode=signup">
+                    <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6">Cadastrar</Button>
+                  </Link>
+                </>
+              )}
             </div>
           </div>
 
@@ -81,12 +117,20 @@ const Navbar = () => {
             </Link>
           ))}
           <div className="pt-4 flex flex-col gap-2">
-            <Link to="/auth" onClick={() => setIsOpen(false)}>
-              <Button variant="outline" className="w-full">Entrar</Button>
-            </Link>
-            <Link to="/auth?mode=signup" onClick={() => setIsOpen(false)}>
-              <Button className="w-full bg-orange-500 text-white">Cadastrar</Button>
-            </Link>
+            {user ? (
+              <Link to="/app" onClick={() => setIsOpen(false)}>
+                <Button className="w-full bg-slate-900 text-white">Meu Painel</Button>
+              </Link>
+            ) : (
+              <>
+                <Link to="/auth" onClick={() => setIsOpen(false)}>
+                  <Button variant="outline" className="w-full">Entrar</Button>
+                </Link>
+                <Link to="/auth?mode=signup" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full bg-orange-500 text-white">Cadastrar</Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

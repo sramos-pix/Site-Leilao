@@ -46,8 +46,7 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
-      // 2. Buscar lances com dados relacionados
-      // Nota: Se 'profiles' ou 'lots' não estiverem vindo, verifique se as Foreign Keys estão corretas no DB
+      // 2. Buscar lances com a consulta mais simples possível para evitar erros de RLS ou Relacionamento
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -56,34 +55,34 @@ const AdminOverview = () => {
           created_at,
           user_id,
           lot_id,
-          profiles!inner (full_name, email),
-          lots!inner (title)
+          profiles (
+            full_name,
+            email
+          ),
+          lots (
+            title
+          )
         `)
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (bidsError) {
-        console.error("Erro na consulta de lances:", bidsError);
-        // Fallback: tentar buscar sem o !inner caso algum registro esteja órfão
-        const { data: fallbackData } = await supabase
+        console.error("Erro detalhado na consulta de lances:", bidsError);
+        
+        // Tenta buscar apenas os lances se a junção falhar
+        const { data: simpleBids } = await supabase
           .from('bids')
-          .select(`
-            id,
-            amount,
-            created_at,
-            profiles (full_name, email),
-            lots (title)
-          `)
+          .select('*')
           .order('created_at', { ascending: false })
           .limit(10);
-        
-        setRecentBids(fallbackData || []);
+          
+        setRecentBids(simpleBids || []);
       } else {
         setRecentBids(bidsData || []);
       }
 
     } catch (error) {
-      console.error("Erro ao carregar estatísticas:", error);
+      console.error("Erro crítico ao carregar estatísticas:", error);
     } finally {
       setIsLoading(false);
     }
@@ -93,13 +92,11 @@ const AdminOverview = () => {
     fetchStats();
 
     const channel = supabase
-      .channel('admin-dashboard-bids-realtime')
+      .channel('admin-realtime-monitor')
       .on(
         'postgres_changes',
-        { event: 'INSERT', schema: 'public', table: 'bids' },
-        () => {
-          fetchStats();
-        }
+        { event: '*', schema: 'public', table: 'bids' },
+        () => fetchStats()
       )
       .subscribe();
 
@@ -180,13 +177,19 @@ const AdminOverview = () => {
                             <User size={14} />
                           </div>
                           <div className="flex flex-col">
-                            <span className="font-bold text-slate-900">{bid.profiles?.full_name || 'Usuário'}</span>
-                            <span className="text-xs text-slate-500">{bid.profiles?.email || 'Sem e-mail'}</span>
+                            <span className="font-bold text-slate-900">
+                              {bid.profiles?.full_name || 'Usuário'}
+                            </span>
+                            <span className="text-xs text-slate-500">
+                              {bid.profiles?.email || bid.user_id?.substring(0, 8)}
+                            </span>
                           </div>
                         </div>
                       </TableCell>
                       <TableCell>
-                        <span className="font-medium text-slate-700">{bid.lots?.title || `Lote #${bid.lot_id}`}</span>
+                        <span className="font-medium text-slate-700">
+                          {bid.lots?.title || `Lote #${bid.lot_id}`}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>

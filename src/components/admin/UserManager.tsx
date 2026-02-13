@@ -8,9 +8,10 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   User, Mail, Phone, MapPin, 
-  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, AlertTriangle
+  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, Search
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
+import { validateCPF } from '@/lib/validations';
 
 interface UserManagerProps {
   user: any;
@@ -20,8 +21,9 @@ interface UserManagerProps {
 const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isSearchingCep, setIsSearchingCep] = React.useState(false);
 
-  const { register, handleSubmit, formState: { isDirty } } = useForm({
+  const { register, handleSubmit, setValue, watch, formState: { isDirty, errors } } = useForm({
     defaultValues: {
       full_name: user.full_name || '',
       email: user.email || '',
@@ -37,10 +39,39 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
     }
   });
 
+  const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const cep = e.target.value.replace(/\D/g, '');
+    if (cep.length !== 8) return;
+
+    setIsSearchingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+      if (data.erro) {
+        toast({ variant: "destructive", title: "CEP não encontrado" });
+        return;
+      }
+      setValue('address', data.logradouro, { shouldDirty: true });
+      setValue('neighborhood', data.bairro, { shouldDirty: true });
+      setValue('city', data.localidade, { shouldDirty: true });
+      setValue('state', data.uf, { shouldDirty: true });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro ao buscar CEP" });
+    } finally {
+      setIsSearchingCep(false);
+    }
+  };
+
   const onSaveProfile = async (data: any) => {
+    // Validação simples de CPF/CNPJ antes de salvar
+    const doc = data.document_id.replace(/\D/g, '');
+    if (doc.length === 11 && !validateCPF(data.document_id)) {
+      toast({ variant: "destructive", title: "Documento Inválido", description: "O CPF informado não é válido." });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      // Tentativa de atualização
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -60,7 +91,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
 
       if (error) {
         if (error.message.includes('column')) {
-          throw new Error("Erro de Banco de Dados: Algumas colunas de endereço ainda não foram criadas no Supabase. Por favor, execute o script SQL de migração.");
+          throw new Error("Erro de Banco de Dados: Colunas de endereço ausentes. Execute o SQL de migração no Supabase.");
         }
         throw error;
       }
@@ -150,11 +181,11 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
           </div>
           <div className="space-y-2">
             <Label>CPF / CNPJ</Label>
-            <Input {...register('document_id')} className="rounded-xl" />
+            <Input {...register('document_id')} className="rounded-xl" placeholder="000.000.000-00" />
           </div>
           <div className="space-y-2">
             <Label>Telefone</Label>
-            <Input {...register('phone')} className="rounded-xl" />
+            <Input {...register('phone')} className="rounded-xl" placeholder="(00) 00000-0000" />
           </div>
         </div>
       </div>
@@ -167,7 +198,15 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>CEP</Label>
-            <Input {...register('zip_code')} className="rounded-xl" />
+            <div className="relative">
+              <Input 
+                {...register('zip_code')} 
+                className="rounded-xl pr-10" 
+                placeholder="00000-000"
+                onBlur={handleCepBlur}
+              />
+              {isSearchingCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />}
+            </div>
           </div>
           <div className="space-y-2">
             <Label>Rua / Logradouro</Label>

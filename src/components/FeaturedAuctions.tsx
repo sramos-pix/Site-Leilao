@@ -108,7 +108,9 @@ const FeaturedAuctions = () => {
                         </div>
                         <div className="text-right">
                           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Incremento</p>
-                          <p className="text-sm font-bold text-slate-600">+ R$ 2.000</p>
+                          <p className="text-sm font-bold text-slate-600">
+                            + {formatCurrency(item.bid_increment || 500)}
+                          </p>
                         </div>
                       </div>
                     </CardContent>

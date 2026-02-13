@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Gavel, Package, Users, TrendingUp, 
-  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2, CheckCircle
+  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2, CheckCircle, Undo2
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -100,7 +100,6 @@ const AdminOverview = () => {
     setIsProcessing(bid.id);
 
     try {
-      // 1. Atualiza o lote com status finalizado e vencedor
       const { error: lotError } = await supabase
         .from('lots')
         .update({ 
@@ -113,32 +112,50 @@ const AdminOverview = () => {
 
       if (lotError) throw lotError;
 
-      // 2. Envia notificação para o usuário vencedor
-      const { error: notifyError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: bid.user_id,
-          title: '🎉 Parabéns! Você venceu!',
-          message: `Seu lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}" foi contemplado. Entre em contato para finalizar o pagamento.`,
-          type: 'success'
-        });
-
-      if (notifyError) console.warn("Erro ao inserir notificação:", notifyError);
-
-      toast({ 
-        title: "Lance Contemplado!", 
-        description: "O vencedor foi definido e notificado." 
+      await supabase.from('notifications').insert({
+        user_id: bid.user_id,
+        title: '🎉 Parabéns! Você venceu!',
+        message: `Seu lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}" foi contemplado. Entre em contato para finalizar o pagamento.`,
+        type: 'success'
       });
-      
+
+      toast({ title: "Lance Contemplado!", description: "O vencedor foi definido e notificado." });
       await fetchStats(true);
-      
     } catch (error: any) {
-      console.error("Erro na contemplação:", error);
-      toast({ 
-        variant: "destructive", 
-        title: "Erro", 
-        description: "Erro ao processar contemplação no banco de dados." 
+      toast({ variant: "destructive", title: "Erro", description: error.message });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
+  const handleUndoContemplation = async (bid: any) => {
+    if (!confirm(`Deseja ESTORNAR a contemplação do veículo "${bid.lots?.title}"? O veículo voltará a ficar ATIVO para novos lances.`)) return;
+    
+    setIsProcessing(bid.id);
+
+    try {
+      const { error: lotError } = await supabase
+        .from('lots')
+        .update({ 
+          status: 'active',
+          winner_id: null,
+          final_price: null
+        })
+        .eq('id', bid.lot_id);
+
+      if (lotError) throw lotError;
+
+      await supabase.from('notifications').insert({
+        user_id: bid.user_id,
+        title: '⚠️ Contemplação Cancelada',
+        message: `A contemplação do veículo "${bid.lots?.title}" foi cancelada pelo administrador.`,
+        type: 'warning'
       });
+
+      toast({ title: "Contemplação Estornada", description: "O veículo voltou ao status ativo." });
+      await fetchStats(true);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
       setIsProcessing(null);
     }
@@ -262,9 +279,10 @@ const AdminOverview = () => {
                     const userName = bid.profiles?.full_name || 'Usuário';
                     const userEmail = bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
                     const isFinished = bid.lots?.status === 'finished';
+                    const isWinner = bid.lots?.winner_id === bid.user_id;
 
                     return (
-                      <TableRow key={bid.id} className={`group ${isFinished ? 'bg-green-50/30' : ''}`}>
+                      <TableRow key={bid.id} className={`group ${isFinished && isWinner ? 'bg-green-50/30' : ''}`}>
                         <TableCell 
                           className="pl-6 cursor-pointer hover:bg-slate-50 transition-colors"
                           onClick={() => handleUserClick(bid.user_id)}
@@ -287,7 +305,7 @@ const AdminOverview = () => {
                             <span className="font-medium text-slate-700">
                               {bid.lots?.title || `Lote #${bid.lot_id}`}
                             </span>
-                            {isFinished && (
+                            {isFinished && isWinner && (
                               <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider">Contemplado</span>
                             )}
                           </div>
@@ -300,7 +318,18 @@ const AdminOverview = () => {
                         </TableCell>
                         <TableCell className="pr-6 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            {!isFinished && (
+                            {isFinished && isWinner ? (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-orange-400 hover:text-orange-600 hover:bg-orange-50 rounded-full transition-colors"
+                                onClick={() => handleUndoContemplation(bid)}
+                                disabled={isProcessing === bid.id}
+                                title="Estornar Contemplação"
+                              >
+                                {isProcessing === bid.id ? <Loader2 className="animate-spin h-4 w-4" /> : <Undo2 size={18} />}
+                              </Button>
+                            ) : !isFinished && (
                               <Button 
                                 variant="ghost" 
                                 size="icon" 

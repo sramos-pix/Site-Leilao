@@ -5,9 +5,10 @@ import React, { useState, useEffect } from 'react';
 interface CountdownTimerProps {
   randomScarcity?: boolean;
   endsAt?: string | Date;
+  lotId?: string | number;
 }
 
-const CountdownTimer = ({ randomScarcity = false, endsAt }: CountdownTimerProps) => {
+const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTimerProps) => {
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
   useEffect(() => {
@@ -18,14 +19,18 @@ const CountdownTimer = ({ randomScarcity = false, endsAt }: CountdownTimerProps)
       const now = new Date().getTime();
       initialSeconds = Math.max(0, Math.floor((end - now) / 1000));
     } else if (randomScarcity) {
-      // Gera um tempo aleatório entre 5 min (300s) e 15 min (900s) para urgência máxima
-      initialSeconds = Math.floor(Math.random() * (900 - 300) + 300);
+      // Usa o ID do lote para gerar um tempo "aleatório" mas consistente para aquele veículo
+      // Isso garante que o tempo seja o mesmo na listagem e no detalhe
+      const seed = lotId ? (typeof lotId === 'string' ? lotId.length : lotId) : Math.random();
+      const baseTime = 300; // 5 minutos mínimo
+      const variance = (Number(seed) % 10) * 60; // Adiciona até 10 minutos baseados no ID
+      initialSeconds = baseTime + variance;
     } else {
       initialSeconds = 7200; // 2 horas padrão
     }
 
     setSecondsLeft(initialSeconds);
-  }, [randomScarcity, endsAt]);
+  }, [randomScarcity, endsAt, lotId]);
 
   useEffect(() => {
     if (secondsLeft <= 0) return;

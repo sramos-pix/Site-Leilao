@@ -185,7 +185,7 @@ const LotDetail = () => {
             <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden sticky top-24">
               <div className="bg-slate-900 p-8 text-white text-center">
                 <div className="flex items-center justify-center gap-2 text-orange-500 mb-3"><Clock size={20} /><span className="text-xs font-black uppercase">Tempo Restante</span></div>
-                <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} />
+                <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
               </div>
               <CardContent className="p-8 space-y-8">
                 <div className="text-center bg-slate-50 py-6 rounded-3xl border border-slate-100">

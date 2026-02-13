@@ -13,7 +13,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, X, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, AlertTriangle, Star, Calendar } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 
@@ -110,6 +111,8 @@ const LotManager = () => {
       start_bid: parseFloat(formData.get('start_bid') as string),
       description: formData.get('description'),
       ends_at: new Date(formData.get('ends_at') as string).toISOString(),
+      is_featured: formData.get('is_featured') === 'on',
+      is_weekly_highlight: formData.get('is_weekly_highlight') === 'on',
     };
 
     const { error } = editingLot 
@@ -117,15 +120,7 @@ const LotManager = () => {
       : await supabase.from('lots').insert(lotData);
 
     if (error) {
-      if (error.message.includes('description')) {
-        toast({ 
-          variant: "destructive", 
-          title: "Erro de Banco de Dados", 
-          description: "A coluna 'description' não existe na tabela 'lots'. Por favor, adicione-a no painel do Supabase." 
-        });
-      } else {
-        toast({ variant: "destructive", title: "Erro", description: error.message });
-      }
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } else {
       toast({ title: "Sucesso!" });
       setIsDialogOpen(false);
@@ -157,6 +152,28 @@ const LotManager = () => {
               </div>
               <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" defaultValue={editingLot?.lot_number} required /></div>
               <div className="space-y-2"><Label>Título</Label><Input name="title" defaultValue={editingLot?.title} required /></div>
+              
+              <div className="col-span-2 grid grid-cols-2 gap-4 p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                <div className="flex items-center justify-between space-x-2">
+                  <div className="flex flex-col">
+                    <Label className="text-orange-900 font-bold flex items-center gap-2">
+                      <Star size={14} /> Lote em Destaque
+                    </Label>
+                    <span className="text-[10px] text-orange-700">Aparece na Home</span>
+                  </div>
+                  <Switch name="is_featured" defaultChecked={editingLot?.is_featured} />
+                </div>
+                <div className="flex items-center justify-between space-x-2">
+                  <div className="flex flex-col">
+                    <Label className="text-orange-900 font-bold flex items-center gap-2">
+                      <Calendar size={14} /> Destaque da Semana
+                    </Label>
+                    <span className="text-[10px] text-orange-700">Banner principal</span>
+                  </div>
+                  <Switch name="is_weekly_highlight" defaultChecked={editingLot?.is_weekly_highlight} />
+                </div>
+              </div>
+
               <div className="space-y-2"><Label>Marca</Label><Input name="brand" defaultValue={editingLot?.brand} required /></div>
               <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={editingLot?.model} required /></div>
               <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={editingLot?.year} required /></div>
@@ -164,14 +181,10 @@ const LotManager = () => {
               <div className="space-y-2"><Label>Lance Inicial</Label><Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} required /></div>
               <div className="space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} required /></div>
               <div className="col-span-2 space-y-2">
-                <Label className="flex items-center gap-2">
-                  Descrição Detalhada
-                  <AlertTriangle size={14} className="text-orange-500" />
-                  <span className="text-[10px] text-slate-400 font-normal">Requer coluna 'description' no Supabase</span>
-                </Label>
+                <Label>Descrição Detalhada</Label>
                 <Textarea name="description" defaultValue={editingLot?.description} placeholder="Detalhes do veículo..." className="min-h-[100px] rounded-xl" />
               </div>
-              <Button type="submit" className="col-span-2 bg-orange-500 mt-4" disabled={isSubmitting}>
+              <Button type="submit" className="col-span-2 bg-orange-500 mt-4 py-6 rounded-2xl font-bold" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin" /> : editingLot ? 'Salvar Alterações' : 'Cadastrar Veículo'}
               </Button>
             </form>
@@ -185,13 +198,14 @@ const LotManager = () => {
             <TableRow>
               <TableHead>Lote</TableHead>
               <TableHead>Veículo</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Lance Inicial</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
             ) : lots.map((lot) => (
               <TableRow key={lot.id}>
                 <TableCell className="font-mono text-xs">#{lot.lot_number}</TableCell>
@@ -201,6 +215,12 @@ const LotManager = () => {
                       {lot.cover_image_url ? <img src={lot.cover_image_url} className="w-full h-full object-cover" /> : <Car className="w-full h-full p-2 text-slate-300" />}
                     </div>
                     <span className="font-bold">{lot.title}</span>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    {lot.is_featured && <Badge className="bg-orange-100 text-orange-600 border-none text-[10px]">Destaque</Badge>}
+                    {lot.is_weekly_highlight && <Badge className="bg-blue-100 text-blue-600 border-none text-[10px]">Semana</Badge>}
                   </div>
                 </TableCell>
                 <TableCell className="font-bold">{formatCurrency(lot.start_bid)}</TableCell>

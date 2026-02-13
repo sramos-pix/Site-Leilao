@@ -30,7 +30,14 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [allBids, setAllBids] = useState<any[]>([]);
+  const [realBids, setRealBids] = useState<any[]>([]);
+
+  // Lances fictícios para estética
+  const mockBids = useMemo(() => [
+    { id: 'm1', amount: 155000, created_at: new Date(Date.now() - 3600000).toISOString(), profiles: { email: 'carlos***@gmail.com' } },
+    { id: 'm2', amount: 142000, created_at: new Date(Date.now() - 7200000).toISOString(), profiles: { email: 'marcos***@uol.com.br' } },
+    { id: 'm3', amount: 138000, created_at: new Date(Date.now() - 10800000).toISOString(), profiles: { email: 'ana.pa***@outlook.com' } },
+  ], []);
 
   const fetchLotData = async () => {
     try {
@@ -63,21 +70,19 @@ const LotDetail = () => {
       const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
       setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
 
-      // Buscar TODOS os lances reais deste lote
+      // Buscar lances REAIS
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`
           id,
           amount,
           created_at,
-          profiles (
-            email
-          )
+          profiles ( email )
         `)
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
-      setAllBids(bidsData || []);
+      setRealBids(bidsData || []);
 
       if (currentUser) {
         const { data: favData } = await supabase
@@ -96,38 +101,27 @@ const LotDetail = () => {
     }
   };
 
+  // Mescla lances reais com fictícios, ordenando por valor
+  const allBids = useMemo(() => {
+    const combined = [...realBids, ...mockBids];
+    return combined.sort((a, b) => b.amount - a.amount);
+  }, [realBids, mockBids]);
+
   useEffect(() => {
     fetchLotData();
-
-    // Realtime para atualizar lances se outro usuário der lance ou admin apagar
     const channel = supabase
       .channel(`lot-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => fetchLotData())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => fetchLotData())
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [id]);
-
-  const toggleFavorite = async () => {
-    if (!user) return;
-    try {
-      if (isFavorite) {
-        await supabase.from('favorites').delete().eq('user_id', user.id).eq('lot_id', id);
-        setIsFavorite(false);
-      } else {
-        await supabase.from('favorites').insert({ user_id: user.id, lot_id: id });
-        setIsFavorite(true);
-      }
-    } catch (error) {}
-  };
 
   const handleBid = async () => {
     if (!lot || !user) {
       toast({ title: "Acesso restrito", description: "Faça login para dar lances.", variant: "destructive" });
       return;
     }
-    
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
@@ -173,10 +167,6 @@ const LotDetail = () => {
                   <Badge className="mb-3 bg-orange-100 text-orange-600 border-none px-4 py-1 rounded-full font-bold">LOTE #{lot.lot_number}</Badge>
                   <h1 className="text-3xl font-black text-slate-900">{lot.title}</h1>
                 </div>
-                <div className="flex gap-2">
-                  <Button variant="outline" size="icon" onClick={toggleFavorite} className={`rounded-full w-12 h-12 ${isFavorite ? 'text-red-500 bg-red-50' : ''}`}><Heart size={20} fill={isFavorite ? "currentColor" : "none"} /></Button>
-                  <Button variant="outline" size="icon" className="rounded-full w-12 h-12"><Share2 size={20} /></Button>
-                </div>
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-8 border-y border-slate-100">
@@ -199,7 +189,7 @@ const LotDetail = () => {
               </div>
 
               <div className="space-y-4">
-                {allBids.length > 0 ? allBids.map((bid, index) => (
+                {allBids.map((bid, index) => (
                   <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
@@ -213,9 +203,7 @@ const LotDetail = () => {
                       {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
                     </div>
                   </div>
-                )) : (
-                  <div className="text-center py-10 text-slate-400">Nenhum lance realizado ainda.</div>
-                )}
+                ))}
               </div>
             </div>
           </div>

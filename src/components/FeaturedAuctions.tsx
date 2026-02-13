@@ -116,7 +116,7 @@ const FeaturedAuctions = () => {
               featuredLots.map((item) => (
                 <div key={item.id} className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_50%] lg:flex-[0_0_33.33%] px-2">
                   <Card className="group border-none shadow-md hover:shadow-xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white">
-                    <div className="relative aspect-[4/3] overflow-hidden">
+                    <Link to={`/lots/${item.id}`} className="block relative aspect-[4/3] overflow-hidden">
                       {item.cover_image_url ? (
                         <img 
                           src={item.cover_image_url} 
@@ -140,7 +140,10 @@ const FeaturedAuctions = () => {
                       <Button 
                         variant="secondary" 
                         size="icon" 
-                        onClick={() => toggleFavorite(item.id)}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          toggleFavorite(item.id);
+                        }}
                         className={cn(
                           "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300",
                           userFavorites.includes(item.id) 
@@ -150,12 +153,14 @@ const FeaturedAuctions = () => {
                       >
                         <Heart size={18} fill={userFavorites.includes(item.id) ? "currentColor" : "none"} />
                       </Button>
-                    </div>
+                    </Link>
 
                     <CardContent className="p-8">
-                      <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">
-                        {item.title}
-                      </h3>
+                      <Link to={`/lots/${item.id}`}>
+                        <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">
+                          {item.title}
+                        </h3>
+                      </Link>
                       <div className="flex justify-between items-center">
                         <div>
                           <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Lance Atual</p>

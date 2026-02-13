@@ -54,7 +54,7 @@ const FeaturedLots = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {FEATURED_LOTS.map((lot) => (
             <Card key={lot.id} className="group border-none shadow-lg hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-slate-50">
-              <div className="relative aspect-[4/3] overflow-hidden">
+              <Link to={`/lots/${lot.id}`} className="block relative aspect-[4/3] overflow-hidden">
                 <img 
                   src={lot.image} 
                   alt={lot.title} 
@@ -72,16 +72,22 @@ const FeaturedLots = () => {
                 <Button 
                   variant="secondary" 
                   size="icon" 
+                  asChild
                   className="absolute top-4 right-4 rounded-full bg-white/90 backdrop-blur-md border-none shadow-sm hover:bg-orange-500 hover:text-white transition-colors"
+                  onClick={(e) => e.preventDefault()}
                 >
-                  <Heart size={18} />
+                  <div className="flex items-center justify-center">
+                    <Heart size={18} />
+                  </div>
                 </Button>
-              </div>
+              </Link>
 
               <CardContent className="p-8">
-                <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">
-                  {lot.title}
-                </h3>
+                <Link to={`/lots/${lot.id}`}>
+                  <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">
+                    {lot.title}
+                  </h3>
+                </Link>
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Lance Atual</p>

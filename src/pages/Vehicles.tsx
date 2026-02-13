@@ -119,7 +119,7 @@ const Vehicles = () => {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {filteredLots.map((lot) => (
                 <Card key={lot.id} className="group border-none shadow-lg hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white">
-                  <div className="relative aspect-[4/3] overflow-hidden">
+                  <Link to={`/lots/${lot.id}`} className="block relative aspect-[4/3] overflow-hidden">
                     <img 
                       src={lot.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
                       alt={lot.title} 
@@ -135,7 +135,10 @@ const Vehicles = () => {
                     <Button 
                       variant="secondary" 
                       size="icon" 
-                      onClick={() => toggleFavorite(lot.id)}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        toggleFavorite(lot.id);
+                      }}
                       className={`absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300 ${
                         favorites.includes(lot.id) 
                           ? 'bg-orange-500 text-white scale-110' 
@@ -144,9 +147,11 @@ const Vehicles = () => {
                     >
                       <Heart size={18} fill={favorites.includes(lot.id) ? "currentColor" : "none"} />
                     </Button>
-                  </div>
+                  </Link>
                   <CardContent className="p-8">
-                    <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">{lot.title}</h3>
+                    <Link to={`/lots/${lot.id}`}>
+                      <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">{lot.title}</h3>
+                    </Link>
                     <div className="flex justify-between items-center">
                       <div>
                         <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Lance Atual</p>

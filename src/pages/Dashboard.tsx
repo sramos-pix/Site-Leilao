@@ -46,9 +46,10 @@ const Dashboard = () => {
       
       setProfile(profileData);
 
+      // Buscando lances com informações do lote e suas imagens
       const { data: bidsData } = await supabase
         .from('bids')
-        .select('*, lots(*)')
+        .select('*, lots(*, lot_images(*))')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -192,39 +193,44 @@ const Dashboard = () => {
             </div>
             
             <div className="space-y-4">
-              {activeBids.length > 0 ? activeBids.map((bid) => (
-                <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
-                  <CardContent className="p-0">
-                    <div className="flex flex-col sm:flex-row">
-                      <div className="w-full sm:w-48 h-32 bg-slate-200">
-                        <img 
-                          src={bid.lots?.image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
-                          className="w-full h-full object-cover"
-                          alt="Veículo"
-                        />
-                      </div>
-                      <div className="flex-1 p-6 flex flex-col justify-between">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-bold text-slate-900">{bid.lots?.title}</h3>
-                            <p className="text-xs text-slate-500">Lote {bid.lot_id}</p>
-                          </div>
-                          <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
+              {activeBids.length > 0 ? activeBids.map((bid) => {
+                // Pega a primeira imagem da galeria ou usa o fallback
+                const coverImage = bid.lots?.lot_images?.[0]?.image_url || bid.lots?.image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400";
+                
+                return (
+                  <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
+                    <CardContent className="p-0">
+                      <div className="flex flex-col sm:flex-row">
+                        <div className="w-full sm:w-48 h-32 bg-slate-200">
+                          <img 
+                            src={coverImage} 
+                            className="w-full h-full object-cover"
+                            alt={bid.lots?.title || "Veículo"}
+                          />
                         </div>
-                        <div className="flex justify-between items-end mt-4">
-                          <div>
-                            <p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p>
-                            <p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p>
+                        <div className="flex-1 p-6 flex flex-col justify-between">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h3 className="font-bold text-slate-900">{bid.lots?.title}</h3>
+                              <p className="text-xs text-slate-500">Lote {bid.lot_id}</p>
+                            </div>
+                            <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
                           </div>
-                          <Link to={`/lots/${bid.lot_id}`}>
-                            <Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button>
-                          </Link>
+                          <div className="flex justify-between items-end mt-4">
+                            <div>
+                              <p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p>
+                              <p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p>
+                            </div>
+                            <Link to={`/lots/${bid.lot_id}`}>
+                              <Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button>
+                            </Link>
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )) : (
+                    </CardContent>
+                  </Card>
+                );
+              }) : (
                 <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-slate-100">
                   <Gavel className="mx-auto text-slate-300 mb-4" size={48} />
                   <p className="text-slate-500">Você ainda não deu nenhum lance.</p>

@@ -10,6 +10,9 @@ import AuctionDetail from './pages/AuctionDetail';
 import Auth from './pages/Auth';
 import Dashboard from './pages/Dashboard';
 import Verify from './pages/Verify';
+import Vehicles from './pages/Vehicles';
+import HowItWorks from './pages/HowItWorks';
+import Contact from './pages/Contact';
 import AppLayout from './components/layout/AppLayout';
 import ScrollToTop from './components/ScrollToTop';
 import { Toaster } from "@/components/ui/toaster";
@@ -24,6 +27,9 @@ function App() {
         <Route path="/auctions" element={<Auctions />} />
         <Route path="/auctions/:id" element={<AuctionDetail />} />
         <Route path="/lots/:id" element={<LotDetail />} />
+        <Route path="/vehicles" element={<Vehicles />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/contact" element={<Contact />} />
         <Route path="/auth" element={<Auth />} />
 
         {/* Rotas do Painel do Usuário (Protegidas por Layout) */}

@@ -28,15 +28,12 @@ const FeaturedAuctions = () => {
 
         if (error) {
           console.error("Erro ao buscar destaques:", error);
-          // Em caso de erro, define um array vazio para evitar quebras
           setFeaturedLots([]);
         } else {
-          // Garante que data é um array antes de definir o estado
           setFeaturedLots(data || []);
         }
       } catch (error) {
         console.error("Erro inesperado ao buscar destaques:", error);
-        // Em caso de erro inesperado, define um array vazio
         setFeaturedLots([]);
       }
     };
@@ -64,13 +61,11 @@ const FeaturedAuctions = () => {
 
         <div className="overflow-hidden" ref={emblaRef}>
           <div className="flex gap-6">
-            {/* Garante que featuredLots é um array antes de mapear */}
             {Array.isArray(featuredLots) && featuredLots.length > 0 ? (
               featuredLots.map((item) => (
                 <div key={item.id} className="flex-[0_0_100%] min-w-0 sm:flex-[0_0_50%] lg:flex-[0_0_33.33%]">
-                  <Card className="group border-none shadow-md hover:shadow-xl transition-all duration-300 rounded-3xl overflow-hidden bg-white">
+                  <Card className="group border-2 border-orange-500 shadow-lg hover:shadow-xl transition-all duration-300 rounded-3xl overflow-hidden bg-white">
                     <div className="relative aspect-[16/10] overflow-hidden">
-                      {/* Adiciona verificação para a URL da imagem */}
                       {item.cover_image_url ? (
                         <img 
                           src={item.cover_image_url} 
@@ -79,7 +74,6 @@ const FeaturedAuctions = () => {
                         />
                       ) : (
                         <div className="w-full h-full bg-gray-200 flex items-center justify-center">
-                          {/* Ícone ou texto indicando que a imagem não está disponível */}
                           <span>Sem Imagem</span>
                         </div>
                       )}
@@ -109,7 +103,7 @@ const FeaturedAuctions = () => {
                 </div>
               ))
             ) : (
-              <div className="text-center py-10 text-slate-400 italic">
+              <div className="text-center py-10 text-slate-400 italic w-full">
                 Nenhum destaque da semana encontrado.
               </div>
             )}

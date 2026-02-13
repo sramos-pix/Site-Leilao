@@ -115,8 +115,8 @@ const LotDetail = () => {
   const allBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Lances Reais
-    const bids = realBids.map(b => ({
+    // 1. Processar Lances Reais
+    const processedRealBids = realBids.map(b => ({
       id: b.id,
       amount: b.amount,
       created_at: b.created_at,
@@ -125,37 +125,43 @@ const LotDetail = () => {
       display_name: b.user_id === user?.id ? "Você" : "Licitante"
     }));
 
-    // 2. Lances Fictícios com E-mails Mascarados
+    // 2. Gerar Lances Fictícios Determinísticos
     const fakeEmails = [
       "ca***@gmail.com", "an***@hotmail.com", "ro***@outlook.com", 
-      "ju***@yahoo.com", "ma***@gmail.com", "fe***@uol.com.br"
+      "ju***@yahoo.com", "ma***@gmail.com", "fe***@uol.com.br",
+      "ti***@terra.com.br", "lu***@ig.com.br", "bi***@globo.com"
     ];
     
-    const seed = (id || "1").length;
+    // Semente baseada no ID do lote para consistência
+    const seed = id ? id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) : 0;
     const fakes = [];
-    const baseValue = lot.start_bid;
-    const currentMax = bids.length > 0 ? bids[0].amount : lot.current_bid || lot.start_bid;
+    
+    // Valor base para os fakes (sempre abaixo do lance atual mais alto)
+    const currentMax = processedRealBids.length > 0 ? processedRealBids[0].amount : (lot.current_bid || lot.start_bid);
+    const startValue = lot.start_bid;
+    const increment = lot.bid_increment || 1000;
 
-    // Geramos lances fictícios que fazem sentido com o valor do lote
-    for (let i = 1; i <= 5; i++) {
-      const fakeAmount = baseValue + (i * 1200);
+    // Gerar até 8 lances fictícios
+    for (let i = 0; i < 8; i++) {
+      const fakeAmount = startValue + (i * increment * 0.7); // Incrementos menores para os fakes
       
-      // Só mostra o fictício se ele for menor que o lance atual (para não "vencer" o leilão sozinho)
-      if (fakeAmount < currentMax) {
+      // Só adicionamos se for menor que o máximo atual e maior que zero
+      if (fakeAmount < currentMax && fakeAmount >= startValue) {
         fakes.push({
-          id: `fake-${i}`,
+          id: `fake-${i}-${id}`,
           amount: fakeAmount,
-          created_at: new Date(Date.now() - (i * 3600000 * 2)).toISOString(),
+          // Datas retroativas baseadas no índice
+          created_at: new Date(Date.now() - (i + 1) * 7200000).toISOString(),
           is_fake: true,
           display_name: fakeEmails[(seed + i) % fakeEmails.length]
         });
       }
     }
 
-    // 3. Se não houver nenhum lance (nem real nem fictício), garante pelo menos um fictício inicial
-    if (bids.length === 0 && fakes.length === 0) {
+    // 3. Garantir que se não houver lances reais, o valor inicial apareça como um lance fictício
+    if (processedRealBids.length === 0 && fakes.length === 0) {
       fakes.push({
-        id: 'fake-initial',
+        id: `fake-initial-${id}`,
         amount: lot.start_bid,
         created_at: new Date(Date.now() - 86400000).toISOString(),
         is_fake: true,
@@ -163,7 +169,8 @@ const LotDetail = () => {
       });
     }
 
-    return [...bids, ...fakes].sort((a, b) => b.amount - a.amount);
+    // Unir e ordenar
+    return [...processedRealBids, ...fakes].sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id, user]);
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-12 h-12 text-orange-500 animate-spin" /></div>;

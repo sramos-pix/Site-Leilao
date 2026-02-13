@@ -19,6 +19,7 @@ import { validateCPF } from '@/lib/validations';
 const authSchema = z.object({
   email: z.string().email('E-mail inválido'),
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres').optional().or(z.literal('')),
+  confirmPassword: z.string().optional().or(z.literal('')),
   fullName: z.string().min(3, 'Nome muito curto').optional(),
   phone: z.string().min(10, 'Telefone inválido').optional(),
   cep: z.string().min(8, 'CEP inválido').optional(),
@@ -33,6 +34,14 @@ const authSchema = z.object({
   }, {
     message: "CPF inválido ou inexistente",
   }).optional(),
+}).refine((data) => {
+  if (data.password && data.confirmPassword !== undefined) {
+    return data.password === data.confirmPassword;
+  }
+  return true;
+}, {
+  message: "As senhas não coincidem",
+  path: ["confirmPassword"],
 });
 
 type AuthFormValues = z.infer<typeof authSchema>;
@@ -229,7 +238,15 @@ const Auth = () => {
                   <div className="space-y-2">
                     <Label>Senha</Label>
                     <Input type="password" {...register('password')} placeholder="••••••••" />
+                    {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
                   </div>
+                  {mode === 'signup' && (
+                    <div className="space-y-2">
+                      <Label>Confirmar Senha</Label>
+                      <Input type="password" {...register('confirmPassword')} placeholder="••••••••" />
+                      {errors.confirmPassword && <p className="text-xs text-red-500">{errors.confirmPassword.message}</p>}
+                    </div>
+                  )}
                   {mode === 'signup' && (
                     <div className="space-y-2">
                       <Label>CPF</Label>

@@ -47,18 +47,13 @@ const Navbar = () => {
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2">
               <img 
-                src="/logo.png" 
+                src="https://i.ibb.co/rf1Bk2N9/leilao-seguro.png" 
                 alt="AutoBid Logo" 
-                className="h-8 w-auto object-contain"
+                className="h-10 w-auto object-contain"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';
-                  const fallback = e.currentTarget.nextElementSibling as HTMLElement;
-                  if (fallback) fallback.style.display = 'flex';
                 }}
               />
-              <div className="hidden bg-orange-500 p-1.5 rounded-lg">
-                <Gavel className="h-5 w-5 text-white" />
-              </div>
               <span className="text-xl font-bold tracking-tight text-slate-900">
                 AUTO<span className="text-orange-500">BID</span>
               </span>

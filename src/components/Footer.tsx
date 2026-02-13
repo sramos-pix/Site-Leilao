@@ -11,13 +11,11 @@ const Footer = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="col-span-1 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-6">
-              {/* Assim que você mandar o link, eu coloco no src abaixo */}
               <img 
-                src="/logo.png" 
+                src="https://i.ibb.co/rf1Bk2N9/leilao-seguro.png" 
                 alt="AutoBid Logo" 
                 className="h-12 w-auto object-contain"
                 onError={(e) => {
-                  // Fallback: se a imagem não carregar, mostra o texto estilizado
                   e.currentTarget.style.display = 'none';
                 }}
               />

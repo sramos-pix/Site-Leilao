@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
-  Trophy, Loader2, ExternalLink, Gavel
+  Loader2, Gavel
 } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useNavigate, Link } from 'react-router-dom';
@@ -68,7 +68,7 @@ const History = () => {
                     <h3 className="font-bold text-slate-900">{lot.title}</h3>
                     <p className="text-xs text-slate-500">Lote {lot.id}</p>
                   </div>
-                  <Badge className="bg-orange-100 text-orange-600 border-none">
+                  <Badge className="bg-green-100 text-green-600 border-none">
                     Arrematado
                   </Badge>
                 </div>

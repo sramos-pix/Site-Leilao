@@ -101,12 +101,13 @@ const AdminOverview = () => {
 
     try {
       // 1. Atualiza o lote para finalizado e define o vencedor
+      // Removida a coluna final_price que não existe no banco
       const { error: lotError } = await supabase
         .from('lots')
         .update({ 
           status: 'finished',
           winner_id: bid.user_id,
-          final_price: bid.amount
+          current_bid: bid.amount // Usamos current_bid como o valor final
         })
         .eq('id', bid.lot_id);
 
@@ -115,7 +116,7 @@ const AdminOverview = () => {
         throw new Error(`Falha ao atualizar status do lote: ${lotError.message}`);
       }
 
-      // 2. Tenta criar uma notificação (não trava o processo se falhar)
+      // 2. Tenta criar uma notificação (opcional)
       try {
         await supabase
           .from('notifications')
@@ -127,7 +128,7 @@ const AdminOverview = () => {
             read: false
           });
       } catch (e) {
-        console.warn("Aviso: Tabela de notificações não encontrada ou erro ao inserir. O leilão foi finalizado mesmo assim.");
+        console.warn("Aviso: Notificação não enviada (tabela pode não existir).");
       }
 
       toast({ 

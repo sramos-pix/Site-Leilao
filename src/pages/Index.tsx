@@ -1,8 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Zap, Trophy, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
+import FeaturedAuctions from '@/components/FeaturedAuctions';
 
 const Index = () => {
   return (
@@ -43,6 +44,9 @@ const Index = () => {
         </div>
         <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-1/2 h-full bg-orange-500/5 rounded-full blur-3xl" />
       </section>
+
+      {/* Featured Auctions Carousel */}
+      <FeaturedAuctions />
 
       {/* Features Section */}
       <section className="py-20 bg-white">

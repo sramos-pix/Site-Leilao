@@ -5,19 +5,11 @@ import { Link } from 'react-router-dom';
 import { 
   Gavel, Wallet, Heart, 
   Trophy, User, Bell, ChevronRight,
-  AlertCircle, ShieldCheck, Loader2, CheckCircle2, XCircle
+  AlertCircle, ShieldCheck, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
-} from '@/components/ui/dropdown-menu';
 import {
   Tooltip,
   TooltipContent,
@@ -46,7 +38,8 @@ const Dashboard = () => {
       
       setProfile(profileData);
 
-      // Busca lances do usuário com dados do lote e fotos
+      // Busca lances do usuário com dados do lote
+      // Nota: Buscamos os lances que ainda existem no banco
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -57,17 +50,14 @@ const Dashboard = () => {
           lots (
             id,
             title,
-            cover_image_url,
-            lot_photos (
-              public_url
-            )
+            cover_image_url
           )
         `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (bidsError) throw bidsError;
-      if (bidsData) setActiveBids(bidsData);
+      setActiveBids(bidsData || []);
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
     } finally {
@@ -78,9 +68,10 @@ const Dashboard = () => {
   React.useEffect(() => {
     fetchDashboardData();
 
-    // Escuta mudanças em tempo real na tabela de lances para este usuário
+    // Escuta mudanças em tempo real na tabela de lances
+    // Isso garante que se o admin apagar, o lance some daqui na hora
     const channel = supabase
-      .channel('user-bids-changes')
+      .channel('dashboard-realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'bids' },
@@ -165,49 +156,39 @@ const Dashboard = () => {
             <h2 className="text-xl font-bold text-slate-900">Seus Lances Recentes</h2>
             
             <div className="space-y-4">
-              {activeBids.length > 0 ? activeBids.map((bid) => {
-                // Lógica robusta para encontrar a imagem: 
-                // 1. Foto marcada como capa na galeria
-                // 2. Campo cover_image_url do lote
-                // 3. Primeira foto da galeria
-                // 4. Fallback
-                const lotPhotos = bid.lots?.lot_photos || [];
-                const coverImage = bid.lots?.cover_image_url || (lotPhotos.length > 0 ? lotPhotos[0].public_url : "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400");
-                
-                return (
-                  <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
-                    <CardContent className="p-0">
-                      <div className="flex flex-col sm:flex-row">
-                        <div className="w-full sm:w-48 h-32 bg-slate-200">
-                          <img 
-                            src={coverImage} 
-                            className="w-full h-full object-cover"
-                            alt={bid.lots?.title || "Veículo"}
-                          />
+              {activeBids.length > 0 ? activeBids.map((bid) => (
+                <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
+                  <CardContent className="p-0">
+                    <div className="flex flex-col sm:flex-row">
+                      <div className="w-full sm:w-48 h-32 bg-slate-200">
+                        <img 
+                          src={bid.lots?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
+                          className="w-full h-full object-cover"
+                          alt={bid.lots?.title}
+                        />
+                      </div>
+                      <div className="flex-1 p-6 flex flex-col justify-between">
+                        <div className="flex justify-between items-start">
+                          <div>
+                            <h3 className="font-bold text-slate-900">{bid.lots?.title}</h3>
+                            <p className="text-xs text-slate-500">Lote {bid.lot_id}</p>
+                          </div>
+                          <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
                         </div>
-                        <div className="flex-1 p-6 flex flex-col justify-between">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="font-bold text-slate-900">{bid.lots?.title}</h3>
-                              <p className="text-xs text-slate-500">Lote {bid.lot_id}</p>
-                            </div>
-                            <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
+                        <div className="flex justify-between items-end mt-4">
+                          <div>
+                            <p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p>
+                            <p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p>
                           </div>
-                          <div className="flex justify-between items-end mt-4">
-                            <div>
-                              <p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p>
-                              <p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p>
-                            </div>
-                            <Link to={`/lots/${bid.lot_id}`}>
-                              <Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button>
-                            </Link>
-                          </div>
+                          <Link to={`/lots/${bid.lot_id}`}>
+                            <Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button>
+                          </Link>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                );
-              }) : (
+                    </div>
+                  </CardContent>
+                </Card>
+              )) : (
                 <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-slate-100">
                   <Gavel className="mx-auto text-slate-300 mb-4" size={48} />
                   <p className="text-slate-500">Você ainda não deu nenhum lance.</p>

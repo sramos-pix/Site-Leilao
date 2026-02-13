@@ -23,6 +23,8 @@ const authSchema = z.object({
   phone: z.string().min(10, 'Telefone inválido').optional(),
   cep: z.string().min(8, 'CEP inválido').optional(),
   address: z.string().min(5, 'Endereço obrigatório').optional(),
+  number: z.string().min(1, 'Número obrigatório').optional(),
+  complement: z.string().optional(),
   city: z.string().min(2, 'Cidade obrigatória').optional(),
   state: z.string().length(2, 'UF (2 letras)').optional(),
   documentId: z.string().refine((val) => {
@@ -60,7 +62,7 @@ const Auth = () => {
         toast({ variant: "destructive", title: "CEP não encontrado" });
         return;
       }
-      setValue('address', `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ''}`);
+      setValue('address', data.logradouro);
       setValue('city', data.localidade);
       setValue('state', data.uf);
     } catch (error) {
@@ -96,6 +98,8 @@ const Auth = () => {
             email: data.email,
             phone: data.phone,
             address: data.address,
+            number: data.number,
+            complement: data.complement,
             city: data.city,
             state: data.state,
             document_id: data.documentId,
@@ -202,8 +206,18 @@ const Auth = () => {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label>Endereço Completo</Label>
-                      <Input {...register('address')} placeholder="Rua, número, bairro" />
+                      <Label>Rua / Logradouro</Label>
+                      <Input {...register('address')} placeholder="Ex: Av. Paulista" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-2">
+                        <Label>Número</Label>
+                        <Input {...register('number')} placeholder="123" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Complemento</Label>
+                        <Input {...register('complement')} placeholder="Apto 10" />
+                      </div>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <div className="space-y-2">

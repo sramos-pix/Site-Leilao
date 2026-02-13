@@ -18,6 +18,12 @@ import {
   DropdownMenuSeparator, 
   DropdownMenuTrigger 
 } from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
@@ -81,12 +87,28 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold text-slate-900">Olá, {profile?.full_name || 'Usuário'}</h1>
-              {profile?.kyc_status === 'verified' && (
-                <ShieldCheck className="text-green-500" size={24} />
-              )}
-              {profile?.kyc_status === 'rejected' && (
-                <XCircle className="text-red-500" size={24} />
-              )}
+              <TooltipProvider>
+                {profile?.kyc_status === 'verified' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <ShieldCheck className="text-green-500 cursor-help" size={24} />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-slate-900 text-white border-none rounded-lg">
+                      <p>Perfil Aprovado!</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+                {profile?.kyc_status === 'rejected' && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <XCircle className="text-red-500 cursor-help" size={24} />
+                    </TooltipTrigger>
+                    <TooltipContent className="bg-red-600 text-white border-none rounded-lg">
+                      <p>Documento Rejeitado</p>
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </TooltipProvider>
             </div>
             <p className="text-slate-500">Bem-vindo ao seu painel de controle.</p>
           </div>

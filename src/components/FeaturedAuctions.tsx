@@ -47,9 +47,9 @@ const FeaturedAuctions = () => {
         <div className="flex items-end justify-between mb-12">
           <div>
             <Badge className="bg-orange-100 text-orange-600 hover:bg-orange-100 border-none mb-4 px-4 py-1 rounded-full font-bold">
-              DESTAQUES DA SEMANA
+              OPORTUNIDADES
             </Badge>
-            <h2 className="text-4xl font-black text-slate-900">Oportunidades Imperdíveis</h2>
+            <h2 className="text-4xl font-black text-slate-900">Destaques da Semana</h2>
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="icon" onClick={scrollPrev} className="rounded-full bg-white border-none shadow-sm hover:bg-orange-50">

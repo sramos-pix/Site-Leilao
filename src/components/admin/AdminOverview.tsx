@@ -68,32 +68,24 @@ const AdminOverview = () => {
           )
         `)
         .order('created_at', { ascending: false })
-        .limit(10);
+        .limit(15);
 
-      if (bidsError) {
-        const { data: fallbackData } = await supabase
-          .from('bids')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10);
-        setRecentBids(fallbackData || []);
-      } else {
+      if (!bidsError) {
         setRecentBids(bidsData || []);
       }
-
     } catch (error) {
-      console.error("Erro crítico ao carregar estatísticas:", error);
+      console.error("Erro ao carregar estatísticas:", error);
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
-    if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}? Esta ação é irreversível.`)) return;
+    if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}?`)) return;
     
     setIsDeleting(bidId);
     try {
-      // 1. Deletar o lance
+      // 1. Deletar o lance do banco
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
@@ -101,23 +93,28 @@ const AdminOverview = () => {
 
       if (deleteError) throw deleteError;
 
-      // 2. Buscar o novo lance mais alto para este lote
+      // 2. Remover IMEDIATAMENTE do estado local para sumir da tela
+      setRecentBids(prev => prev.filter(b => b.id !== bidId));
+
+      // 3. Buscar o novo lance mais alto para este lote
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
         .eq('lot_id', lotId)
         .order('amount', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
-      // 3. Atualizar o current_bid do lote para o próximo valor mais alto (ou 0 se não houver mais lances)
+      // 4. Atualizar o current_bid do lote
       const newCurrentBid = nextHighestBid?.amount || 0;
       await supabase
         .from('lots')
         .update({ current_bid: newCurrentBid })
         .eq('id', lotId);
 
-      toast({ title: "Lance excluído", description: "O histórico e o valor atual do lote foram atualizados." });
+      toast({ title: "Lance removido com sucesso" });
+      
+      // 5. Recarregar estatísticas globais (contadores)
       fetchStats();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
@@ -128,19 +125,14 @@ const AdminOverview = () => {
 
   useEffect(() => {
     fetchStats();
-
+    
+    // Canal de tempo real para manter o painel atualizado
     const channel = supabase
-      .channel('admin-realtime-monitor')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bids' },
-        () => fetchStats()
-      )
+      .channel('admin-realtime')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bids' }, () => fetchStats())
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleUserClick = (userId: string) => {

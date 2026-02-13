@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatCurrency, maskEmail } from '@/lib/utils';
+import { formatCurrency, maskEmail, formatDate } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -30,208 +30,136 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [user, setUser] = useState<any>(null);
-  const [userBids, setUserBids] = useState<any[]>([]);
+  const [allBids, setAllBids] = useState<any[]>([]);
 
-  // Gera histórico de lances dinâmico mesclando lances reais do usuário com fictícios
-  const dynamicBids = useMemo(() => {
-    if (!lot) return [];
-    const current = lot.current_bid || lot.start_bid;
-    
-    // Lances fictícios base
-    const baseBids = [
-      { id: 'm1', email: 'ana.oliveira@uol.com.br', amount: current * 0.98, time: 'há 15 minutos' },
-      { id: 'm2', email: 'marcos.v@hotmail.com', amount: current * 0.95, time: 'há 1 hora' },
-      { id: 'm3', email: 'fernanda.lima@outlook.com', amount: current * 0.92, time: 'há 3 horas' },
-    ];
+  const fetchLotData = async () => {
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      setUser(currentUser);
 
-    // Se o usuário deu um lance, ele vai para o topo
-    const allBids = [...userBids, ...baseBids];
-    return allBids.sort((a, b) => b.amount - a.amount).slice(0, 5);
-  }, [lot, userBids]);
+      const { data: lotData, error: lotError } = await supabase
+        .from('lots')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+      if (lotError) throw lotError;
+
+      const { data: photosData } = await supabase
+        .from('lot_photos')
+        .select('*')
+        .eq('lot_id', id)
+        .order('is_cover', { ascending: false });
+
+      setLot(lotData);
+      setPhotos(photosData || []);
+      
+      if (photosData && photosData.length > 0) {
+        setActivePhoto(photosData[0].public_url);
+      } else if (lotData.cover_image_url) {
+        setActivePhoto(lotData.cover_image_url);
+      }
+
+      const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
+      setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
+
+      // Buscar TODOS os lances reais deste lote
+      const { data: bidsData } = await supabase
+        .from('bids')
+        .select(`
+          id,
+          amount,
+          created_at,
+          profiles (
+            email
+          )
+        `)
+        .eq('lot_id', id)
+        .order('amount', { ascending: false });
+      
+      setAllBids(bidsData || []);
+
+      if (currentUser) {
+        const { data: favData } = await supabase
+          .from('favorites')
+          .select('id')
+          .eq('user_id', currentUser.id)
+          .eq('lot_id', id)
+          .single();
+        setIsFavorite(!!favData);
+      }
+
+    } catch (error: any) {
+      console.error("Erro ao carregar lote:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchLotData = async () => {
-      setIsLoading(true);
-      try {
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        setUser(currentUser);
-
-        const { data: lotData, error: lotError } = await supabase
-          .from('lots')
-          .select('*')
-          .eq('id', id)
-          .single();
-
-        if (lotError) throw lotError;
-
-        const { data: photosData } = await supabase
-          .from('lot_photos')
-          .select('*')
-          .eq('lot_id', id)
-          .order('is_cover', { ascending: false });
-
-        setLot(lotData);
-        setPhotos(photosData || []);
-        
-        if (photosData && photosData.length > 0) {
-          setActivePhoto(photosData[0].public_url);
-        } else if (lotData.cover_image_url) {
-          setActivePhoto(lotData.cover_image_url);
-        }
-
-        const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
-        setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
-
-        if (currentUser) {
-          // Carregar se é favorito
-          const { data: favData } = await supabase
-            .from('favorites')
-            .select('id')
-            .eq('user_id', currentUser.id)
-            .eq('lot_id', id)
-            .single();
-          setIsFavorite(!!favData);
-
-          // Carregar lances reais do usuário para este lote
-          const { data: bidsData } = await supabase
-            .from('bids')
-            .select('*')
-            .eq('lot_id', id)
-            .eq('user_id', currentUser.id)
-            .order('amount', { ascending: false });
-          
-          if (bidsData) {
-            setUserBids(bidsData.map(b => ({
-              id: b.id,
-              email: currentUser.email,
-              amount: b.amount,
-              time: 'agora mesmo'
-            })));
-          }
-        }
-
-      } catch (error: any) {
-        toast({ variant: "destructive", title: "Erro ao carregar lote", description: error.message });
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
     fetchLotData();
-  }, [id, toast]);
+
+    // Realtime para atualizar lances se outro usuário der lance ou admin apagar
+    const channel = supabase
+      .channel(`lot-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => fetchLotData())
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => fetchLotData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
+  }, [id]);
 
   const toggleFavorite = async () => {
-    if (!user) {
-      toast({ title: "Acesso restrito", description: "Você precisa estar logado para favoritar um lote.", variant: "destructive" });
-      return;
-    }
-
+    if (!user) return;
     try {
       if (isFavorite) {
         await supabase.from('favorites').delete().eq('user_id', user.id).eq('lot_id', id);
         setIsFavorite(false);
-        toast({ title: "Removido dos favoritos" });
       } else {
         await supabase.from('favorites').insert({ user_id: user.id, lot_id: id });
         setIsFavorite(true);
-        toast({ title: "Adicionado aos favoritos" });
       }
-    } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao favoritar", description: error.message });
-    }
+    } catch (error) {}
   };
 
   const handleBid = async () => {
     if (!lot || !user) {
-      toast({ title: "Acesso restrito", description: "Você precisa estar logado para dar um lance.", variant: "destructive" });
+      toast({ title: "Acesso restrito", description: "Faça login para dar lances.", variant: "destructive" });
       return;
     }
     
-    if (bidAmount <= (lot.current_bid || lot.start_bid)) {
-      toast({ title: "Lance inválido", description: "O valor deve ser maior que o lance atual.", variant: "destructive" });
-      return;
-    }
-
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
-      
-      toast({ 
-        title: "Lance efetuado!", 
-        description: `Seu lance de ${formatCurrency(bidAmount)} foi registrado.` 
-      });
-
-      // Atualiza estado local para refletir no topo do histórico imediatamente
-      const newBid = {
-        id: Date.now().toString(),
-        email: user.email,
-        amount: bidAmount,
-        time: 'agora mesmo'
-      };
-      
-      setUserBids([newBid, ...userBids]);
-      setLot({ ...lot, current_bid: bidAmount });
-      
-      // Sugere próximo incremento
-      const minIncrement = bidAmount < 100000 ? 1000 : 2000;
-      setBidAmount(bidAmount + minIncrement);
-
+      toast({ title: "Lance efetuado!" });
+      fetchLotData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao dar lance", description: error.message });
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="w-12 h-12 text-orange-500 animate-spin" />
-      </div>
-    );
-  }
-
-  if (!lot) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50">
-        <h2 className="text-2xl font-bold text-slate-900 mb-4">Lote não encontrado</h2>
-        <Link to="/auctions"><Button>Voltar para Leilões</Button></Link>
-      </div>
-    );
-  }
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-12 h-12 text-orange-500 animate-spin" /></div>;
+  if (!lot) return <div className="text-center py-20">Lote não encontrado.</div>;
 
   return (
     <div className="bg-slate-50 min-h-screen pb-20">
       <div className="container mx-auto px-4 py-8">
-        <Link to="/auctions" className="inline-flex items-center text-sm text-slate-500 hover:text-orange-600 mb-6 transition-colors font-bold">
+        <Link to="/auctions" className="inline-flex items-center text-sm text-slate-500 hover:text-orange-600 mb-6 font-bold">
           <ChevronLeft size={16} className="mr-1" /> VOLTAR PARA LEILÕES
         </Link>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-6">
             <div className="space-y-4">
-              <div className="aspect-[16/9] rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-200 border-4 border-white group cursor-zoom-in">
-                {activePhoto ? (
-                  <img 
-                    src={activePhoto} 
-                    alt={lot.title} 
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-125" 
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-slate-400">
-                    <AlertTriangle size={48} />
-                  </div>
-                )}
+              <div className="aspect-[16/9] rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-200 border-4 border-white group">
+                <img src={activePhoto} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
               </div>
-              
               {photos.length > 1 && (
                 <div className="flex gap-4 overflow-x-auto pb-2 no-scrollbar">
                   {photos.map((photo) => (
-                    <button 
-                      key={photo.id}
-                      onClick={() => setActivePhoto(photo.public_url)}
-                      className={`relative shrink-0 w-24 h-24 rounded-2xl overflow-hidden border-2 transition-all ${activePhoto === photo.public_url ? 'border-orange-500 scale-95' : 'border-transparent opacity-70 hover:opacity-100'}`}
-                    >
+                    <button key={photo.id} onClick={() => setActivePhoto(photo.public_url)} className={`shrink-0 w-24 h-24 rounded-2xl overflow-hidden border-2 transition-all ${activePhoto === photo.public_url ? 'border-orange-500' : 'border-transparent opacity-70'}`}>
                       <img src={photo.public_url} className="w-full h-full object-cover" />
                     </button>
                   ))}
@@ -239,107 +167,55 @@ const LotDetail = () => {
               )}
             </div>
               
-            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
               <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-8">
                 <div>
-                  <Badge className="mb-3 bg-orange-100 text-orange-600 hover:bg-orange-100 border-none px-4 py-1 rounded-full font-bold">
-                    LOTE #{lot.lot_number}
-                  </Badge>
-                  <h1 className="text-3xl md:text-4xl font-black text-slate-900 leading-tight">{lot.title}</h1>
-                  <p className="text-slate-500 font-medium mt-2 flex items-center gap-2">
-                    <MapPin size={16} /> São Paulo, SP
-                  </p>
+                  <Badge className="mb-3 bg-orange-100 text-orange-600 border-none px-4 py-1 rounded-full font-bold">LOTE #{lot.lot_number}</Badge>
+                  <h1 className="text-3xl font-black text-slate-900">{lot.title}</h1>
                 </div>
                 <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    size="icon" 
-                    onClick={toggleFavorite}
-                    className={`rounded-full w-12 h-12 border-slate-200 transition-all ${isFavorite ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' : 'hover:text-orange-600 hover:border-orange-200'}`}
-                  >
-                    <Heart size={20} fill={isFavorite ? "currentColor" : "none"} />
-                  </Button>
-                  <Button variant="outline" size="icon" className="rounded-full w-12 h-12 border-slate-200 hover:text-orange-600 hover:border-orange-200"><Share2 size={20} /></Button>
+                  <Button variant="outline" size="icon" onClick={toggleFavorite} className={`rounded-full w-12 h-12 ${isFavorite ? 'text-red-500 bg-red-50' : ''}`}><Heart size={20} fill={isFavorite ? "currentColor" : "none"} /></Button>
+                  <Button variant="outline" size="icon" className="rounded-full w-12 h-12"><Share2 size={20} /></Button>
                 </div>
               </div>
               
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-8 border-y border-slate-100">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-slate-400 mb-1">
-                    <Gauge size={16} />
-                    <span className="text-[10px] uppercase font-black tracking-widest">KM</span>
-                  </div>
-                  <p className="font-bold text-slate-800">{lot.mileage_km?.toLocaleString() || '0'} km</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-slate-400 mb-1">
-                    <Calendar size={16} />
-                    <span className="text-[10px] uppercase font-black tracking-widest">ANO</span>
-                  </div>
-                  <p className="font-bold text-slate-800">{lot.year || 'N/A'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-slate-400 mb-1">
-                    <Settings2 size={16} />
-                    <span className="text-[10px] uppercase font-black tracking-widest">CÂMBIO</span>
-                  </div>
-                  <p className="font-bold text-slate-800">Automático</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2 text-slate-400 mb-1">
-                    <Fuel size={16} />
-                    <span className="text-[10px] uppercase font-black tracking-widest">MOTOR</span>
-                  </div>
-                  <p className="font-bold text-slate-800">Flex</p>
-                </div>
+                <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Gauge size={16} /><span className="text-[10px] font-black">KM</span></div><p className="font-bold">{lot.mileage_km?.toLocaleString()} km</p></div>
+                <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Calendar size={16} /><span className="text-[10px] font-black">ANO</span></div><p className="font-bold">{lot.year}</p></div>
+                <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Settings2 size={16} /><span className="text-[10px] font-black">CÂMBIO</span></div><p className="font-bold">Automático</p></div>
+                <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Fuel size={16} /><span className="text-[10px] font-black">MOTOR</span></div><p className="font-bold">Flex</p></div>
               </div>
 
               <div className="mt-8">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Descrição do Lote</h3>
-                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
-                  {lot.description || "Nenhuma descrição detalhada fornecida para este lote."}
-                </div>
+                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">{lot.description || "Sem descrição."}</div>
               </div>
             </div>
 
-            {/* Histórico de Lances */}
-            <div className="bg-white p-8 md:p-10 rounded-[2.5rem] shadow-sm border border-slate-100">
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
               <div className="flex items-center gap-3 mb-8">
-                <div className="p-2 bg-orange-100 text-orange-600 rounded-xl">
-                  <History size={24} />
-                </div>
+                <div className="p-2 bg-orange-100 text-orange-600 rounded-xl"><History size={24} /></div>
                 <h3 className="text-2xl font-black text-slate-900">Histórico de Lances</h3>
               </div>
 
               <div className="space-y-4">
-                {dynamicBids.map((bid, index) => (
-                  <div 
-                    key={bid.id} 
-                    className={`flex items-center justify-between p-5 rounded-3xl transition-all ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50 border border-transparent'}`}
-                  >
+                {allBids.length > 0 ? allBids.map((bid, index) => (
+                  <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
                     <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
-                        {index === 0 ? <Trophy size={20} /> : <User size={20} />}
-                      </div>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
                       <div>
-                        <p className="font-bold text-slate-900">{maskEmail(bid.email)}</p>
-                        <p className="text-xs text-slate-400 font-medium">{bid.time}</p>
+                        <p className="font-bold text-slate-900">{maskEmail(bid.profiles?.email || 'usuário@***')}</p>
+                        <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
                       </div>
                     </div>
                     <div className="text-right">
-                      <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>
-                        {formatCurrency(bid.amount)}
-                      </p>
-                      {index === 0 && <Badge className="bg-orange-500 text-[10px] font-black">LANCE ATUAL</Badge>}
+                      <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{formatCurrency(bid.amount)}</p>
+                      {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
                     </div>
                   </div>
-                ))}
-              </div>
-              
-              <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-center">
-                <p className="text-slate-400 text-sm font-medium">
-                  Total de <span className="text-white font-bold">{dynamicBids.length + 10} lances</span> realizados neste lote.
-                </p>
+                )) : (
+                  <div className="text-center py-10 text-slate-400">Nenhum lance realizado ainda.</div>
+                )}
               </div>
             </div>
           </div>
@@ -347,58 +223,25 @@ const LotDetail = () => {
           <div className="lg:col-span-4">
             <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden sticky top-24">
               <div className="bg-slate-900 p-8 text-white text-center">
-                <div className="flex items-center justify-center gap-2 text-orange-500 mb-3">
-                  <Clock size={20} className="animate-pulse" />
-                  <span className="text-xs font-black uppercase tracking-widest">Tempo Restante</span>
-                </div>
-                <CountdownTimer randomScarcity={true} />
+                <div className="flex items-center justify-center gap-2 text-orange-500 mb-3"><Clock size={20} /><span className="text-xs font-black uppercase">Tempo Restante</span></div>
+                <CountdownTimer endsAt={lot.ends_at} />
               </div>
-              
               <CardContent className="p-8 space-y-8">
                 <div className="text-center bg-slate-50 py-6 rounded-3xl border border-slate-100">
-                  <p className="text-xs text-slate-400 uppercase font-black tracking-widest mb-2">Lance Atual</p>
+                  <p className="text-xs text-slate-400 uppercase font-black mb-2">Lance Atual</p>
                   <p className="text-4xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
                 </div>
-
                 <div className="space-y-4">
                   <div className="space-y-3">
-                    <Label htmlFor="bid-amount" className="text-slate-500 font-bold text-xs uppercase tracking-wider ml-1">Seu Lance</Label>
+                    <Label className="text-slate-500 font-bold text-xs uppercase ml-1">Seu Lance</Label>
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-xl">R$</span>
-                      <Input 
-                        id="bid-amount"
-                        type="number" 
-                        value={bidAmount}
-                        onChange={(e) => setBidAmount(Number(e.target.value))}
-                        className="text-2xl font-black h-20 pl-16 text-center rounded-3xl border-2 border-slate-100 focus:border-orange-500 focus:ring-0 transition-all"
-                      />
+                      <Input type="number" value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))} className="text-2xl font-black h-20 pl-16 text-center rounded-3xl border-2 border-slate-100 focus:border-orange-500" />
                     </div>
                   </div>
-                  <p className="text-[10px] text-center text-slate-400 font-bold uppercase tracking-tight">
-                    Incremento mínimo sugerido: <span className="text-slate-600">R$ 1.000,00</span>
-                  </p>
-                  <Button 
-                    onClick={handleBid}
-                    disabled={isSubmitting}
-                    className="w-full bg-orange-500 hover:bg-orange-600 text-white h-20 rounded-3xl text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95 flex items-center justify-center gap-3"
-                  >
-                    {isSubmitting ? <Loader2 className="animate-spin" /> : (
-                      <>
-                        <Gavel size={24} />
-                        CONFIRMAR LANCE
-                      </>
-                    )}
+                  <Button onClick={handleBid} disabled={isSubmitting} className="w-full bg-orange-500 hover:bg-orange-600 text-white h-20 rounded-3xl text-xl font-black shadow-lg shadow-orange-200">
+                    {isSubmitting ? <Loader2 className="animate-spin" /> : 'CONFIRMAR LANCE'}
                   </Button>
-                </div>
-
-                <div className="bg-blue-50 p-5 rounded-3xl flex gap-4 border border-blue-100">
-                  <ShieldCheck className="text-blue-600 shrink-0" size={24} />
-                  <div className="space-y-1">
-                    <p className="text-[11px] font-black text-blue-900 uppercase tracking-wider">Compra Segura</p>
-                    <p className="text-[10px] text-blue-700 leading-relaxed font-medium">
-                      Este leilão possui <strong>Anti-Sniper</strong>. Lances nos últimos 2 minutos estendem o tempo automaticamente.
-                    </p>
-                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -408,25 +251,5 @@ const LotDetail = () => {
     </div>
   );
 };
-
-const Trophy = ({ size }: { size: number }) => (
-  <svg 
-    width={size} 
-    height={size} 
-    viewBox="0 0 24 24" 
-    fill="none" 
-    stroke="currentColor" 
-    strokeWidth="2" 
-    strokeLinecap="round" 
-    strokeLinejoin="round"
-  >
-    <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" />
-    <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-    <path d="M4 22h16" />
-    <path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" />
-    <path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" />
-    <path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" />
-  </svg>
-);
 
 export default LotDetail;

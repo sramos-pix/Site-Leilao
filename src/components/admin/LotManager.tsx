@@ -56,30 +56,36 @@ const LotManager = () => {
     
     try {
       for (const file of Array.from(e.target.files)) {
-        console.log(`Iniciando upload de: ${file.name}`);
+        console.log(`[DEBUG] Iniciando upload: ${file.name}`);
         
         // 1. Upload para o Storage
-        const { storagePath, publicUrl } = await uploadLotPhoto(selectedLot.id, file);
-        console.log("Upload Storage OK:", storagePath);
+        let storageResult;
+        try {
+          storageResult = await uploadLotPhoto(selectedLot.id, file);
+          console.log("[DEBUG] Storage OK:", storageResult.storagePath);
+        } catch (storageErr: any) {
+          console.error("[DEBUG] Erro no Storage:", storageErr);
+          throw new Error(`Erro no Storage: ${storageErr.message || 'Verifique as políticas do bucket vehicle-photos'}`);
+        }
         
         // 2. Registro no Banco de Dados
         const isFirst = lotPhotos.length === 0;
         const { error: dbError } = await supabase.from('lot_photos').insert({
           lot_id: selectedLot.id,
-          storage_path: storagePath,
-          public_url: publicUrl,
+          storage_path: storageResult.storagePath,
+          public_url: storageResult.publicUrl,
           is_cover: isFirst
         });
 
         if (dbError) {
-          console.error("Erro RLS no Banco:", dbError);
-          throw new Error(`Erro de Banco (RLS): ${dbError.message}. Verifique as políticas da tabela lot_photos.`);
+          console.error("[DEBUG] Erro no Banco (lot_photos):", dbError);
+          throw new Error(`Erro no Banco: ${dbError.message}. Execute 'alter table lot_photos disable row level security' no SQL Editor.`);
         }
 
         // 3. Atualizar capa se for a primeira foto
         if (isFirst) {
-          const { error: updateError } = await supabase.from('lots').update({ cover_image_url: publicUrl }).eq('id', selectedLot.id);
-          if (updateError) console.warn("Erro ao atualizar capa:", updateError.message);
+          const { error: updateError } = await supabase.from('lots').update({ cover_image_url: storageResult.publicUrl }).eq('id', selectedLot.id);
+          if (updateError) console.warn("[DEBUG] Erro ao atualizar capa:", updateError.message);
         }
       }
       
@@ -87,10 +93,10 @@ const LotManager = () => {
       fetchLotPhotos(selectedLot.id);
       fetchData();
     } catch (error: any) {
-      console.error("Falha total no processo:", error);
+      console.error("[DEBUG] Falha crítica:", error);
       toast({ 
         variant: "destructive", 
-        title: "Erro no processo", 
+        title: "Falha no Upload", 
         description: error.message 
       });
     } finally {
@@ -226,11 +232,11 @@ const LotManager = () => {
                       <DialogContent className="max-w-3xl rounded-3xl">
                         <DialogHeader><DialogTitle>Fotos do Veículo: {lot.title}</DialogTitle></DialogHeader>
                         <div className="space-y-6 py-4">
-                          <div className="bg-orange-50 p-4 rounded-2xl flex gap-3 border border-orange-100">
-                            <AlertCircle className="text-orange-600 shrink-0" size={20} />
-                            <div className="text-xs text-orange-800 leading-tight">
-                              <p className="font-bold mb-1">Atenção Administrador:</p>
-                              <p>Se o erro de RLS persistir, execute o SQL de liberação do <strong>Storage</strong> no painel do Supabase.</p>
+                          <div className="bg-red-50 p-4 rounded-2xl flex gap-3 border border-red-100">
+                            <AlertCircle className="text-red-600 shrink-0" size={20} />
+                            <div className="text-xs text-red-800 leading-tight">
+                              <p className="font-bold mb-1">Ação Necessária no Supabase:</p>
+                              <p>Se o erro persistir, execute: <strong>alter table lot_photos disable row level security;</strong> no SQL Editor do Supabase.</p>
                             </div>
                           </div>
 

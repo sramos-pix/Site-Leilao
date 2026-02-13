@@ -23,6 +23,7 @@ const Dashboard = () => {
   const [profile, setProfile] = React.useState<any>(null);
   const [activeBids, setActiveBids] = React.useState<any[]>([]);
   const [favoritesCount, setFavoritesCount] = React.useState(0);
+  const [winsCount, setWinsCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
 
   const fetchDashboardData = async () => {
@@ -39,14 +40,22 @@ const Dashboard = () => {
       
       setProfile(profileData);
 
-      // Busca Lances
+      // Busca Lances e Status do Lote
       const { data: bidsData } = await supabase
         .from('bids')
-        .select(`id, amount, lot_id, created_at, lots ( id, title, cover_image_url )`)
+        .select(`id, amount, lot_id, created_at, lots ( id, title, cover_image_url, status, winner_id )`)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
       setActiveBids(bidsData?.filter(b => b.lots) || []);
+
+      // Busca Contagem de Vitórias (Lotes onde o usuário é o vencedor)
+      const { count: wins } = await supabase
+        .from('lots')
+        .select('*', { count: 'exact', head: true })
+        .eq('winner_id', user.id);
+      
+      setWinsCount(wins || 0);
 
       // Busca Contagem de Favoritos
       const { count } = await supabase
@@ -66,20 +75,14 @@ const Dashboard = () => {
   React.useEffect(() => {
     fetchDashboardData();
     
-    // Realtime para lances e favoritos
     const bidsChannel = supabase
-      .channel('dashboard-bids')
+      .channel('dashboard-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchDashboardData())
-      .subscribe();
-
-    const favsChannel = supabase
-      .channel('dashboard-favs')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'favorites' }, () => fetchDashboardData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lots' }, () => fetchDashboardData())
       .subscribe();
 
     return () => { 
       supabase.removeChannel(bidsChannel);
-      supabase.removeChannel(favsChannel);
     };
   }, []);
 
@@ -87,7 +90,7 @@ const Dashboard = () => {
 
   const stats = [
     { label: 'Lances Ativos', value: activeBids.length.toString(), icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Vitórias', value: '00', icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50' },
+    { label: 'Vitórias', value: winsCount.toString().padStart(2, '0'), icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50' },
     { label: 'Favoritos', value: favoritesCount.toString().padStart(2, '0'), icon: Heart, color: 'text-red-600', bg: 'bg-red-50' },
     { label: 'Saldo Depósito', value: 'R$ 0,00', icon: Wallet, color: 'text-green-600', bg: 'bg-green-50' },
   ];
@@ -129,25 +132,36 @@ const Dashboard = () => {
           <div className="lg:col-span-2 space-y-6">
             <h2 className="text-xl font-bold text-slate-900">Seus Lances Recentes</h2>
             <div className="space-y-4">
-              {activeBids.length > 0 ? activeBids.map((bid) => (
-                <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
-                  <CardContent className="p-0 flex flex-col sm:flex-row">
-                    <div className="w-full sm:w-48 h-32 bg-slate-200">
-                      <img src={bid.lots?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} className="w-full h-full object-cover" alt={bid.lots?.title} />
-                    </div>
-                    <div className="flex-1 p-6 flex flex-col justify-between">
-                      <div className="flex justify-between items-start">
-                        <div><h3 className="font-bold text-slate-900">{bid.lots?.title}</h3><p className="text-xs text-slate-500">Lote {bid.lot_id}</p></div>
-                        <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
+              {activeBids.length > 0 ? activeBids.map((bid) => {
+                const isFinished = bid.lots?.status === 'finished';
+                const isWinner = bid.lots?.winner_id === profile?.id;
+
+                return (
+                  <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
+                    <CardContent className="p-0 flex flex-col sm:flex-row">
+                      <div className="w-full sm:w-48 h-32 bg-slate-200">
+                        <img src={bid.lots?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} className="w-full h-full object-cover" alt={bid.lots?.title} />
                       </div>
-                      <div className="flex justify-between items-end mt-4">
-                        <div><p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p><p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p></div>
-                        <Link to={`/lots/${bid.lot_id}`}><Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button></Link>
+                      <div className="flex-1 p-6 flex flex-col justify-between">
+                        <div className="flex justify-between items-start">
+                          <div><h3 className="font-bold text-slate-900">{bid.lots?.title}</h3><p className="text-xs text-slate-500">Lote {bid.lot_id}</p></div>
+                          {isFinished ? (
+                            <Badge className={isWinner ? "bg-orange-100 text-orange-600 border-none" : "bg-slate-100 text-slate-600 border-none"}>
+                              {isWinner ? 'Arrematado' : 'Finalizado'}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
+                          )}
+                        </div>
+                        <div className="flex justify-between items-end mt-4">
+                          <div><p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p><p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p></div>
+                          <Link to={`/lots/${bid.lot_id}`}><Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button></Link>
+                        </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              )) : (
+                    </CardContent>
+                  </Card>
+                );
+              }) : (
                 <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-slate-100">
                   <Gavel className="mx-auto text-slate-300 mb-4" size={48} />
                   <p className="text-slate-500">Você ainda não deu nenhum lance.</p>

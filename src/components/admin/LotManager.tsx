@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, CheckCircle2, X } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, CheckCircle2, X, Edit } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 
@@ -22,6 +22,7 @@ const LotManager = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedLot, setSelectedLot] = useState<any>(null);
+  const [editingLot, setEditingLot] = useState<any>(null);
   const [lotPhotos, setLotPhotos] = useState<any[]>([]);
   const { toast } = useToast();
 
@@ -96,12 +97,12 @@ const LotManager = () => {
     fetchData();
   };
 
-  const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     
-    const newLot = {
+    const lotData = {
       auction_id: formData.get('auction_id'),
       lot_number: parseInt(formData.get('lot_number') as string),
       title: formData.get('title'),
@@ -113,45 +114,60 @@ const LotManager = () => {
       ends_at: new Date(formData.get('ends_at') as string).toISOString(),
     };
 
-    const { error } = await supabase.from('lots').insert(newLot);
-    if (error) toast({ variant: "destructive", title: "Erro", description: error.message });
-    else {
+    let error;
+    if (editingLot) {
+      const { error: updateError } = await supabase.from('lots').update(lotData).eq('id', editingLot.id);
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase.from('lots').insert(lotData);
+      error = insertError;
+    }
+
+    if (error) {
+      toast({ variant: "destructive", title: "Erro", description: error.message });
+    } else {
       toast({ title: "Sucesso!" });
+      setEditingLot(null);
       fetchData();
     }
     setIsSubmitting(false);
+  };
+
+  const formatForInput = (dateString: string) => {
+    if (!dateString) return "";
+    return new Date(dateString).toISOString().slice(0, 16);
   };
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900">Gerenciar Veículos</h2>
-        <Dialog>
+        <Dialog onOpenChange={(open) => !open && setEditingLot(null)}>
           <DialogTrigger asChild>
             <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
               <Plus size={18} className="mr-2" /> Novo Veículo
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl rounded-3xl">
-            <DialogHeader><DialogTitle>Cadastrar Novo Veículo</DialogTitle></DialogHeader>
-            <form onSubmit={handleCreate} className="grid grid-cols-2 gap-4 py-4">
+            <DialogHeader><DialogTitle>{editingLot ? 'Editar Veículo' : 'Cadastrar Novo Veículo'}</DialogTitle></DialogHeader>
+            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 py-4">
               <div className="col-span-2 space-y-2">
                 <Label>Leilão Vinculado</Label>
-                <Select name="auction_id" required>
+                <Select name="auction_id" defaultValue={editingLot?.auction_id} required>
                   <SelectTrigger><SelectValue placeholder="Selecione o leilão" /></SelectTrigger>
                   <SelectContent>{auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" required /></div>
-              <div className="space-y-2"><Label>Título</Label><Input name="title" required /></div>
-              <div className="space-y-2"><Label>Marca</Label><Input name="brand" required /></div>
-              <div className="space-y-2"><Label>Modelo</Label><Input name="model" required /></div>
-              <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" required /></div>
-              <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" required /></div>
-              <div className="space-y-2"><Label>Lance Inicial</Label><Input name="start_bid" type="number" step="0.01" required /></div>
-              <div className="space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" required /></div>
+              <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" defaultValue={editingLot?.lot_number} required /></div>
+              <div className="space-y-2"><Label>Título</Label><Input name="title" defaultValue={editingLot?.title} required /></div>
+              <div className="space-y-2"><Label>Marca</Label><Input name="brand" defaultValue={editingLot?.brand} required /></div>
+              <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={editingLot?.model} required /></div>
+              <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={editingLot?.year} required /></div>
+              <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" defaultValue={editingLot?.mileage_km} required /></div>
+              <div className="space-y-2"><Label>Lance Inicial</Label><Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} required /></div>
+              <div className="space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={formatForInput(editingLot?.ends_at)} required /></div>
               <Button type="submit" className="col-span-2 bg-orange-500 mt-4" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Cadastrar Veículo'}
+                {isSubmitting ? <Loader2 className="animate-spin" /> : editingLot ? 'Salvar Alterações' : 'Cadastrar Veículo'}
               </Button>
             </form>
           </DialogContent>
@@ -220,6 +236,36 @@ const LotManager = () => {
                         </div>
                       </DialogContent>
                     </Dialog>
+                    
+                    <Dialog onOpenChange={(open) => open && setEditingLot(lot)}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-slate-500"><Edit size={18} /></Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-2xl rounded-3xl">
+                        <DialogHeader><DialogTitle>Editar Veículo</DialogTitle></DialogHeader>
+                        <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 py-4">
+                          <div className="col-span-2 space-y-2">
+                            <Label>Leilão Vinculado</Label>
+                            <Select name="auction_id" defaultValue={lot.auction_id} required>
+                              <SelectTrigger><SelectValue placeholder="Selecione o leilão" /></SelectTrigger>
+                              <SelectContent>{auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}</SelectContent>
+                            </Select>
+                          </div>
+                          <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" defaultValue={lot.lot_number} required /></div>
+                          <div className="space-y-2"><Label>Título</Label><Input name="title" defaultValue={lot.title} required /></div>
+                          <div className="space-y-2"><Label>Marca</Label><Input name="brand" defaultValue={lot.brand} required /></div>
+                          <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={lot.model} required /></div>
+                          <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={lot.year} required /></div>
+                          <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" defaultValue={lot.mileage_km} required /></div>
+                          <div className="space-y-2"><Label>Lance Inicial</Label><Input name="start_bid" type="number" step="0.01" defaultValue={lot.start_bid} required /></div>
+                          <div className="space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={formatForInput(lot.ends_at)} required /></div>
+                          <Button type="submit" className="col-span-2 bg-orange-500 mt-4" disabled={isSubmitting}>
+                            {isSubmitting ? <Loader2 className="animate-spin" /> : 'Salvar Alterações'}
+                          </Button>
+                        </form>
+                      </DialogContent>
+                    </Dialog>
+
                     <Button variant="ghost" size="icon" onClick={() => { if(confirm('Excluir?')) supabase.from('lots').delete().eq('id', lot.id).then(() => fetchData()); }} className="text-red-500"><Trash2 size={18} /></Button>
                   </div>
                 </TableCell>

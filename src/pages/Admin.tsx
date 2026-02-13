@@ -3,7 +3,7 @@ import {
   Plus, Gavel, Users, RefreshCw, 
   Package, BarChart3, Settings, LogOut,
   TrendingUp, ArrowUpRight, UserPlus, FileSpreadsheet, Trash2,
-  Edit3, Download
+  Edit3, Download, FileSearch, ExternalLink
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -146,6 +146,18 @@ const Admin = () => {
       a.download = `relatorio-${auction.id}.txt`;
       a.click();
     }, 1000);
+  };
+
+  const handleDownloadDoc = (url: string, name: string) => {
+    if (!url) return;
+    const link = document.createElement('a');
+    link.href = url;
+    link.target = '_blank';
+    link.download = `documento-${name.replace(/\s+/g, '-').toLowerCase()}`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast({ title: "Abrindo documento", description: "O arquivo será aberto em uma nova aba." });
   };
 
   React.useEffect(() => {
@@ -359,6 +371,7 @@ const Admin = () => {
                       <tr>
                         <th className="px-6 py-4 font-bold text-slate-600">Usuário</th>
                         <th className="px-6 py-4 font-bold text-slate-600">Documento</th>
+                        <th className="px-6 py-4 font-bold text-slate-600">Arquivo</th>
                         <th className="px-6 py-4 font-bold text-slate-600">Status KYC</th>
                         <th className="px-6 py-4 font-bold text-slate-600">Ações</th>
                       </tr>
@@ -381,6 +394,20 @@ const Admin = () => {
                             </Dialog>
                           </td>
                           <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.document_id || user.cpf || user.cnpj || '---'}</td>
+                          <td className="px-6 py-4">
+                            {user.document_url ? (
+                              <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                onClick={() => handleDownloadDoc(user.document_url, user.full_name)}
+                                className="text-blue-600 hover:bg-blue-50 rounded-xl"
+                              >
+                                <Download size={16} className="mr-2" /> Baixar
+                              </Button>
+                            ) : (
+                              <span className="text-slate-400 text-xs italic">Não enviado</span>
+                            )}
+                          </td>
                           <td className="px-6 py-4">
                             <Badge className={cn(
                               "border-none px-3 py-1",

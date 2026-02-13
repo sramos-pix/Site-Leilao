@@ -114,7 +114,6 @@ const LotDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-6">
             <div className="space-y-4">
-              {/* Container da Imagem com Zoom no Hover */}
               <div className="aspect-[16/9] rounded-[2.5rem] overflow-hidden shadow-2xl bg-slate-200 border-4 border-white group cursor-zoom-in">
                 {activePhoto ? (
                   <img 
@@ -194,10 +193,9 @@ const LotDetail = () => {
 
               <div className="mt-8">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Descrição do Lote</h3>
-                <p className="text-slate-600 leading-relaxed">
-                  Veículo em excelente estado de conservação, revisado e com garantia de procedência. 
-                  Documentação em dia, pronto para transferência. Oportunidade única para colecionadores e entusiastas.
-                </p>
+                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {lot.description || "Nenhuma descrição detalhada fornecida para este lote."}
+                </div>
               </div>
             </div>
           </div>
@@ -209,7 +207,6 @@ const LotDetail = () => {
                   <Clock size={20} className="animate-pulse" />
                   <span className="text-xs font-black uppercase tracking-widest">Tempo Restante</span>
                 </div>
-                {/* Ativando o randomScarcity para gerar urgência */}
                 <CountdownTimer randomScarcity={true} />
               </div>
               

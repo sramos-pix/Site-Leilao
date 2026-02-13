@@ -7,9 +7,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2, Save, Trash2, ShieldCheck, ShieldAlert, MapPin, CreditCard, AlertTriangle } from 'lucide-react';
+import { 
+  Loader2, Save, Trash2, ShieldCheck, ShieldAlert, 
+  MapPin, CreditCard, AlertTriangle, FileText, Eye,
+  CheckCircle2, XCircle, Image as ImageIcon
+} from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { Separator } from '@/components/ui/separator';
+import { Badge } from '@/components/ui/badge';
 
 interface UserManagerProps {
   user: any;
@@ -49,10 +54,13 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
     }
   };
 
+  const updateStatus = async (status: 'verified' | 'rejected') => {
+    setFormData(prev => ({ ...prev, kyc_status: status }));
+  };
+
   const handleDeleteUser = async () => {
     setIsDeleting(true);
     try {
-      // Remove o perfil da tabela pública
       const { error } = await supabase
         .from('profiles')
         .delete()
@@ -62,7 +70,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
 
       toast({ 
         title: "Perfil Removido", 
-        description: "O perfil foi excluído do banco. Para permitir novo cadastro com este e-mail, remova-o também no Dashboard do Supabase (Auth)." 
+        description: "O perfil foi excluído do banco." 
       });
       onSuccess();
     } catch (error: any) {
@@ -74,16 +82,69 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
 
   return (
     <div className="space-y-6 py-4 max-h-[80vh] overflow-y-auto px-1">
-      <div className={`p-4 rounded-2xl border flex items-center gap-4 ${formData.kyc_status === 'verified' ? 'bg-green-50 border-green-100 text-green-700' : 'bg-orange-50 border-orange-100 text-orange-700'}`}>
-        {formData.kyc_status === 'verified' ? <ShieldCheck size={24} /> : <ShieldAlert size={24} />}
-        <div>
-          <p className="text-sm font-bold">Status de Verificação</p>
-          <p className="text-xs opacity-80">
-            {formData.kyc_status === 'verified' ? 'Usuário habilitado para participar de leilões.' : 'Aguardando aprovação de documentos.'}
-          </p>
+      {/* Status de Verificação */}
+      <div className={`p-6 rounded-3xl border flex flex-col md:flex-row justify-between items-center gap-4 ${formData.kyc_status === 'verified' ? 'bg-green-50 border-green-100' : 'bg-orange-50 border-orange-100'}`}>
+        <div className="flex items-center gap-4">
+          <div className={`p-3 rounded-2xl ${formData.kyc_status === 'verified' ? 'bg-green-500 text-white' : 'bg-orange-500 text-white'}`}>
+            {formData.kyc_status === 'verified' ? <ShieldCheck size={24} /> : <ShieldAlert size={24} />}
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-900">Status de Verificação</p>
+            <p className="text-xs text-slate-600">
+              {formData.kyc_status === 'verified' ? 'Usuário habilitado para lances.' : 'Aguardando análise de documentos.'}
+            </p>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => updateStatus('verified')}
+            className={formData.kyc_status === 'verified' ? 'bg-green-600 text-white border-none' : 'bg-white'}
+          >
+            <CheckCircle2 size={16} className="mr-2" /> Aprovar
+          </Button>
+          <Button 
+            size="sm" 
+            variant="outline" 
+            onClick={() => updateStatus('rejected')}
+            className={formData.kyc_status === 'rejected' ? 'bg-red-600 text-white border-none' : 'bg-white'}
+          >
+            <XCircle size={16} className="mr-2" /> Rejeitar
+          </Button>
         </div>
       </div>
 
+      {/* Documentos Enviados */}
+      <div className="space-y-4">
+        <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+          <FileText size={16} /> Documentos para Análise
+        </h3>
+        {user.kyc_status === 'pending' || user.kyc_status === 'verified' ? (
+          <div className="p-4 bg-white border rounded-2xl flex items-center justify-between shadow-sm">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-slate-100 rounded-lg text-slate-500">
+                <ImageIcon size={20} />
+              </div>
+              <div>
+                <p className="text-sm font-bold text-slate-900">Documento de Identidade</p>
+                <p className="text-xs text-slate-500">Enviado em {new Date(user.updated_at || user.created_at).toLocaleDateString()}</p>
+              </div>
+            </div>
+            <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-50">
+              <Eye size={16} className="mr-2" /> Visualizar
+            </Button>
+          </div>
+        ) : (
+          <div className="p-8 text-center border-2 border-dashed rounded-2xl text-slate-400 italic text-sm">
+            Nenhum documento enviado recentemente.
+          </div>
+        )}
+      </div>
+
+      <Separator />
+
+      {/* Dados Pessoais */}
       <div className="space-y-4">
         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
           <CreditCard size={16} /> Identificação
@@ -110,6 +171,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
 
       <Separator />
 
+      {/* Localização */}
       <div className="space-y-4">
         <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
           <MapPin size={16} /> Localização
@@ -132,22 +194,6 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         </div>
       </div>
 
-      <Separator />
-
-      <div className="space-y-4">
-        <Label className="text-sm font-bold text-slate-900">Aprovação de Cadastro</Label>
-        <Select value={formData.kyc_status} onValueChange={(value) => setFormData({...formData, kyc_status: value})}>
-          <SelectTrigger className={formData.kyc_status === 'verified' ? 'border-green-500 bg-green-50' : ''}>
-            <SelectValue placeholder="Selecione o status" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="pending">Pendente</SelectItem>
-            <SelectItem value="verified">Verificado (Aprovado)</SelectItem>
-            <SelectItem value="rejected">Rejeitado</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
       <div className="pt-6 flex justify-between items-center gap-3">
         <AlertDialog>
           <AlertDialogTrigger asChild>
@@ -161,9 +207,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
                 <AlertTriangle className="text-red-500" /> Confirmar Exclusão
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Esta ação excluirá o perfil de <strong>{user.full_name}</strong> da base de dados. 
-                <br /><br />
-                <span className="text-red-600 font-bold">Atenção:</span> Para que o e-mail possa ser cadastrado novamente, você deve deletar a conta manualmente no painel do Supabase (Authentication {">"} Users).
+                Esta ação excluirá o perfil de <strong>{user.full_name}</strong>.
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -173,7 +217,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
                 className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
                 disabled={isDeleting}
               >
-                {isDeleting ? <Loader2 className="animate-spin" size={18} /> : "Sim, Excluir Perfil"}
+                {isDeleting ? <Loader2 className="animate-spin" size={18} /> : "Sim, Excluir"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

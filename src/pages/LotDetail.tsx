@@ -32,13 +32,6 @@ const LotDetail = () => {
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
 
-  // Lances fictícios para estética
-  const mockBids = useMemo(() => [
-    { id: 'm1', amount: 155000, created_at: new Date(Date.now() - 3600000).toISOString(), profiles: { email: 'carlos***@gmail.com' } },
-    { id: 'm2', amount: 142000, created_at: new Date(Date.now() - 7200000).toISOString(), profiles: { email: 'marcos***@uol.com.br' } },
-    { id: 'm3', amount: 138000, created_at: new Date(Date.now() - 10800000).toISOString(), profiles: { email: 'ana.pa***@outlook.com' } },
-  ], []);
-
   const fetchLotData = async () => {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -101,11 +94,40 @@ const LotDetail = () => {
     }
   };
 
-  // Mescla lances reais com fictícios, ordenando por valor
+  // Lances fictícios dinâmicos baseados no lance atual real
   const allBids = useMemo(() => {
+    const currentMax = lot?.current_bid || lot?.start_bid || 0;
+    
+    // Se não houver lances reais, criamos fictícios baseados no lance inicial
+    // Se houver lances reais, os fictícios ficam abaixo do menor lance real
+    const baseForMock = realBids.length > 0 
+      ? realBids[realBids.length - 1].amount 
+      : currentMax;
+
+    const mockBids = [
+      { 
+        id: 'm1', 
+        amount: baseForMock - 2000, 
+        created_at: new Date(Date.now() - 3600000).toISOString(), 
+        profiles: { email: 'carlos***@gmail.com' } 
+      },
+      { 
+        id: 'm2', 
+        amount: baseForMock - 5000, 
+        created_at: new Date(Date.now() - 7200000).toISOString(), 
+        profiles: { email: 'marcos***@uol.com.br' } 
+      },
+      { 
+        id: 'm3', 
+        amount: baseForMock - 8500, 
+        created_at: new Date(Date.now() - 10800000).toISOString(), 
+        profiles: { email: 'ana.pa***@outlook.com' } 
+      },
+    ].filter(m => m.amount > (lot?.start_bid || 0) * 0.5); // Garante que não fique negativo ou muito baixo
+
     const combined = [...realBids, ...mockBids];
     return combined.sort((a, b) => b.amount - a.amount);
-  }, [realBids, mockBids]);
+  }, [realBids, lot]);
 
   useEffect(() => {
     fetchLotData();

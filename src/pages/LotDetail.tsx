@@ -63,9 +63,10 @@ const LotDetail = () => {
       const minIncrement = lotData.bid_increment || 1000;
       setBidAmount(currentVal + minIncrement);
 
-      const { data: bidsData, error: bidsError } = await supabase
+      // Busca lances sem tentar fazer join com profiles para evitar erros de relação
+      const { data: bidsData } = await supabase
         .from('bids')
-        .select('*, profiles(email)')
+        .select('*')
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
@@ -121,7 +122,7 @@ const LotDetail = () => {
       created_at: b.created_at,
       user_id: b.user_id,
       is_fake: false,
-      display_name: b.user_id === user?.id ? "Você" : (b.profiles?.email ? maskEmail(b.profiles.email) : "Licitante")
+      display_name: b.user_id === user?.id ? "Você" : "Licitante"
     }));
 
     const baseForFakes = bids.length > 0 ? bids[bids.length - 1].amount : lot.start_bid;

@@ -1,0 +1,59 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  email         String    @unique
+  password      String
+  fullName      String
+  documentId    String    @unique
+  kycStatus     String    @default("pending") // pending, verified, rejected
+  createdAt     DateTime  @default(now())
+  bids          Bid[]
+}
+
+model Auction {
+  id                String    @id @default(uuid())
+  title             String
+  description       String
+  location          String
+  startsAt          DateTime
+  endsAt            DateTime
+  status            String    @default("scheduled") // scheduled, live, finished
+  buyerFeePercent   Float     @default(5.0)
+  lots              Lot[]
+}
+
+model Lot {
+  id              String    @id @default(uuid())
+  auctionId       String
+  auction         Auction   @relation(fields: [auctionId], references: [id])
+  lotNumber       Int
+  title           String
+  brand           String
+  model           String
+  year            Int
+  mileageKm       Int
+  startBid        Float
+  currentBid      Float     @default(0)
+  minIncrement    Float     @default(500)
+  endsAt          DateTime
+  bids            Bid[]
+}
+
+model Bid {
+  id        String   @id @default(uuid())
+  lotId     String
+  lot       Lot      @relation(fields: [lotId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  amount    Float
+  createdAt DateTime @default(now())
+  ipAddress String?
+}

@@ -31,6 +31,28 @@ const LotDetail = () => {
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
 
+  // Função para gerar lances fictícios baseados no valor atual
+  const generateFakeBids = (currentAmount: number, lotId: string) => {
+    const fakeBids = [];
+    const seed = lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const names = ["Carlos M.", "Ana P.", "Roberto S.", "Juliana F.", "Marcos T.", "Fernanda L.", "Ricardo W.", "Patrícia G."];
+    
+    // Gerar 4 lances fictícios sempre menores que o atual
+    for (let i = 1; i <= 4; i++) {
+      const amount = currentAmount - (i * (seed % 5000 + 1000));
+      if (amount <= 0) continue;
+      
+      fakeBids.push({
+        id: `fake-${i}`,
+        amount: amount,
+        created_at: new Date(Date.now() - (i * 3600000 * (seed % 5 + 1))).toISOString(),
+        is_fake: true,
+        user_name: names[(seed + i) % names.length]
+      });
+    }
+    return fakeBids;
+  };
+
   const fetchLotData = async () => {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -59,7 +81,6 @@ const LotDetail = () => {
         setActivePhoto(lotData.cover_image_url);
       }
 
-      // Garante que o valor do input seja sempre o lance atual + incremento mínimo
       const currentVal = lotData.current_bid || lotData.start_bid;
       const minIncrement = currentVal < 100000 ? 1000 : 2000;
       setBidAmount(currentVal + minIncrement);
@@ -104,6 +125,15 @@ const LotDetail = () => {
       setIsSubmitting(false);
     }
   };
+
+  // Combina lances reais e fictícios
+  const allBids = useMemo(() => {
+    if (!lot) return [];
+    const currentVal = lot.current_bid || lot.start_bid;
+    const fakes = generateFakeBids(currentVal, id || "1");
+    const combined = [...realBids, ...fakes];
+    return combined.sort((a, b) => b.amount - a.amount);
+  }, [realBids, lot, id]);
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-12 h-12 text-orange-500 animate-spin" /></div>;
   if (!lot) return <div className="text-center py-20">Lote não encontrado.</div>;
@@ -160,12 +190,14 @@ const LotDetail = () => {
               </div>
 
               <div className="space-y-4">
-                {realBids.length > 0 ? realBids.map((bid, index) => (
+                {allBids.length > 0 ? allBids.map((bid, index) => (
                   <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
                     <div className="flex items-center gap-4">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
                       <div>
-                        <p className="font-bold text-slate-900">{bid.profiles?.email ? maskEmail(bid.profiles.email) : 'Licitante'}</p>
+                        <p className="font-bold text-slate-900">
+                          {bid.is_fake ? bid.user_name : (bid.profiles?.email ? maskEmail(bid.profiles.email) : 'Licitante')}
+                        </p>
                         <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
                       </div>
                     </div>

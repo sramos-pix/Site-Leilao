@@ -1,6 +1,8 @@
+"use client";
+
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Gavel, Mail, Phone, MapPin, Instagram, Facebook, Twitter } from 'lucide-react';
+import { Mail, Phone, MapPin, Instagram, Facebook, Twitter } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -9,9 +11,16 @@ const Footer = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="col-span-1 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-6">
-              <div className="bg-orange-500 p-1.5 rounded-lg">
-                <Gavel className="h-6 w-6 text-white" />
-              </div>
+              {/* Substituiremos o src abaixo pelo nome do arquivo que você enviar */}
+              <img 
+                src="/logo.png" 
+                alt="AutoBid Logo" 
+                className="h-10 w-auto object-contain"
+                onError={(e) => {
+                  // Fallback caso a imagem ainda não exista
+                  e.currentTarget.style.display = 'none';
+                }}
+              />
               <span className="text-xl font-bold tracking-tight text-white">
                 AUTO<span className="text-orange-500">BID</span>
               </span>

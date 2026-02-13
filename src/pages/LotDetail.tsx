@@ -4,16 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
   ChevronLeft, Heart, Share2, Clock, Gavel, 
-  ShieldCheck, Info, MapPin, Calendar, Gauge, 
-  Fuel, Settings2, Palette, History, AlertTriangle, Loader2,
-  ChevronRight
+  ShieldCheck, MapPin, Calendar, Gauge, 
+  Fuel, Settings2, Loader2, AlertTriangle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
@@ -29,11 +27,16 @@ const LotDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState<number>(0);
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [user, setUser] = useState<any>(null);
 
   useEffect(() => {
     const fetchLotData = async () => {
       setIsLoading(true);
       try {
+        const { data: { user: currentUser } } = await supabase.auth.getUser();
+        setUser(currentUser);
+
         const { data: lotData, error: lotError } = await supabase
           .from('lots')
           .select('*')
@@ -60,6 +63,18 @@ const LotDetail = () => {
         const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
         setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
 
+        // Verificar se é favorito
+        if (currentUser) {
+          const { data: favData } = await supabase
+            .from('favorites')
+            .select('id')
+            .eq('user_id', currentUser.id)
+            .eq('lot_id', id)
+            .single();
+          
+          setIsFavorite(!!favData);
+        }
+
       } catch (error: any) {
         toast({ variant: "destructive", title: "Erro ao carregar lote", description: error.message });
       } finally {
@@ -69,6 +84,27 @@ const LotDetail = () => {
 
     fetchLotData();
   }, [id, toast]);
+
+  const toggleFavorite = async () => {
+    if (!user) {
+      toast({ title: "Acesso restrito", description: "Você precisa estar logado para favoritar um lote.", variant: "destructive" });
+      return;
+    }
+
+    try {
+      if (isFavorite) {
+        await supabase.from('favorites').delete().eq('user_id', user.id).eq('lot_id', id);
+        setIsFavorite(false);
+        toast({ title: "Removido dos favoritos" });
+      } else {
+        await supabase.from('favorites').insert({ user_id: user.id, lot_id: id });
+        setIsFavorite(true);
+        toast({ title: "Adicionado aos favoritos" });
+      }
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao favoritar", description: error.message });
+    }
+  };
 
   const handleBid = async () => {
     if (!lot) return;
@@ -155,7 +191,14 @@ const LotDetail = () => {
                   </p>
                 </div>
                 <div className="flex gap-2">
-                  <Button variant="outline" size="icon" className="rounded-full w-12 h-12 border-slate-200 hover:text-orange-600 hover:border-orange-200"><Heart size={20} /></Button>
+                  <Button 
+                    variant="outline" 
+                    size="icon" 
+                    onClick={toggleFavorite}
+                    className={`rounded-full w-12 h-12 border-slate-200 transition-all ${isFavorite ? 'bg-red-50 border-red-200 text-red-500 hover:bg-red-100' : 'hover:text-orange-600 hover:border-orange-200'}`}
+                  >
+                    <Heart size={20} fill={isFavorite ? "currentColor" : "none"} />
+                  </Button>
                   <Button variant="outline" size="icon" className="rounded-full w-12 h-12 border-slate-200 hover:text-orange-600 hover:border-orange-200"><Share2 size={20} /></Button>
                 </div>
               </div>

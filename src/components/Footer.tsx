@@ -13,7 +13,7 @@ const Footer = () => {
             <Link to="/" className="flex items-center gap-2 mb-6">
               <img 
                 src="https://i.ibb.co/rf1Bk2N9/leilao-seguro.png" 
-                alt="AutoBid Logo" 
+                alt="Selo de Segurança" 
                 className="h-12 w-auto object-contain"
                 onError={(e) => {
                   e.currentTarget.style.display = 'none';

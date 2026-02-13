@@ -137,7 +137,7 @@ const AdminOverview = () => {
       toast({ 
         variant: "destructive", 
         title: "Erro", 
-        description: "Certifique-se de ter executado o SQL no Supabase para adicionar as colunas necessárias." 
+        description: "Erro ao processar contemplação no banco de dados." 
       });
     } finally {
       setIsProcessing(null);

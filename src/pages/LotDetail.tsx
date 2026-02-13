@@ -94,36 +94,25 @@ const LotDetail = () => {
     }
   };
 
-  // Lances fictícios dinâmicos baseados no lance atual real
+  // Lances fictícios dinâmicos baseados no lance atual real (Aumentado para mais pessoas)
   const allBids = useMemo(() => {
     const currentMax = lot?.current_bid || lot?.start_bid || 0;
     
-    // Se não houver lances reais, criamos fictícios baseados no lance inicial
-    // Se houver lances reais, os fictícios ficam abaixo do menor lance real
+    // Base para os fictícios: se houver lances reais, começa abaixo do menor real.
     const baseForMock = realBids.length > 0 
       ? realBids[realBids.length - 1].amount 
       : currentMax;
 
     const mockBids = [
-      { 
-        id: 'm1', 
-        amount: baseForMock - 2000, 
-        created_at: new Date(Date.now() - 3600000).toISOString(), 
-        profiles: { email: 'carlos***@gmail.com' } 
-      },
-      { 
-        id: 'm2', 
-        amount: baseForMock - 5000, 
-        created_at: new Date(Date.now() - 7200000).toISOString(), 
-        profiles: { email: 'marcos***@uol.com.br' } 
-      },
-      { 
-        id: 'm3', 
-        amount: baseForMock - 8500, 
-        created_at: new Date(Date.now() - 10800000).toISOString(), 
-        profiles: { email: 'ana.pa***@outlook.com' } 
-      },
-    ].filter(m => m.amount > (lot?.start_bid || 0) * 0.5); // Garante que não fique negativo ou muito baixo
+      { id: 'm1', amount: baseForMock - 1500, created_at: new Date(Date.now() - 1800000).toISOString(), profiles: { email: 'carlos.silva***@gmail.com' } },
+      { id: 'm2', amount: baseForMock - 3200, created_at: new Date(Date.now() - 3600000).toISOString(), profiles: { email: 'marcos.ant***@uol.com.br' } },
+      { id: 'm3', amount: baseForMock - 5800, created_at: new Date(Date.now() - 5400000).toISOString(), profiles: { email: 'ana.paula***@outlook.com' } },
+      { id: 'm4', amount: baseForMock - 8000, created_at: new Date(Date.now() - 7200000).toISOString(), profiles: { email: 'ricardo.m***@hotmail.com' } },
+      { id: 'm5', amount: baseForMock - 10500, created_at: new Date(Date.now() - 9000000).toISOString(), profiles: { email: 'fernanda.l***@terra.com.br' } },
+      { id: 'm6', amount: baseForMock - 13000, created_at: new Date(Date.now() - 10800000).toISOString(), profiles: { email: 'julio.cesar***@gmail.com' } },
+      { id: 'm7', amount: baseForMock - 16500, created_at: new Date(Date.now() - 12600000).toISOString(), profiles: { email: 'beatriz.s***@yahoo.com.br' } },
+      { id: 'm8', amount: baseForMock - 20000, created_at: new Date(Date.now() - 14400000).toISOString(), profiles: { email: 'rodrigo.f***@icloud.com' } },
+    ].filter(m => m.amount > (lot?.start_bid || 0) * 0.3); // Filtra para não ficar irrealmente baixo
 
     const combined = [...realBids, ...mockBids];
     return combined.sort((a, b) => b.amount - a.amount);

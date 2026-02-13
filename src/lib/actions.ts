@@ -49,7 +49,7 @@ export async function placeBid(lotId: string, amount: number) {
     throw new Error(`O lance mínimo para este veículo é de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBid + requiredIncrement)}`);
   }
 
-  // 5. Inserir o lance
+  // 5. Inserir o lance na tabela de lances
   const { error: bidError } = await supabase
     .from('bids')
     .insert({
@@ -61,7 +61,8 @@ export async function placeBid(lotId: string, amount: number) {
 
   if (bidError) throw bidError;
 
-  // 6. ATUALIZAR O LOTE COM O NOVO LANCE ATUAL (Crucial para aparecer no painel)
+  // 6. ATUALIZAR O LOTE COM O NOVO LANCE ATUAL
+  // Isso garante que o componente LotDetail veja o novo valor e ordene o histórico corretamente
   const { error: updateLotError } = await supabase
     .from('lots')
     .update({ current_bid: amount })
@@ -69,7 +70,7 @@ export async function placeBid(lotId: string, amount: number) {
 
   if (updateLotError) throw updateLotError;
 
-  // 7. Lógica Anti-Sniper
+  // 7. Lógica Anti-Sniper (Opcional, mantida para integridade)
   const diffMs = endsAt.getTime() - now.getTime();
   const triggerMs = (lot.auctions?.anti_sniping_trigger_minutes || 2) * 60 * 1000;
 

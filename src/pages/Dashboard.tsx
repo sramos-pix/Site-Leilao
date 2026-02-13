@@ -3,13 +3,21 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  LayoutDashboard, Gavel, Wallet, Heart, 
-  Trophy, User, Bell, ChevronRight, TrendingUp,
-  Clock, AlertCircle, ShieldCheck, Loader2
+  Gavel, Wallet, Heart, 
+  Trophy, User, Bell, ChevronRight,
+  AlertCircle, ShieldCheck, Loader2, CheckCircle2, XCircle
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from '@/components/ui/dropdown-menu';
 import { formatCurrency } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 
@@ -71,14 +79,61 @@ const Dashboard = () => {
       <div className="container mx-auto px-4 py-8">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900">Olá, {profile?.full_name || 'Usuário'}</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold text-slate-900">Olá, {profile?.full_name || 'Usuário'}</h1>
+              {profile?.kyc_status === 'verified' && (
+                <ShieldCheck className="text-green-500" size={24} />
+              )}
+              {profile?.kyc_status === 'rejected' && (
+                <XCircle className="text-red-500" size={24} />
+              )}
+            </div>
             <p className="text-slate-500">Bem-vindo ao seu painel de controle.</p>
           </div>
           <div className="flex gap-3">
-            <Button variant="outline" className="rounded-xl bg-white border-none shadow-sm">
-              <Bell size={20} className="mr-2" />
-              Notificações
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="rounded-xl bg-white border-none shadow-sm relative">
+                  <Bell size={20} className="mr-2" />
+                  Notificações
+                  {(profile?.kyc_status === 'verified' || profile?.kyc_status === 'rejected') && (
+                    <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full"></span>
+                  )}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-80 rounded-2xl p-2">
+                <DropdownMenuLabel>Suas Notificações</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {profile?.kyc_status === 'verified' && (
+                  <DropdownMenuItem className="flex gap-3 p-4 rounded-xl cursor-default">
+                    <div className="bg-green-100 p-2 rounded-full text-green-600">
+                      <CheckCircle2 size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Perfil Aprovado!</p>
+                      <p className="text-xs text-slate-500">Sua conta foi verificada com sucesso. Você já pode dar lances.</p>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+                {profile?.kyc_status === 'rejected' && (
+                  <DropdownMenuItem className="flex gap-3 p-4 rounded-xl cursor-default">
+                    <div className="bg-red-100 p-2 rounded-full text-red-600">
+                      <AlertCircle size={18} />
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm text-red-600">Documento Rejeitado</p>
+                      <p className="text-xs text-slate-500">Houve um problema com seu documento. Por favor, envie novamente.</p>
+                    </div>
+                  </DropdownMenuItem>
+                )}
+                {!profile?.kyc_status || profile?.kyc_status === 'pending' ? (
+                  <div className="p-8 text-center text-slate-400 text-sm italic">
+                    Nenhuma notificação nova.
+                  </div>
+                ) : null}
+              </DropdownMenuContent>
+            </DropdownMenu>
+            
             <Link to="/app/profile">
               <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
                 <User size={20} className="mr-2" />
@@ -192,12 +247,14 @@ const Dashboard = () => {
                   <p className="text-sm text-slate-400 leading-relaxed">
                     {profile?.kyc_status === 'pending' 
                       ? 'Seus documentos estão em análise. Você será notificado em breve.' 
+                      : profile?.kyc_status === 'rejected'
+                      ? 'Seu documento foi rejeitado. Por favor, envie um novo documento para poder participar.'
                       : 'Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões.'}
                   </p>
                   {profile?.kyc_status !== 'pending' && (
                     <Link to="/app/verify">
                       <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
-                        Enviar Documentos
+                        {profile?.kyc_status === 'rejected' ? 'Reenviar Documentos' : 'Enviar Documentos'}
                       </Button>
                     </Link>
                   )}

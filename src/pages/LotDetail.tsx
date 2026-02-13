@@ -63,7 +63,7 @@ const LotDetail = () => {
       const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
       setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
 
-      // Buscar lances REAIS
+      // Buscar lances REAIS do banco
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`
@@ -94,11 +94,11 @@ const LotDetail = () => {
     }
   };
 
-  // Lances fictícios dinâmicos baseados no lance atual real (Aumentado para mais pessoas)
+  // Lances combinados: Reais no topo, fictícios abaixo
   const allBids = useMemo(() => {
     const currentMax = lot?.current_bid || lot?.start_bid || 0;
     
-    // Base para os fictícios: se houver lances reais, começa abaixo do menor real.
+    // O ponto de partida para os fictícios é sempre o menor lance real ou o lance inicial
     const baseForMock = realBids.length > 0 
       ? realBids[realBids.length - 1].amount 
       : currentMax;
@@ -109,11 +109,10 @@ const LotDetail = () => {
       { id: 'm3', amount: baseForMock - 5800, created_at: new Date(Date.now() - 5400000).toISOString(), profiles: { email: 'ana.paula***@outlook.com' } },
       { id: 'm4', amount: baseForMock - 8000, created_at: new Date(Date.now() - 7200000).toISOString(), profiles: { email: 'ricardo.m***@hotmail.com' } },
       { id: 'm5', amount: baseForMock - 10500, created_at: new Date(Date.now() - 9000000).toISOString(), profiles: { email: 'fernanda.l***@terra.com.br' } },
-      { id: 'm6', amount: baseForMock - 13000, created_at: new Date(Date.now() - 10800000).toISOString(), profiles: { email: 'julio.cesar***@gmail.com' } },
-      { id: 'm7', amount: baseForMock - 16500, created_at: new Date(Date.now() - 12600000).toISOString(), profiles: { email: 'beatriz.s***@yahoo.com.br' } },
-      { id: 'm8', amount: baseForMock - 20000, created_at: new Date(Date.now() - 14400000).toISOString(), profiles: { email: 'rodrigo.f***@icloud.com' } },
-    ].filter(m => m.amount > (lot?.start_bid || 0) * 0.3); // Filtra para não ficar irrealmente baixo
+    ].filter(m => m.amount > (lot?.start_bid || 0) * 0.3 && m.amount < baseForMock);
 
+    // Unimos e ordenamos. Como os fictícios são forçados a ser menores que baseForMock, 
+    // os reais sempre ficarão no topo se forem maiores.
     const combined = [...realBids, ...mockBids];
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot]);
@@ -137,7 +136,8 @@ const LotDetail = () => {
     try {
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance efetuado!" });
-      fetchLotData();
+      // O fetchLotData será chamado pelo canal realtime, mas chamamos aqui para feedback imediato
+      await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {

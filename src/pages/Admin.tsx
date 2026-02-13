@@ -3,7 +3,7 @@ import {
   Plus, Gavel, Users, RefreshCw, 
   Package, BarChart3, Settings, LogOut,
   TrendingUp, AlertTriangle, FileText, History,
-  Download, Edit3, UserCog
+  Download, Edit3, UserCog, ArrowUpRight, UserPlus
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,7 +24,7 @@ const Admin = () => {
   const [activeTab, setActiveTab] = React.useState("dashboard");
   const [auctions, setAuctions] = React.useState<any[]>([]);
   const [users, setUsers] = React.useState<any[]>([]);
-  const [auditLogs, setAuditLogs] = React.useState<any[]>([]);
+  const [recentBids, setRecentBids] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAuctionDialogOpen, setIsAuctionDialogOpen] = React.useState(false);
   const { toast } = useToast();
@@ -42,17 +42,17 @@ const Admin = () => {
         .select('*, lots(count)')
         .order('created_at', { ascending: false });
 
-      const { data: logsData } = await supabase
-        .from('audit_logs')
-        .select('*')
+      const { data: bidsData } = await supabase
+        .from('bids')
+        .select('*, profiles(full_name), lots(title)')
         .order('created_at', { ascending: false })
-        .limit(15);
+        .limit(5);
       
       if (profilesError) throw profilesError;
       
       if (auctionsData) setAuctions(auctionsData);
       if (profilesData) setUsers(profilesData);
-      if (logsData) setAuditLogs(logsData);
+      if (bidsData) setRecentBids(bidsData);
       
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao carregar dados", description: error.message });
@@ -82,12 +82,10 @@ const Admin = () => {
     { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
     { id: 'auctions', label: 'Leilões', icon: Package },
     { id: 'users', label: 'Usuários', icon: Users },
-    { id: 'audit', label: 'Auditoria', icon: History },
   ];
 
   return (
     <div className="flex min-h-screen bg-slate-100">
-      {/* Sidebar Integrada */}
       <aside className="w-64 bg-slate-900 text-white hidden lg:flex flex-col sticky top-0 h-screen">
         <div className="p-6 border-b border-slate-800">
           <div className="flex items-center gap-2">
@@ -148,7 +146,6 @@ const Admin = () => {
           </header>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            {/* Dashboard Content */}
             <TabsContent value="dashboard" className="space-y-8">
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 <Card className="border-none shadow-sm bg-white">
@@ -175,29 +172,65 @@ const Admin = () => {
                     <div className="flex justify-between items-start mb-4">
                       <div className="p-3 bg-purple-50 rounded-2xl text-purple-600"><Users size={24} /></div>
                     </div>
-                    <p className="text-sm font-medium text-slate-500">Novos Usuários</p>
+                    <p className="text-sm font-medium text-slate-500">Total de Usuários</p>
                     <p className="text-3xl font-bold text-slate-900 mt-1">{users.length}</p>
                   </CardContent>
                 </Card>
               </div>
               
-              <Card className="border-none shadow-sm bg-white p-6 rounded-3xl">
-                <CardTitle className="mb-6">Atividade Recente</CardTitle>
-                <div className="space-y-4">
-                  {auditLogs.slice(0, 5).map(log => (
-                    <div key={log.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
-                      <div className="w-2 h-2 rounded-full bg-orange-500" />
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-slate-900">{log.action}</p>
-                        <p className="text-xs text-slate-500">{new Date(log.created_at).toLocaleString()}</p>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card className="border-none shadow-sm bg-white p-6 rounded-3xl">
+                  <CardTitle className="mb-6 flex items-center gap-2">
+                    <ArrowUpRight className="text-orange-500" size={20} /> Lances Recentes
+                  </CardTitle>
+                  <div className="space-y-4">
+                    {recentBids.length > 0 ? recentBids.map(bid => (
+                      <div key={bid.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
+                        <div className="p-2 bg-white rounded-xl shadow-sm text-orange-600">
+                          <Gavel size={18} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-900">{bid.profiles?.full_name || 'Usuário'}</p>
+                          <p className="text-xs text-slate-500">{bid.lots?.title}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-bold text-green-600">{formatCurrency(bid.amount)}</p>
+                          <p className="text-[10px] text-slate-400">{new Date(bid.created_at).toLocaleTimeString()}</p>
+                        </div>
                       </div>
-                    </div>
-                  ))}
-                </div>
-              </Card>
+                    )) : (
+                      <p className="text-center py-8 text-slate-400 text-sm italic">Nenhum lance recente.</p>
+                    )}
+                  </div>
+                </Card>
+
+                <Card className="border-none shadow-sm bg-white p-6 rounded-3xl">
+                  <CardTitle className="mb-6 flex items-center gap-2">
+                    <UserPlus className="text-blue-500" size={20} /> Novos Usuários
+                  </CardTitle>
+                  <div className="space-y-4">
+                    {users.slice(0, 5).map(user => (
+                      <div key={user.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
+                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400 font-bold">
+                          {user.full_name?.charAt(0) || 'U'}
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-slate-900">{user.full_name || 'Sem Nome'}</p>
+                          <p className="text-xs text-slate-500">{user.email}</p>
+                        </div>
+                        <Badge className={cn(
+                          "border-none text-[10px]",
+                          user.kyc_status === 'verified' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                        )}>
+                          {user.kyc_status === 'verified' ? 'Aprovado' : 'Pendente'}
+                        </Badge>
+                      </div>
+                    ))}
+                  </div>
+                </Card>
+              </div>
             </TabsContent>
 
-            {/* Auctions Content */}
             <TabsContent value="auctions">
               <div className="grid grid-cols-1 gap-4">
                 {auctions.map(auction => (
@@ -237,7 +270,6 @@ const Admin = () => {
               </div>
             </TabsContent>
 
-            {/* Users Content */}
             <TabsContent value="users">
               <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
                 <div className="overflow-x-auto">
@@ -284,28 +316,6 @@ const Admin = () => {
                       ))}
                     </tbody>
                   </table>
-                </div>
-              </Card>
-            </TabsContent>
-
-            {/* Audit Content */}
-            <TabsContent value="audit">
-              <Card className="border-none shadow-sm bg-white p-8 rounded-3xl">
-                <div className="space-y-8">
-                  {auditLogs.map(log => (
-                    <div key={log.id} className="flex gap-6 items-start relative pb-8 last:pb-0">
-                      <div className="absolute left-4 top-8 bottom-0 w-0.5 bg-slate-100 last:hidden" />
-                      <div className="bg-orange-100 p-3 rounded-2xl text-orange-600 z-10 shadow-sm"><FileText size={20} /></div>
-                      <div className="flex-1 pt-1">
-                        <div className="flex justify-between items-start">
-                          <p className="font-bold text-slate-900">{log.action}</p>
-                          <span className="text-[10px] font-bold text-slate-400 uppercase bg-slate-50 px-2 py-1 rounded-md">{new Date(log.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <p className="text-xs text-slate-500 mt-1">Entidade: <span className="text-slate-700 font-medium">{log.entity_type}</span> • ID: {log.entity_id}</p>
-                        <p className="text-[10px] text-slate-400 mt-2">{new Date(log.created_at).toLocaleTimeString()}</p>
-                      </div>
-                    </div>
-                  ))}
                 </div>
               </Card>
             </TabsContent>

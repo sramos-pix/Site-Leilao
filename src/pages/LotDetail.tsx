@@ -63,7 +63,7 @@ const LotDetail = () => {
       const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
       setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
 
-      // Buscar lances REAIS do banco
+      // Buscar lances REAIS do banco com o perfil (email)
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`
@@ -98,7 +98,6 @@ const LotDetail = () => {
   const allBids = useMemo(() => {
     const currentMax = lot?.current_bid || lot?.start_bid || 0;
     
-    // O ponto de partida para os fictícios é sempre o menor lance real ou o lance inicial
     const baseForMock = realBids.length > 0 
       ? realBids[realBids.length - 1].amount 
       : currentMax;
@@ -111,8 +110,6 @@ const LotDetail = () => {
       { id: 'm5', amount: baseForMock - 10500, created_at: new Date(Date.now() - 9000000).toISOString(), profiles: { email: 'fernanda.l***@terra.com.br' } },
     ].filter(m => m.amount > (lot?.start_bid || 0) * 0.3 && m.amount < baseForMock);
 
-    // Unimos e ordenamos. Como os fictícios são forçados a ser menores que baseForMock, 
-    // os reais sempre ficarão no topo se forem maiores.
     const combined = [...realBids, ...mockBids];
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot]);
@@ -136,7 +133,6 @@ const LotDetail = () => {
     try {
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance efetuado!" });
-      // O fetchLotData será chamado pelo canal realtime, mas chamamos aqui para feedback imediato
       await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
@@ -200,21 +196,27 @@ const LotDetail = () => {
               </div>
 
               <div className="space-y-4">
-                {allBids.map((bid, index) => (
-                  <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
-                      <div>
-                        <p className="font-bold text-slate-900">{maskEmail(bid.profiles?.email || 'usuário@***')}</p>
-                        <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
+                {allBids.map((bid, index) => {
+                  // Extrai o email do perfil (real) ou do objeto fictício
+                  const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
+                  const email = profile?.email || 'usuário@***';
+
+                  return (
+                    <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
+                        <div>
+                          <p className="font-bold text-slate-900">{maskEmail(email)}</p>
+                          <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{formatCurrency(bid.amount)}</p>
+                        {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{formatCurrency(bid.amount)}</p>
-                      {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>

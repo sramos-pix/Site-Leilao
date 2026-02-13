@@ -27,9 +27,10 @@ const Navbar = () => {
 
   const navigation = [
     { name: 'Início', href: '/' },
-    { name: 'Veículos', href: '/auctions' },
-    { name: 'Como Funciona', href: '/#how-it-works' },
-    { name: 'Contato', href: '/#contact' },
+    { name: 'Leilões', href: '/auctions' },
+    { name: 'Veículos', href: '/vehicles' },
+    { name: 'Como Funciona', href: '/how-it-works' },
+    { name: 'Contato', href: '/contact' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -37,20 +38,6 @@ const Navbar = () => {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate('/');
-  };
-
-  const handleNavClick = (e: React.MouseEvent<HTMLAnchorElement>, href: string) => {
-    if (href.startsWith('/#')) {
-      if (location.pathname === '/') {
-        e.preventDefault();
-        const id = href.replace('/#', '');
-        const element = document.getElementById(id);
-        if (element) {
-          element.scrollIntoView({ behavior: 'smooth' });
-        }
-      }
-      setIsOpen(false);
-    }
   };
 
   return (
@@ -74,7 +61,6 @@ const Navbar = () => {
               <Link
                 key={item.name}
                 to={item.href}
-                onClick={(e) => handleNavClick(e, item.href)}
                 className={cn(
                   "text-sm font-bold transition-colors hover:text-orange-500",
                   isActive(item.href) ? "text-orange-500" : "text-slate-600"
@@ -126,10 +112,7 @@ const Navbar = () => {
             <Link
               key={item.name}
               to={item.href}
-              onClick={(e) => {
-                handleNavClick(e, item.href);
-                setIsOpen(false);
-              }}
+              onClick={() => setIsOpen(false)}
               className={cn(
                 "block px-4 py-3 rounded-xl text-base font-bold",
                 isActive(item.href) ? "bg-orange-50 text-orange-600" : "text-slate-600"

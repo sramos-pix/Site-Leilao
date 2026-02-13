@@ -36,6 +36,7 @@ const AdminOverview = () => {
   const fetchStats = async () => {
     setIsLoading(true);
     try {
+      // 1. Buscar contadores básicos
       const [auctions, lots, users, bids] = await Promise.all([
         supabase.from('auctions').select('*', { count: 'exact', head: true }),
         supabase.from('lots').select('*', { count: 'exact', head: true }),
@@ -50,7 +51,8 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
-      // Consulta aprimorada com joins explícitos
+      // 2. Buscar lances recentes com relações simplificadas
+      // Usamos a sintaxe padrão do Supabase para relações
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -59,11 +61,11 @@ const AdminOverview = () => {
           created_at,
           user_id,
           lot_id,
-          profiles:user_id (
+          profiles (
             full_name,
             email
           ),
-          lots:lot_id (
+          lots (
             title
           )
         `)
@@ -74,7 +76,11 @@ const AdminOverview = () => {
       setRecentBids(bidsData || []);
     } catch (error: any) {
       console.error("Erro ao carregar estatísticas:", error);
-      toast({ variant: "destructive", title: "Erro ao carregar dados", description: error.message });
+      toast({ 
+        variant: "destructive", 
+        title: "Erro de Conexão", 
+        description: "Não foi possível carregar os lances recentes. Verifique as permissões no Supabase." 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -94,6 +100,7 @@ const AdminOverview = () => {
 
       setRecentBids(prev => prev.filter(b => b.id !== bidId));
 
+      // Atualiza o valor do lote para o próximo lance mais alto
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -119,6 +126,8 @@ const AdminOverview = () => {
 
   useEffect(() => {
     fetchStats();
+    
+    // Realtime para novos lances
     const channel = supabase
       .channel('admin-realtime-bids')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchStats())
@@ -197,6 +206,7 @@ const AdminOverview = () => {
                   </TableRow>
                 ) : recentBids.length > 0 ? (
                   recentBids.map((bid) => {
+                    // Tratamento resiliente para os dados relacionados
                     const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
                     const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
                     

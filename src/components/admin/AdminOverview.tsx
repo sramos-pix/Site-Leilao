@@ -85,7 +85,6 @@ const AdminOverview = () => {
     
     setIsDeleting(bidId);
     try {
-      // 1. Deletar o lance do banco
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
@@ -93,10 +92,8 @@ const AdminOverview = () => {
 
       if (deleteError) throw deleteError;
 
-      // 2. Remover IMEDIATAMENTE do estado local para sumir da tela
       setRecentBids(prev => prev.filter(b => b.id !== bidId));
 
-      // 3. Buscar o novo lance mais alto para este lote
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -105,7 +102,6 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
-      // 4. Atualizar o current_bid do lote
       const newCurrentBid = nextHighestBid?.amount || 0;
       await supabase
         .from('lots')
@@ -113,8 +109,6 @@ const AdminOverview = () => {
         .eq('id', lotId);
 
       toast({ title: "Lance removido com sucesso" });
-      
-      // 5. Recarregar estatísticas globais (contadores)
       fetchStats();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
@@ -125,8 +119,6 @@ const AdminOverview = () => {
 
   useEffect(() => {
     fetchStats();
-    
-    // Canal de tempo real para manter o painel atualizado
     const channel = supabase
       .channel('admin-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bids' }, () => fetchStats())
@@ -205,7 +197,10 @@ const AdminOverview = () => {
                   </TableRow>
                 ) : recentBids.length > 0 ? (
                   recentBids.map((bid) => {
+                    // Tratamento robusto para perfis e lotes (podem vir como objeto ou array)
                     const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
+                    const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
+                    
                     const userName = profile?.full_name || 'Usuário';
                     const userEmail = profile?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
 
@@ -232,7 +227,7 @@ const AdminOverview = () => {
                         </TableCell>
                         <TableCell>
                           <span className="font-medium text-slate-700">
-                            {bid.lots?.title || `Lote #${bid.lot_id}`}
+                            {lot?.title || `Lote #${bid.lot_id}`}
                           </span>
                         </TableCell>
                         <TableCell>

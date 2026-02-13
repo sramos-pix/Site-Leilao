@@ -2,11 +2,12 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Gavel, Clock, Gauge, ShieldCheck } from 'lucide-react';
+import { Gavel, Clock, Gauge } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
+import CountdownTimer from './CountdownTimer';
 
 const MOCK_LOTS = [
   {
@@ -79,7 +80,8 @@ const FeaturedLots = () => {
                     </Badge>
                   )}
                   <Badge className="bg-slate-900/80 backdrop-blur-md text-white border-none px-3 py-1 flex items-center gap-1">
-                    <Clock size={12} /> {lot.ends_in}
+                    <Clock size={12} /> 
+                    <CountdownTimer initialTime={lot.ends_in} />
                   </Badge>
                 </div>
               </div>

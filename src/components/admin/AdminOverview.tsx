@@ -110,29 +110,35 @@ const AdminOverview = () => {
         })
         .eq('id', bid.lot_id);
 
-      if (lotError) throw lotError;
+      if (lotError) {
+        console.error("Erro ao atualizar lote:", lotError);
+        throw new Error(`Falha ao atualizar status do lote: ${lotError.message}`);
+      }
 
-      // 2. Cria uma notificação para o usuário vencedor
-      const { error: notifyError } = await supabase
-        .from('notifications')
-        .insert({
-          user_id: bid.user_id,
-          title: '🎉 Parabéns! Você venceu!',
-          message: `Seu lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}" foi contemplado. Entre em contato para finalizar o processo.`,
-          type: 'success',
-          read: false
-        });
-
-      if (notifyError) console.error("Erro ao criar notificação:", notifyError);
+      // 2. Tenta criar uma notificação (não trava o processo se falhar)
+      try {
+        await supabase
+          .from('notifications')
+          .insert({
+            user_id: bid.user_id,
+            title: '🎉 Parabéns! Você venceu!',
+            message: `Seu lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}" foi contemplado.`,
+            type: 'success',
+            read: false
+          });
+      } catch (e) {
+        console.warn("Aviso: Tabela de notificações não encontrada ou erro ao inserir. O leilão foi finalizado mesmo assim.");
+      }
 
       toast({ 
         title: "Lance Contemplado!", 
-        description: "O leilão foi encerrado e o vencedor notificado." 
+        description: "O leilão foi encerrado com sucesso." 
       });
       
       await fetchStats(true);
       
     } catch (error: any) {
+      console.error("Erro crítico na contemplação:", error);
       toast({ 
         variant: "destructive", 
         title: "Erro ao contemplar", 

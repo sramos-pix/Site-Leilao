@@ -86,6 +86,13 @@ const Vehicles = () => {
                         <Clock size={12} /> <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
                       </Badge>
                     </div>
+                    <Button 
+                      variant="secondary" 
+                      size="icon" 
+                      className="absolute top-4 right-4 rounded-full bg-white/90 backdrop-blur-md border-none shadow-sm hover:bg-orange-500 hover:text-white transition-colors"
+                    >
+                      <Heart size={18} />
+                    </Button>
                   </div>
                   <CardContent className="p-8">
                     <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">{lot.title}</h3>
@@ -95,15 +102,18 @@ const Vehicles = () => {
                         <p className="text-2xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Ano</p>
-                        <p className="text-sm font-bold text-slate-600">{lot.year || 'N/A'}</p>
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Incremento</p>
+                        <p className="text-sm font-bold text-slate-600">
+                          + {formatCurrency(lot.bid_increment || 500)}
+                        </p>
                       </div>
                     </div>
                   </CardContent>
                   <CardFooter className="p-8 pt-0">
                     <Link to={`/lots/${lot.id}`} className="w-full">
-                      <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-bold py-6 rounded-2xl transition-all flex items-center justify-center gap-2">
-                        <Gavel size={18} /> DAR LANCE AGORA
+                      <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-bold py-6 rounded-2xl transition-all flex items-center justify-center gap-2 group/btn">
+                        <Gavel size={18} className="group-hover/btn:rotate-12 transition-transform" />
+                        DAR LANCE AGORA
                       </Button>
                     </Link>
                   </CardFooter>

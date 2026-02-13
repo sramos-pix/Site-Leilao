@@ -3,7 +3,7 @@
 import React from 'react';
 import { Routes, Route } from 'react-router-dom';
 import Index from './pages/Index';
-import LotDetails from './pages/LotDetails';
+import LotDetail from './pages/LotDetail'; // Voltando para o original
 import AdminLayout from './components/admin/AdminLayout';
 import AdminOverview from './pages/admin/AdminOverview';
 import AdminAuctions from './pages/admin/AdminAuctions';
@@ -21,7 +21,7 @@ function App() {
       <Routes>
         {/* Public Routes */}
         <Route path="/" element={<Index />} />
-        <Route path="/lots/:id" element={<LotDetails />} />
+        <Route path="/lots/:id" element={<LotDetail />} />
         
         {/* Admin Routes */}
         <Route path="/admin" element={<AdminLayout />}>

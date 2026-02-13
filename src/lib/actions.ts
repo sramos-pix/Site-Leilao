@@ -61,12 +61,20 @@ export async function placeBid(lotId: string, amount: number) {
 
   if (bidError) throw bidError;
 
-  // 6. Lógica Anti-Sniper
-  const diffMs = endsAt.getTime() - now.getTime();
-  const triggerMs = (lot.auctions.anti_sniping_trigger_minutes || 2) * 60 * 1000;
+  // 6. ATUALIZAR O LOTE COM O NOVO LANCE ATUAL (Crucial para aparecer no painel)
+  const { error: updateLotError } = await supabase
+    .from('lots')
+    .update({ current_bid: amount })
+    .eq('id', lotId);
 
-  if (lot.auctions.anti_sniping_enabled && diffMs < triggerMs) {
-    if (lot.extensions_count < (lot.auctions.anti_sniping_max_extensions || 10)) {
+  if (updateLotError) throw updateLotError;
+
+  // 7. Lógica Anti-Sniper
+  const diffMs = endsAt.getTime() - now.getTime();
+  const triggerMs = (lot.auctions?.anti_sniping_trigger_minutes || 2) * 60 * 1000;
+
+  if (lot.auctions?.anti_sniping_enabled && diffMs < triggerMs) {
+    if ((lot.extensions_count || 0) < (lot.auctions.anti_sniping_max_extensions || 10)) {
       const extensionSeconds = lot.auctions.anti_sniping_extend_seconds || 120;
       const newEndsAt = new Date(endsAt.getTime() + extensionSeconds * 1000);
       

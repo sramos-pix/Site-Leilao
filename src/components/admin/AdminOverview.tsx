@@ -102,6 +102,11 @@ const AdminOverview = () => {
     };
   }, []);
 
+  const handleUserClick = (userId: string) => {
+    // Forçamos a navegação com o parâmetro ID
+    navigate(`/admin?id=${userId}`, { replace: true });
+  };
+
   const cards = [
     { title: 'Leilões', value: stats.auctions, icon: Gavel, color: 'text-orange-500', bg: 'bg-orange-500/10' },
     { title: 'Veículos/Lotes', value: stats.lots, icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -175,7 +180,7 @@ const AdminOverview = () => {
                       <TableRow key={bid.id} className="group">
                         <TableCell 
                           className="pl-6 cursor-pointer hover:bg-slate-50 transition-colors"
-                          onClick={() => navigate(`/admin/users?id=${bid.user_id}`)}
+                          onClick={() => handleUserClick(bid.user_id)}
                         >
                           <div className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-orange-100 group-hover:text-orange-600 transition-colors">

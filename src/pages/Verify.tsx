@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ShieldCheck, Upload, AlertCircle, Loader2, CheckCircle2 } from 'lucide-react';
+import { ShieldCheck, Upload, AlertCircle, Loader2, CheckCircle2, ChevronLeft } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
@@ -10,13 +10,20 @@ import { toast } from 'react-hot-toast';
 
 const Verify = () => {
   const [file, setFile] = React.useState<File | null>(null);
+  const [preview, setPreview] = React.useState<string | null>(null);
   const [isUploading, setIsUploading] = React.useState(false);
   const [status, setStatus] = React.useState<'idle' | 'success'>('idle');
   const navigate = useNavigate();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      setFile(e.target.files[0]);
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreview(reader.result as string);
+      };
+      reader.readAsDataURL(selectedFile);
     }
   };
 
@@ -31,27 +38,31 @@ const Verify = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      // Organizando em pastas por ID de usuário conforme sua estrutura atual
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-      const filePath = `verifications/${fileName}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
 
-      // Tenta fazer o upload para o bucket 'kyc-documents'
+      // Upload para o bucket 'documents' que você já possui
       const { error: uploadError } = await supabase.storage
-        .from('kyc-documents')
-        .upload(filePath, file);
+        .from('documents')
+        .upload(filePath, file, {
+          upsert: true
+        });
 
-      if (uploadError) {
-        if (uploadError.message.includes('Bucket not found')) {
-          throw new Error("Configuração pendente: O bucket 'kyc-documents' não foi criado no Storage do Supabase.");
-        }
-        throw uploadError;
-      }
+      if (uploadError) throw uploadError;
 
-      // Atualiza o status do perfil
+      // Pegar a URL pública para salvar no perfil
+      const { data: { publicUrl } } = supabase.storage
+        .from('documents')
+        .getPublicUrl(filePath);
+
+      // Atualiza o status do perfil e salva o link do documento
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
           kyc_status: 'pending',
+          document_url: publicUrl,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -67,7 +78,7 @@ const Verify = () => {
 
     } catch (error: any) {
       console.error("Erro no upload:", error);
-      toast.error(error.message || "Erro ao enviar documento.");
+      toast.error(error.message || "Erro ao enviar documento para o bucket 'documents'.");
     } finally {
       setIsUploading(false);
     }
@@ -91,6 +102,10 @@ const Verify = () => {
   return (
     <div className="min-h-screen bg-slate-50 py-12 px-4">
       <div className="max-w-2xl mx-auto">
+        <Button variant="ghost" onClick={() => navigate('/app')} className="mb-6 text-slate-500">
+          <ChevronLeft size={20} className="mr-1" /> Voltar ao Painel
+        </Button>
+
         <div className="flex items-center gap-3 mb-8">
           <div className="bg-orange-500 p-2 rounded-xl text-white">
             <ShieldCheck size={24} />
@@ -102,33 +117,33 @@ const Verify = () => {
           <CardHeader className="bg-slate-900 text-white p-8">
             <CardTitle className="flex items-center gap-2">
               <AlertCircle className="text-orange-400" />
-              Por que verificar?
+              Envio de Documento
             </CardTitle>
             <p className="text-slate-400 text-sm mt-2">
-              Para garantir a segurança de todos os participantes, exigimos a verificação de documentos antes de permitir lances em leilões ativos.
+              O arquivo será enviado para sua pasta segura no bucket 'documents'.
             </p>
           </CardHeader>
           <CardContent className="p-8">
             <div className="space-y-6">
-              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-12 text-center hover:border-orange-500 transition-colors cursor-pointer relative">
+              <div className="border-2 border-dashed border-slate-200 rounded-2xl p-8 text-center hover:border-orange-500 transition-colors cursor-pointer relative min-h-[200px] flex flex-col items-center justify-center">
                 <input 
                   type="file" 
                   className="absolute inset-0 opacity-0 cursor-pointer" 
                   onChange={handleFileChange}
                   accept="image/*,.pdf"
                 />
-                <Upload className="mx-auto text-slate-300 mb-4" size={48} />
-                <p className="text-slate-600 font-medium">
-                  {file ? file.name : "Clique ou arraste seu RG/CNH (Frente e Verso)"}
-                </p>
-                <p className="text-xs text-slate-400 mt-2">Formatos aceitos: JPG, PNG ou PDF (Máx 5MB)</p>
-              </div>
-
-              <div className="bg-blue-50 p-4 rounded-xl flex gap-3">
-                <AlertCircle className="text-blue-600 shrink-0" size={20} />
-                <p className="text-xs text-blue-700 leading-relaxed">
-                  Certifique-se de que a foto esteja nítida e todos os dados estejam legíveis. Documentos cortados ou desfocados serão rejeitados.
-                </p>
+                {preview ? (
+                  <div className="w-full h-full flex flex-col items-center">
+                    <img src={preview} alt="Preview" className="max-h-40 rounded-lg mb-2 shadow-sm" />
+                    <p className="text-xs text-slate-500">{file?.name}</p>
+                  </div>
+                ) : (
+                  <>
+                    <Upload className="mx-auto text-slate-300 mb-4" size={48} />
+                    <p className="text-slate-600 font-medium">Clique para selecionar seu RG ou CNH</p>
+                    <p className="text-xs text-slate-400 mt-2">JPG, PNG ou PDF (Máx 5MB)</p>
+                  </>
+                )}
               </div>
 
               <Button 

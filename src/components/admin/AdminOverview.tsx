@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Gavel, Package, Users, TrendingUp, 
-  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2 
+  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2, CheckCircle
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
@@ -31,7 +31,7 @@ const AdminOverview = () => {
   });
   const [recentBids, setRecentBids] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState<string | null>(null);
   
   const isFetchingRef = useRef(false);
 
@@ -69,7 +69,7 @@ const AdminOverview = () => {
 
         const [profilesRes, lotsRes] = await Promise.all([
           supabase.from('profiles').select('id, full_name, email').in('id', userIds),
-          supabase.from('lots').select('id, title').in('id', lotIds)
+          supabase.from('lots').select('id, title, status').in('id', lotIds)
         ]);
 
         const profilesMap = (profilesRes.data || []).reduce((acc: any, p) => ({ ...acc, [p.id]: p }), {});
@@ -94,13 +94,61 @@ const AdminOverview = () => {
     }
   }, []);
 
+  const handleContemplateBid = async (bid: any) => {
+    if (!confirm(`Deseja CONTEMPLAR este lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}"? Isso encerrará o leilão deste item.`)) return;
+    
+    setIsProcessing(bid.id);
+
+    try {
+      // 1. Atualiza o lote para finalizado e define o vencedor
+      const { error: lotError } = await supabase
+        .from('lots')
+        .update({ 
+          status: 'finished',
+          winner_id: bid.user_id,
+          final_price: bid.amount
+        })
+        .eq('id', bid.lot_id);
+
+      if (lotError) throw lotError;
+
+      // 2. Cria uma notificação para o usuário vencedor
+      const { error: notifyError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: bid.user_id,
+          title: '🎉 Parabéns! Você venceu!',
+          message: `Seu lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}" foi contemplado. Entre em contato para finalizar o processo.`,
+          type: 'success',
+          read: false
+        });
+
+      if (notifyError) console.error("Erro ao criar notificação:", notifyError);
+
+      toast({ 
+        title: "Lance Contemplado!", 
+        description: "O leilão foi encerrado e o vencedor notificado." 
+      });
+      
+      await fetchStats(true);
+      
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Erro ao contemplar", 
+        description: error.message 
+      });
+    } finally {
+      setIsProcessing(null);
+    }
+  };
+
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
     if (!confirm(`Deseja realmente EXCLUIR este lance de ${formatCurrency(amount)}?`)) return;
     
-    setIsDeleting(bidId);
+    setIsProcessing(bidId);
 
     try {
-      // 1. Deleta o lance (Agora com RLS desabilitado, deve funcionar)
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
@@ -108,7 +156,6 @@ const AdminOverview = () => {
 
       if (deleteError) throw deleteError;
 
-      // 2. Busca o novo lance mais alto
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -117,7 +164,6 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
-      // 3. Atualiza o valor do lote
       const newCurrentBid = nextHighestBid?.amount || 0;
       const { error: updateError } = await supabase
         .from('lots')
@@ -131,7 +177,6 @@ const AdminOverview = () => {
         description: "O registro foi removido e o valor do veículo atualizado." 
       });
       
-      // 4. Recarrega tudo
       await fetchStats(true);
       
     } catch (error: any) {
@@ -140,9 +185,8 @@ const AdminOverview = () => {
         title: "Erro na exclusão", 
         description: error.message 
       });
-      fetchStats(true);
     } finally {
-      setIsDeleting(null);
+      setIsProcessing(null);
     }
   };
 
@@ -231,9 +275,10 @@ const AdminOverview = () => {
                   recentBids.map((bid) => {
                     const userName = bid.profiles?.full_name || 'Usuário';
                     const userEmail = bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
+                    const isFinished = bid.lots?.status === 'finished';
 
                     return (
-                      <TableRow key={bid.id} className="group">
+                      <TableRow key={bid.id} className={`group ${isFinished ? 'bg-slate-50/50' : ''}`}>
                         <TableCell 
                           className="pl-6 cursor-pointer hover:bg-slate-50 transition-colors"
                           onClick={() => handleUserClick(bid.user_id)}
@@ -254,9 +299,14 @@ const AdminOverview = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium text-slate-700">
-                            {bid.lots?.title || `Lote #${bid.lot_id}`}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-slate-700">
+                              {bid.lots?.title || `Lote #${bid.lot_id}`}
+                            </span>
+                            {isFinished && (
+                              <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider">Finalizado</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>
@@ -265,15 +315,30 @@ const AdminOverview = () => {
                           {formatDate(bid.created_at)}
                         </TableCell>
                         <TableCell className="pr-6 text-right">
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
-                            onClick={() => handleDeleteBid(bid.id, bid.lot_id, bid.amount)}
-                            disabled={isDeleting === bid.id}
-                          >
-                            {isDeleting === bid.id ? <Loader2 className="animate-spin h-4 w-4" /> : <Trash2 size={18} />}
-                          </Button>
+                          <div className="flex items-center justify-end gap-2">
+                            {!isFinished && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-slate-300 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                onClick={() => handleContemplateBid(bid)}
+                                disabled={isProcessing === bid.id}
+                                title="Contemplar Lance"
+                              >
+                                {isProcessing === bid.id ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle size={18} />}
+                              </Button>
+                            )}
+                            <Button 
+                              variant="ghost" 
+                              size="icon" 
+                              className="text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                              onClick={() => handleDeleteBid(bid.id, bid.lot_id, bid.amount)}
+                              disabled={isProcessing === bid.id}
+                              title="Excluir Lance"
+                            >
+                              {isProcessing === bid.id ? <Loader2 className="animate-spin h-4 w-4" /> : <Trash2 size={18} />}
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     );

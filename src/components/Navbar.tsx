@@ -28,9 +28,8 @@ const Navbar = () => {
   const navigation = [
     { name: 'Início', href: '/' },
     { name: 'Leilões', href: '/auctions' },
-    { name: 'Veículos', href: '/vehicles' },
-    { name: 'Como Funciona', href: '/how-it-works' },
-    { name: 'Contato', href: '/contact' },
+    { name: 'Como Funciona', href: '/#how-it-works' },
+    { name: 'Contato', href: '/#contact' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -56,7 +55,7 @@ const Navbar = () => {
           </div>
 
           {/* Desktop Menu */}
-          <div className="hidden md:flex md:items-center md:space-x-6">
+          <div className="hidden md:flex md:items-center md:space-x-8">
             {navigation.map((item) => (
               <Link
                 key={item.name}
@@ -69,25 +68,27 @@ const Navbar = () => {
                 {item.name}
               </Link>
             ))}
-            <div className="flex items-center gap-4 ml-4 border-l pl-6">
+            <div className="flex items-center gap-4 ml-4 border-l pl-8">
               {user ? (
                 <div className="flex items-center gap-3">
                   <Link to="/app">
-                    <Button variant="ghost" className="text-slate-600 gap-2 font-bold">
+                    <Button variant="ghost" className="text-slate-900 gap-2 font-black hover:bg-slate-50 rounded-xl">
                       <LayoutDashboard size={18} /> Painel
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="icon" onClick={handleLogout} className="text-slate-400 hover:text-red-500">
+                  <Button variant="ghost" size="icon" onClick={handleLogout} className="text-slate-400 hover:text-red-500 rounded-full">
                     <LogOut size={18} />
                   </Button>
                 </div>
               ) : (
                 <>
                   <Link to="/auth">
-                    <Button variant="ghost" className="text-slate-600 font-bold">Entrar</Button>
+                    <Button variant="ghost" className="text-slate-900 font-black hover:bg-slate-50 rounded-xl">Entrar</Button>
                   </Link>
                   <Link to="/auth?mode=signup">
-                    <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-6 font-bold">Cadastrar</Button>
+                    <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-8 font-black shadow-lg shadow-orange-100 transition-all">
+                      Cadastrar
+                    </Button>
                   </Link>
                 </>
               )}
@@ -96,7 +97,7 @@ const Navbar = () => {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden">
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)}>
+            <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} className="rounded-xl">
               {isOpen ? <X /> : <Menu />}
             </Button>
           </div>
@@ -105,32 +106,32 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-white border-b px-4 pt-2 pb-6 space-y-1">
+        <div className="md:hidden bg-white border-b px-4 pt-2 pb-8 space-y-1 shadow-xl">
           {navigation.map((item) => (
             <Link
               key={item.name}
               to={item.href}
               onClick={() => setIsOpen(false)}
               className={cn(
-                "block px-3 py-2 rounded-md text-base font-bold",
+                "block px-4 py-3 rounded-xl text-base font-bold",
                 isActive(item.href) ? "bg-orange-50 text-orange-600" : "text-slate-600"
               )}
             >
               {item.name}
             </Link>
           ))}
-          <div className="pt-4 flex flex-col gap-2">
+          <div className="pt-6 flex flex-col gap-3 px-2">
             {user ? (
               <Link to="/app" onClick={() => setIsOpen(false)}>
-                <Button className="w-full bg-slate-900 text-white font-bold">Meu Painel</Button>
+                <Button className="w-full bg-slate-900 text-white font-black h-12 rounded-xl">Meu Painel</Button>
               </Link>
             ) : (
               <>
                 <Link to="/auth" onClick={() => setIsOpen(false)}>
-                  <Button variant="outline" className="w-full font-bold">Entrar</Button>
+                  <Button variant="outline" className="w-full font-black h-12 rounded-xl border-slate-200">Entrar</Button>
                 </Link>
                 <Link to="/auth?mode=signup" onClick={() => setIsOpen(false)}>
-                  <Button className="w-full bg-orange-500 text-white font-bold">Cadastrar</Button>
+                  <Button className="w-full bg-orange-500 text-white font-black h-12 rounded-xl shadow-lg shadow-orange-100">Cadastrar</Button>
                 </Link>
               </>
             )}

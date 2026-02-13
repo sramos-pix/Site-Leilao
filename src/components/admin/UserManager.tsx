@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   User, Mail, Phone, MapPin, 
-  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, Eye, EyeOff, Lock
+  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, Eye, EyeOff
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { validateCPF } from '@/lib/validations';
@@ -24,20 +24,21 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   const [isSearchingCep, setIsSearchingCep] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
-  const { register, handleSubmit, setValue, watch, formState: { isDirty, errors } } = useForm({
+  // Mapeamento robusto para garantir que campos com nomes diferentes no banco sejam carregados
+  const { register, handleSubmit, setValue, formState: { isDirty } } = useForm({
     defaultValues: {
       full_name: user.full_name || '',
       email: user.email || '',
       document_id: user.document_id || user.cpf || user.cnpj || '',
       phone: user.phone || '',
-      password: user.password || '', // Assume que a senha está salva na tabela profiles
+      password: user.password || '', 
       zip_code: user.zip_code || user.cep || '',
-      address: user.address || '',
+      address: user.address || user.logradouro || '',
       number: user.number || '',
       complement: user.complement || '',
       neighborhood: user.neighborhood || user.bairro || '',
-      city: user.city || '',
-      state: user.state || '',
+      city: user.city || user.localidade || '',
+      state: user.state || user.uf || '',
     }
   });
 
@@ -96,11 +97,10 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
       toast({ title: "Sucesso", description: "Dados do usuário atualizados com sucesso." });
       onSuccess();
     } catch (error: any) {
-      console.error("Erro completo do Supabase:", error);
       toast({ 
         variant: "destructive", 
         title: "Erro ao salvar", 
-        description: error.message || "Erro desconhecido no banco de dados." 
+        description: error.message || "Erro ao atualizar banco de dados." 
       });
     } finally {
       setIsLoading(false);

@@ -72,7 +72,7 @@ const LotManager = () => {
           }
         } catch (uploadErr: any) {
           if (uploadErr.message?.includes('bucket_not_found') || uploadErr.error === 'bucket_not_found') {
-            throw new Error("O bucket 'vehicle-photos' não foi encontrado no Supabase Storage. Por favor, crie-o como um bucket público.");
+            throw new Error("O bucket 'vehicle-photos' não foi encontrado. Crie-o no Storage do Supabase como 'Public'.");
           }
           throw uploadErr;
         }
@@ -219,6 +219,14 @@ const LotManager = () => {
                       <DialogContent className="max-w-3xl rounded-3xl">
                         <DialogHeader><DialogTitle>Fotos do Veículo: {lot.title}</DialogTitle></DialogHeader>
                         <div className="space-y-6 py-4">
+                          <div className="bg-blue-50 p-4 rounded-2xl flex gap-3 border border-blue-100">
+                            <AlertCircle className="text-blue-600 shrink-0" size={20} />
+                            <div className="text-xs text-blue-800 leading-tight">
+                              <p className="font-bold mb-1">Configuração Necessária:</p>
+                              <p>Certifique-se de que o bucket <strong>vehicle-photos</strong> existe no Storage do Supabase e está configurado como <strong>Public</strong>.</p>
+                            </div>
+                          </div>
+
                           <div className="flex items-center justify-center w-full">
                             <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50">
                               <div className="flex flex-col items-center justify-center pt-5 pb-6">

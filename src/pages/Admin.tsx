@@ -3,7 +3,7 @@ import {
   Plus, Gavel, Users, RefreshCw, 
   Package, BarChart3, Settings, LogOut,
   TrendingUp, AlertTriangle, FileText, History,
-  Download, Edit3, UserCog, ArrowUpRight, UserPlus
+  Download, Edit3, UserCog, ArrowUpRight, UserPlus, FileSpreadsheet
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,6 +59,38 @@ const Admin = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const exportUsersCSV = () => {
+    if (users.length === 0) return;
+    
+    const headers = ["Nome", "Email", "Documento", "Telefone", "Cidade", "UF", "Status KYC", "Data Cadastro"];
+    const rows = users.map(u => [
+      u.full_name,
+      u.email,
+      u.document_id,
+      u.phone,
+      u.city,
+      u.state,
+      u.kyc_status,
+      new Date(u.created_at).toLocaleDateString()
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map(r => r.map(field => `"${field || ''}"`).join(","))
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `usuarios-autobid-${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: "Relatório Gerado", description: "O arquivo CSV foi baixado com sucesso." });
   };
 
   const handleExportReport = (auction: any) => {
@@ -128,6 +160,11 @@ const Admin = () => {
               <p className="text-slate-500">Gerenciamento centralizado da plataforma.</p>
             </div>
             <div className="flex gap-3">
+              {activeTab === 'users' && (
+                <Button variant="outline" onClick={exportUsersCSV} className="bg-white rounded-xl shadow-sm border-none text-slate-600">
+                  <FileSpreadsheet size={20} className="mr-2 text-green-600" /> Exportar CSV
+                </Button>
+              )}
               <Dialog open={isAuctionDialogOpen} onOpenChange={setIsAuctionDialogOpen}>
                 <DialogTrigger asChild>
                   <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-lg shadow-orange-200">

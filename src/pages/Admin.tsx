@@ -32,10 +32,10 @@ const Admin = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Busca explícita de todos os campos necessários, incluindo document_id
+      // Busca simplificada para evitar erro de coluna caso o schema esteja desatualizado
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('id, full_name, email, document_id, phone, city, state, kyc_status, created_at, address')
+        .select('*')
         .order('created_at', { ascending: false });
 
       const { data: auctionsData } = await supabase
@@ -56,7 +56,12 @@ const Admin = () => {
       if (bidsData) setRecentBids(bidsData);
       
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao carregar dados", description: error.message });
+      console.error("Erro detalhado:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Erro ao carregar dados", 
+        description: "Verifique se a tabela 'profiles' possui a coluna 'document_id'." 
+      });
     } finally {
       setIsLoading(false);
     }
@@ -69,7 +74,7 @@ const Admin = () => {
     const rows = users.map(u => [
       u.full_name,
       u.email,
-      u.document_id,
+      u.document_id || u.cpf || '', // Tenta document_id ou cpf
       u.phone,
       u.city,
       u.state,
@@ -327,7 +332,7 @@ const Admin = () => {
                             <div className="font-bold text-slate-900">{user.full_name || 'Sem Nome'}</div>
                             <div className="text-xs text-slate-500">{user.email}</div>
                           </td>
-                          <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.document_id || '---'}</td>
+                          <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.document_id || user.cpf || '---'}</td>
                           <td className="px-6 py-4">
                             <Badge className={cn(
                               "border-none px-3 py-1",

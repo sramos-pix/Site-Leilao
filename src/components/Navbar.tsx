@@ -27,7 +27,7 @@ const Navbar = () => {
 
   const navigation = [
     { name: 'Início', href: '/' },
-    { name: 'Leilões', href: '/auctions' },
+    { name: 'Veículos', href: '/auctions' },
     { name: 'Como Funciona', href: '/#how-it-works' },
     { name: 'Contato', href: '/#contact' },
   ];

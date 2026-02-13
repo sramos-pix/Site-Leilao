@@ -48,7 +48,6 @@ const AdminOverview = () => {
         supabase.from('bids').select('*', { count: 'exact', head: true })
       ]);
 
-      // Busca lances com join manual para evitar erros de relação se o schema estiver incompleto
       const { data: bids, error: bidsError } = await supabase
         .from('bids')
         .select('*')
@@ -96,23 +95,20 @@ const AdminOverview = () => {
   }, []);
 
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
-    if (!confirm(`Deseja realmente EXCLUIR PERMANENTEMENTE este lance de ${formatCurrency(amount)}? Esta ação removerá o lance do painel do usuário e atualizará o valor do veículo.`)) return;
+    if (!confirm(`Deseja realmente EXCLUIR este lance de ${formatCurrency(amount)}?`)) return;
     
     setIsDeleting(bidId);
 
     try {
-      // 1. Tenta deletar o lance no banco de dados (Ação Real)
+      // 1. Deleta o lance (Agora com RLS desabilitado, deve funcionar)
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
-        .match({ id: bidId });
+        .eq('id', bidId);
 
-      if (deleteError) {
-        console.error("Erro na deleção:", deleteError);
-        throw new Error(`Erro de permissão ou banco: ${deleteError.message}`);
-      }
+      if (deleteError) throw deleteError;
 
-      // 2. Busca o novo lance mais alto para este lote após a deleção
+      // 2. Busca o novo lance mais alto
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -121,7 +117,7 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
-      // 3. Atualiza o valor atual do lote para o lance anterior (ou 0 se não houver mais lances)
+      // 3. Atualiza o valor do lote
       const newCurrentBid = nextHighestBid?.amount || 0;
       const { error: updateError } = await supabase
         .from('lots')
@@ -131,18 +127,18 @@ const AdminOverview = () => {
       if (updateError) throw updateError;
 
       toast({ 
-        title: "Lance excluído com sucesso", 
-        description: `O registro foi removido e o valor do lote atualizado para ${formatCurrency(newCurrentBid)}.` 
+        title: "Lance excluído", 
+        description: "O registro foi removido e o valor do veículo atualizado." 
       });
       
-      // 4. Recarrega os dados para garantir sincronia
+      // 4. Recarrega tudo
       await fetchStats(true);
       
     } catch (error: any) {
       toast({ 
         variant: "destructive", 
-        title: "Falha na exclusão", 
-        description: error.message || "Verifique as políticas de RLS no Supabase." 
+        title: "Erro na exclusão", 
+        description: error.message 
       });
       fetchStats(true);
     } finally {
@@ -153,9 +149,8 @@ const AdminOverview = () => {
   useEffect(() => {
     fetchStats(true);
     
-    // Inscrição Realtime para atualizações automáticas
     const channel = supabase
-      .channel('admin-realtime-v4')
+      .channel('admin-realtime-final')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => {
         fetchStats();
       })

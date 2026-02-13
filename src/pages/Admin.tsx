@@ -32,9 +32,10 @@ const Admin = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
+      // Busca explícita de todos os campos necessários, incluindo document_id
       const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select('*')
+        .select('id, full_name, email, document_id, phone, city, state, kyc_status, created_at, address')
         .order('created_at', { ascending: false });
 
       const { data: auctionsData } = await supabase

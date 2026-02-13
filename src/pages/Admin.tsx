@@ -2,8 +2,8 @@ import React from 'react';
 import { 
   Plus, Gavel, Users, RefreshCw, 
   Package, BarChart3, Settings, LogOut,
-  TrendingUp, AlertTriangle, FileText, History,
-  Download, Edit3, UserCog, ArrowUpRight, UserPlus, FileSpreadsheet, Trash2
+  TrendingUp, ArrowUpRight, UserPlus, FileSpreadsheet, Trash2,
+  Edit3, Download
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,11 +23,10 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
-import LotForm from '@/components/admin/LotForm';
 import AuctionForm from '@/components/admin/AuctionForm';
 import LotManager from '@/components/admin/LotManager';
 import UserManager from '@/components/admin/UserManager';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { formatCurrency } from '@/lib/utils';
 import { cn } from '@/lib/utils';
 
@@ -39,6 +38,7 @@ const Admin = () => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAuctionDialogOpen, setIsAuctionDialogOpen] = React.useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -75,6 +75,12 @@ const Admin = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleAdminLogout = () => {
+    localStorage.removeItem('admin_auth');
+    toast({ title: "Sessão encerrada", description: "Você saiu do painel administrativo." });
+    navigate('/');
   };
 
   const handleDeleteUser = async (userId: string) => {
@@ -180,11 +186,13 @@ const Admin = () => {
           </Button>
         </nav>
         <div className="p-4 border-t border-slate-800">
-          <Link to="/">
-            <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:text-red-400 rounded-xl">
-              <LogOut size={18} /> Sair do Painel
-            </Button>
-          </Link>
+          <Button 
+            variant="ghost" 
+            onClick={handleAdminLogout}
+            className="w-full justify-start gap-3 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl"
+          >
+            <LogOut size={18} /> Sair do Painel
+          </Button>
         </div>
       </aside>
 
@@ -387,7 +395,7 @@ const Admin = () => {
                               <Dialog>
                                 <DialogTrigger asChild>
                                   <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-50 rounded-xl">
-                                    <UserCog size={16} className="mr-2" /> Gerenciar
+                                    <Edit3 size={16} className="mr-2" /> Gerenciar
                                   </Button>
                                 </DialogTrigger>
                                 <DialogContent className="max-w-2xl">

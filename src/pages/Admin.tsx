@@ -3,12 +3,23 @@ import {
   Plus, Gavel, Users, RefreshCw, 
   Package, BarChart3, Settings, LogOut,
   TrendingUp, AlertTriangle, FileText, History,
-  Download, Edit3, UserCog, ArrowUpRight, UserPlus, FileSpreadsheet
+  Download, Edit3, UserCog, ArrowUpRight, UserPlus, FileSpreadsheet, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle, 
+  AlertDialogTrigger 
+} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
@@ -63,6 +74,26 @@ const Admin = () => {
       });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({ title: "Usuário removido", description: "O perfil foi excluído com sucesso." });
+      fetchData();
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Erro ao excluir", 
+        description: error.message 
+      });
     }
   };
 
@@ -352,17 +383,44 @@ const Admin = () => {
                             </Badge>
                           </td>
                           <td className="px-6 py-4">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-50 rounded-xl">
-                                  <UserCog size={16} className="mr-2" /> Gerenciar
-                                </Button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl">
-                                <DialogHeader><DialogTitle>Editar Perfil do Usuário</DialogTitle></DialogHeader>
-                                <UserManager user={user} onSuccess={() => fetchData()} />
-                              </DialogContent>
-                            </Dialog>
+                            <div className="flex items-center gap-2">
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-50 rounded-xl">
+                                    <UserCog size={16} className="mr-2" /> Gerenciar
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent className="max-w-2xl">
+                                  <DialogHeader><DialogTitle>Editar Perfil do Usuário</DialogTitle></DialogHeader>
+                                  <UserManager user={user} onSuccess={() => fetchData()} />
+                                </DialogContent>
+                              </Dialog>
+
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="sm" className="text-red-500 hover:bg-red-50 rounded-xl">
+                                    <Trash2 size={16} />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir Usuário?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Esta ação removerá o perfil de <strong>{user.full_name}</strong> permanentemente do banco de dados. Esta ação não pode ser desfeita.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction 
+                                      onClick={() => handleDeleteUser(user.id)}
+                                      className="bg-red-500 hover:bg-red-600"
+                                    >
+                                      Excluir Definitivamente
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
                           </td>
                         </tr>
                       ))}

@@ -1,3 +1,5 @@
+"use client";
+
 import React from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { 
@@ -14,6 +16,7 @@ import { Separator } from '@/components/ui/separator';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
+import CountdownTimer from '@/components/CountdownTimer';
 
 // Mock data para visualização imediata
 const MOCK_LOT = {
@@ -23,7 +26,7 @@ const MOCK_LOT = {
   title: 'BMW 320i M Sport 2022',
   current_bid: 215000,
   start_bid: 180000,
-  ends_at: new Date(Date.now() + 3600000 * 2).toISOString(),
+  ends_at: new Date(Date.now() + 3600000 * 2 + 42 * 60000 + 15000).toISOString(), // 2h 42m 15s a partir de agora
   images: ['https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=1200'],
   bids: []
 };
@@ -130,7 +133,7 @@ const LotDetail = () => {
                   <Clock size={18} className="animate-pulse" />
                   <span className="text-sm font-bold uppercase">Tempo Restante</span>
                 </div>
-                <div className="text-3xl font-mono font-bold">01:42:15</div>
+                <CountdownTimer endsAt={lot.ends_at} />
               </div>
               
               <CardContent className="p-8 space-y-6">
@@ -168,7 +171,7 @@ const LotDetail = () => {
                 <div className="bg-blue-50 p-4 rounded-2xl flex gap-3 border border-blue-100">
                   <ShieldCheck className="text-blue-600 shrink-0" size={20} />
                   <p className="text-[10px] text-blue-800 leading-tight">
-                    Este leilão possui <strong>Anti-Sniper</strong>. Lances nos últimos 2 minutos estendem o tempo automaticamente para garantir a disputa justa.
+                    Este leilão possui <strong>Anti-Sniper</strong>. Lances nos últimos 2 minutos estendem o tempo automaticamente para garantir a disputa franca.
                   </p>
                 </div>
               </CardContent>

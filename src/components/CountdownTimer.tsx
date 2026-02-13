@@ -3,48 +3,43 @@
 import React, { useState, useEffect } from 'react';
 
 interface CountdownTimerProps {
-  initialTime: string; // Formato "HH:MM:SS" ou uma data ISO
+  endsAt: string;
+  onEnd?: () => void;
 }
 
-const CountdownTimer = ({ initialTime }: CountdownTimerProps) => {
-  const [timeLeft, setTimeLeft] = useState(initialTime);
+const CountdownTimer = ({ endsAt, onEnd }: CountdownTimerProps) => {
+  const [timeLeft, setTimeLeft] = useState<string>('00:00:00');
 
   useEffect(() => {
-    // Se for uma string de tempo fixo (ex: 02:14:05), vamos simular o decréscimo
-    // Em um cenário real, usaríamos a diferença entre a data final e agora.
-    
-    const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        const parts = prev.split(':').map(Number);
-        let [h, m, s] = parts;
+    const calculateTimeLeft = () => {
+      const difference = +new Date(endsAt) - +new Date();
+      
+      if (difference <= 0) {
+        setTimeLeft('ENCERRADO');
+        if (onEnd) onEnd();
+        return;
+      }
 
-        if (h === 0 && m === 0 && s === 0) {
-          clearInterval(timer);
-          return "ENCERRADO";
-        }
+      const hours = Math.floor((difference / (1000 * 60 * 60)));
+      const minutes = Math.floor((difference / 1000 / 60) % 60);
+      const seconds = Math.floor((difference / 1000) % 60);
 
-        if (s > 0) {
-          s--;
-        } else {
-          s = 59;
-          if (m > 0) {
-            m--;
-          } else {
-            m = 59;
-            if (h > 0) h--;
-          }
-        }
+      const pad = (n: number) => n.toString().padStart(2, '0');
+      
+      setTimeLeft(`${pad(hours)}:${pad(minutes)}:${pad(seconds)}`);
+    };
 
-        return [h, m, s]
-          .map((v) => v.toString().padStart(2, '0'))
-          .join(':');
-      });
-    }, 1000);
+    const timer = setInterval(calculateTimeLeft, 1000);
+    calculateTimeLeft(); // Execução inicial imediata
 
     return () => clearInterval(timer);
-  }, []);
+  }, [endsAt, onEnd]);
 
-  return <span>{timeLeft}</span>;
+  return (
+    <div className="text-3xl font-mono font-bold tracking-wider">
+      {timeLeft}
+    </div>
+  );
 };
 
 export default CountdownTimer;

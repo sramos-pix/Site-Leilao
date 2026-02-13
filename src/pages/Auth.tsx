@@ -5,7 +5,7 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Gavel, Mail, Lock, User, Phone, MapPin, ShieldCheck, Loader2, FileText, AlertCircle } from 'lucide-react';
+import { Gavel, Mail, Lock, User, Phone, MapPin, ShieldCheck, Loader2, FileText, AlertCircle, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -21,12 +21,11 @@ const authSchema = z.object({
   password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
   fullName: z.string().min(3, 'Nome muito curto').optional(),
   phone: z.string().min(10, 'Telefone inválido').optional(),
+  cep: z.string().min(8, 'CEP inválido').optional(),
   address: z.string().min(5, 'Endereço obrigatório').optional(),
   city: z.string().min(2, 'Cidade obrigatória').optional(),
   state: z.string().length(2, 'UF (2 letras)').optional(),
   documentId: z.string().refine((val) => {
-    // Se estiver no modo login, não valida CPF. Se estiver no signup, valida.
-    // Como o schema é compartilhado, validamos apenas se houver valor ou se for signup
     if (!val) return true;
     return validateCPF(val);
   }, {
@@ -40,13 +39,42 @@ const Auth = () => {
   const [searchParams] = useSearchParams();
   const mode = searchParams.get('mode') || 'login';
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isSearchingCep, setIsSearchingCep] = React.useState(false);
   const [rateLimitError, setRateLimitError] = React.useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const { register, handleSubmit, formState: { errors } } = useForm<AuthFormValues>({
+  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<AuthFormValues>({
     resolver: zodResolver(authSchema),
   });
+
+  const cepValue = watch('cep');
+
+  const handleCepBlur = async (e: React.FocusEvent<HTMLInputElement>) => {
+    const cep = e.target.value.replace(/\D/g, '');
+    if (cep.length !== 8) return;
+
+    setIsSearchingCep(true);
+    try {
+      const response = await fetch(`https://viacep.com.br/ws/${cep}/json/`);
+      const data = await response.json();
+
+      if (data.erro) {
+        toast({ variant: "destructive", title: "CEP não encontrado", description: "Verifique o número digitado." });
+        return;
+      }
+
+      setValue('address', `${data.logradouro}${data.bairro ? `, ${data.bairro}` : ''}`);
+      setValue('city', data.localidade);
+      setValue('state', data.uf);
+      
+      toast({ title: "Endereço encontrado", description: `${data.localidade} - ${data.uf}` });
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro ao buscar CEP", description: "Tente preencher manualmente." });
+    } finally {
+      setIsSearchingCep(false);
+    }
+  };
 
   const onSubmit = async (data: AuthFormValues) => {
     setIsLoading(true);
@@ -187,6 +215,20 @@ const Auth = () => {
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
                       <MapPin size={18} className="text-orange-500" /> Endereço
                     </h3>
+                    <div className="space-y-2">
+                      <Label>CEP</Label>
+                      <div className="relative">
+                        <Input 
+                          {...register('cep')} 
+                          placeholder="00000-000" 
+                          onBlur={handleCepBlur}
+                        />
+                        {isSearchingCep && (
+                          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-slate-400" />
+                        )}
+                      </div>
+                      {errors.cep && <p className="text-xs text-red-500">{errors.cep.message}</p>}
+                    </div>
                     <div className="space-y-2">
                       <Label>Endereço Completo</Label>
                       <Input {...register('address')} placeholder="Rua, número, bairro" />

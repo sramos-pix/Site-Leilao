@@ -69,7 +69,7 @@ const AdminOverview = () => {
 
         const [profilesRes, lotsRes] = await Promise.all([
           supabase.from('profiles').select('id, full_name, email').in('id', userIds),
-          supabase.from('lots').select('id, title').in('id', lotIds)
+          supabase.from('lots').select('id, title, status, winner_id').in('id', lotIds)
         ]);
 
         const profilesMap = (profilesRes.data || []).reduce((acc: any, p) => ({ ...acc, [p.id]: p }), {});
@@ -95,36 +95,49 @@ const AdminOverview = () => {
   }, []);
 
   const handleContemplateBid = async (bid: any) => {
-    if (!confirm(`Deseja MARCAR como contemplado este lance de ${formatCurrency(bid.amount)}? (Nota: Como o banco de dados não possui colunas de status, isso apenas atualizará o valor atual do lote).`)) return;
+    if (!confirm(`Deseja CONTEMPLAR este lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}"? Isso encerrará o leilão deste item e notificará o vencedor.`)) return;
     
     setIsProcessing(bid.id);
 
     try {
-      // Atualiza apenas o current_bid, que é a única coluna que temos certeza que existe
+      // 1. Atualiza o lote com status finalizado e vencedor
       const { error: lotError } = await supabase
         .from('lots')
         .update({ 
-          current_bid: bid.amount
+          status: 'finished',
+          winner_id: bid.user_id,
+          current_bid: bid.amount,
+          final_price: bid.amount
         })
         .eq('id', bid.lot_id);
 
-      if (lotError) {
-        throw new Error(`Falha ao atualizar lote: ${lotError.message}`);
-      }
+      if (lotError) throw lotError;
+
+      // 2. Envia notificação para o usuário vencedor
+      const { error: notifyError } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: bid.user_id,
+          title: '🎉 Parabéns! Você venceu!',
+          message: `Seu lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}" foi contemplado. Entre em contato para finalizar o pagamento.`,
+          type: 'success'
+        });
+
+      if (notifyError) console.warn("Erro ao inserir notificação:", notifyError);
 
       toast({ 
-        title: "Ação Realizada", 
-        description: "O valor do lote foi atualizado com o lance selecionado." 
+        title: "Lance Contemplado!", 
+        description: "O vencedor foi definido e notificado." 
       });
       
       await fetchStats(true);
       
     } catch (error: any) {
-      console.error("Erro na operação:", error);
+      console.error("Erro na contemplação:", error);
       toast({ 
         variant: "destructive", 
         title: "Erro", 
-        description: error.message 
+        description: "Certifique-se de ter executado o SQL no Supabase para adicionar as colunas necessárias." 
       });
     } finally {
       setIsProcessing(null);
@@ -158,19 +171,10 @@ const AdminOverview = () => {
         .update({ current_bid: newCurrentBid })
         .eq('id', lotId);
 
-      toast({ 
-        title: "Lance excluído", 
-        description: "O registro foi removido." 
-      });
-      
+      toast({ title: "Lance excluído", description: "O registro foi removido." });
       await fetchStats(true);
-      
     } catch (error: any) {
-      toast({ 
-        variant: "destructive", 
-        title: "Erro na exclusão", 
-        description: error.message 
-      });
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
       setIsProcessing(null);
     }
@@ -257,9 +261,10 @@ const AdminOverview = () => {
                   recentBids.map((bid) => {
                     const userName = bid.profiles?.full_name || 'Usuário';
                     const userEmail = bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
+                    const isFinished = bid.lots?.status === 'finished';
 
                     return (
-                      <TableRow key={bid.id} className="group">
+                      <TableRow key={bid.id} className={`group ${isFinished ? 'bg-green-50/30' : ''}`}>
                         <TableCell 
                           className="pl-6 cursor-pointer hover:bg-slate-50 transition-colors"
                           onClick={() => handleUserClick(bid.user_id)}
@@ -278,9 +283,14 @@ const AdminOverview = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="font-medium text-slate-700">
-                            {bid.lots?.title || `Lote #${bid.lot_id}`}
-                          </span>
+                          <div className="flex flex-col">
+                            <span className="font-medium text-slate-700">
+                              {bid.lots?.title || `Lote #${bid.lot_id}`}
+                            </span>
+                            {isFinished && (
+                              <span className="text-[10px] font-bold text-green-600 uppercase tracking-wider">Contemplado</span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell>
                           <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>
@@ -290,16 +300,18 @@ const AdminOverview = () => {
                         </TableCell>
                         <TableCell className="pr-6 text-right">
                           <div className="flex items-center justify-end gap-2">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="text-slate-300 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
-                              onClick={() => handleContemplateBid(bid)}
-                              disabled={isProcessing === bid.id}
-                              title="Marcar Lance"
-                            >
-                              {isProcessing === bid.id ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle size={18} />}
-                            </Button>
+                            {!isFinished && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="text-slate-300 hover:text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                onClick={() => handleContemplateBid(bid)}
+                                disabled={isProcessing === bid.id}
+                                title="Contemplar Lance"
+                              >
+                                {isProcessing === bid.id ? <Loader2 className="animate-spin h-4 w-4" /> : <CheckCircle size={18} />}
+                              </Button>
+                            )}
                             <Button 
                               variant="ghost" 
                               size="icon" 

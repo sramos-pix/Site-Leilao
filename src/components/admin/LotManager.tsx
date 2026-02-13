@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, AlertTriangle, Star, Calendar } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, AlertTriangle, Star, Calendar, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 
@@ -109,6 +109,7 @@ const LotManager = () => {
       year: parseInt(formData.get('year') as string),
       mileage_km: parseInt(formData.get('mileage_km') as string),
       start_bid: parseFloat(formData.get('start_bid') as string),
+      bid_increment: parseFloat(formData.get('bid_increment') as string) || 500,
       description: formData.get('description'),
       ends_at: new Date(formData.get('ends_at') as string).toISOString(),
       is_featured: formData.get('is_featured') === 'on',
@@ -178,8 +179,28 @@ const LotManager = () => {
               <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={editingLot?.model} required /></div>
               <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={editingLot?.year} required /></div>
               <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" defaultValue={editingLot?.mileage_km} required /></div>
-              <div className="space-y-2"><Label>Lance Inicial</Label><Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} required /></div>
-              <div className="space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} required /></div>
+              
+              <div className="space-y-2">
+                <Label>Lance Inicial</Label>
+                <Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} required />
+              </div>
+              
+              <div className="space-y-2">
+                <Label className="text-orange-600 font-bold flex items-center gap-2">
+                  <TrendingUp size={14} /> Incremento Mínimo
+                </Label>
+                <Input 
+                  name="bid_increment" 
+                  type="number" 
+                  step="0.01" 
+                  defaultValue={editingLot?.bid_increment || 500} 
+                  className="border-orange-200 focus:border-orange-500"
+                  required 
+                />
+              </div>
+
+              <div className="col-span-2 space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} required /></div>
+              
               <div className="col-span-2 space-y-2">
                 <Label>Descrição Detalhada</Label>
                 <Textarea name="description" defaultValue={editingLot?.description} placeholder="Detalhes do veículo..." className="min-h-[100px] rounded-xl" />

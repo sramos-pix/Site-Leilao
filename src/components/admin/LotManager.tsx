@@ -14,7 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, AlertTriangle, Star, Calendar, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 
@@ -121,7 +121,15 @@ const LotManager = () => {
       : await supabase.from('lots').insert(lotData);
 
     if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      if (error.message.includes('bid_increment')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Erro de Banco de Dados", 
+          description: "A coluna 'bid_increment' não existe. Por favor, execute o comando SQL no painel do Supabase." 
+        });
+      } else {
+        toast({ variant: "destructive", title: "Erro", description: error.message });
+      }
     } else {
       toast({ title: "Sucesso!" });
       setIsDialogOpen(false);

@@ -31,13 +31,11 @@ const LotDetail = () => {
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
 
-  // Função para gerar lances fictícios baseados no valor atual
   const generateFakeBids = (currentAmount: number, lotId: string) => {
     const fakeBids = [];
     const seed = lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const names = ["Carlos M.", "Ana P.", "Roberto S.", "Juliana F.", "Marcos T.", "Fernanda L.", "Ricardo W.", "Patrícia G."];
     
-    // Gerar 4 lances fictícios sempre menores que o atual
     for (let i = 1; i <= 4; i++) {
       const amount = currentAmount - (i * (seed % 5000 + 1000));
       if (amount <= 0) continue;
@@ -114,10 +112,17 @@ const LotDetail = () => {
       toast({ title: "Acesso restrito", description: "Faça login para dar lances.", variant: "destructive" });
       return;
     }
+    
+    const currentVal = lot.current_bid || lot.start_bid;
+    if (bidAmount <= currentVal) {
+      toast({ title: "Lance inválido", description: "O lance deve ser maior que o valor atual.", variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
-      toast({ title: "Lance efetuado!" });
+      toast({ title: "Lance efetuado com sucesso!" });
       await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
@@ -126,12 +131,15 @@ const LotDetail = () => {
     }
   };
 
-  // Combina lances reais e fictícios
   const allBids = useMemo(() => {
     if (!lot) return [];
     const currentVal = lot.current_bid || lot.start_bid;
     const fakes = generateFakeBids(currentVal, id || "1");
-    const combined = [...realBids, ...fakes];
+    
+    // Filtra fakes que por acaso sejam maiores que o lance real atual (segurança)
+    const validFakes = fakes.filter(f => f.amount < currentVal);
+    
+    const combined = [...realBids, ...validFakes];
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id]);
 
@@ -190,23 +198,29 @@ const LotDetail = () => {
               </div>
 
               <div className="space-y-4">
-                {allBids.length > 0 ? allBids.map((bid, index) => (
-                  <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
-                    <div className="flex items-center gap-4">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
-                      <div>
-                        <p className="font-bold text-slate-900">
-                          {bid.is_fake ? bid.user_name : (bid.profiles?.email ? maskEmail(bid.profiles.email) : 'Licitante')}
-                        </p>
-                        <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
+                {allBids.length > 0 ? allBids.map((bid, index) => {
+                  const isMyBid = user && bid.user_id === user.id;
+                  return (
+                    <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl transition-all ${index === 0 ? 'bg-orange-50 border-2 border-orange-200 scale-[1.02]' : 'bg-slate-50'}`}>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}>
+                          <User size={20} />
+                        </div>
+                        <div>
+                          <p className="font-bold text-slate-900 flex items-center gap-2">
+                            {bid.is_fake ? bid.user_name : (bid.profiles?.email ? maskEmail(bid.profiles.email) : 'Licitante')}
+                            {isMyBid && <Badge className="bg-blue-500 text-[10px] h-4">VOCÊ</Badge>}
+                          </p>
+                          <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{formatCurrency(bid.amount)}</p>
+                        {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{formatCurrency(bid.amount)}</p>
-                      {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
-                    </div>
-                  </div>
-                )) : (
+                  );
+                }) : (
                   <div className="text-center py-10 text-slate-400 italic">Nenhum lance registrado ainda.</div>
                 )}
               </div>
@@ -229,10 +243,19 @@ const LotDetail = () => {
                     <Label className="text-slate-500 font-bold text-xs uppercase ml-1">Seu Lance</Label>
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-xl">R$</span>
-                      <Input type="number" value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))} className="text-2xl font-black h-20 pl-16 text-center rounded-3xl border-2 border-slate-100 focus:border-orange-500" />
+                      <Input 
+                        type="number" 
+                        value={bidAmount} 
+                        onChange={(e) => setBidAmount(Number(e.target.value))} 
+                        className="text-2xl font-black h-20 pl-16 text-center rounded-3xl border-2 border-slate-100 focus:border-orange-500" 
+                      />
                     </div>
                   </div>
-                  <Button onClick={handleBid} disabled={isSubmitting} className="w-full bg-orange-500 hover:bg-orange-600 text-white h-20 rounded-3xl text-xl font-black shadow-lg shadow-orange-200">
+                  <Button 
+                    onClick={handleBid} 
+                    disabled={isSubmitting} 
+                    className="w-full bg-orange-500 hover:bg-orange-600 text-white h-20 rounded-3xl text-xl font-black shadow-lg shadow-orange-200 transition-all active:scale-95"
+                  >
                     {isSubmitting ? <Loader2 className="animate-spin" /> : 'CONFIRMAR LANCE'}
                   </Button>
                 </div>

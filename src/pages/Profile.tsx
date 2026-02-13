@@ -3,8 +3,7 @@
 import React from 'react';
 import { 
   User, Mail, Phone, MapPin, 
-  Calendar, ShieldCheck, AlertCircle, 
-  CreditCard, FileText, Loader2
+  ShieldCheck, FileText, Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,6 +58,9 @@ const Profile = () => {
     </div>
   );
 
+  // Tenta encontrar o CPF em diferentes campos possíveis
+  const displayCpf = profile?.cpf || profile?.document_number || profile?.documento || profile?.tax_id;
+
   return (
     <div className="max-w-4xl mx-auto space-y-8 p-4 md:p-0">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
@@ -96,7 +98,7 @@ const Profile = () => {
           </CardHeader>
           <CardContent className="p-4">
             <InfoRow icon={User} label="Nome Completo" value={profile?.full_name} />
-            <InfoRow icon={FileText} label="CPF" value={profile?.cpf || profile?.document_number} />
+            <InfoRow icon={FileText} label="CPF" value={displayCpf} />
             <InfoRow icon={Mail} label="E-mail" value={profile?.email} />
             <InfoRow icon={Phone} label="Telefone" value={profile?.phone} />
           </CardContent>

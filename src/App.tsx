@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Index from './pages/Index';
 import Auctions from './pages/Auctions';
 import LotDetail from './pages/LotDetail';
@@ -18,7 +18,7 @@ import { Toaster } from './components/ui/toaster';
 
 function App() {
   return (
-    <Router>
+    <>
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/auctions" element={<Auctions />} />
@@ -37,7 +37,7 @@ function App() {
         <Route path="/admin" element={<Admin />} />
       </Routes>
       <Toaster />
-    </Router>
+    </>
   );
 }
 

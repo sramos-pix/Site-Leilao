@@ -37,7 +37,7 @@ const AdminOverview = () => {
     setIsLoading(true);
     try {
       // 1. Buscar contadores básicos
-      const [auctions, lots, users, bids] = await Promise.all([
+      const [auctions, lots, users, bidsCount] = await Promise.all([
         supabase.from('auctions').select('*', { count: 'exact', head: true }),
         supabase.from('lots').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
@@ -48,38 +48,49 @@ const AdminOverview = () => {
         auctions: auctions.count || 0,
         lots: lots.count || 0,
         users: users.count || 0,
-        bids: bids.count || 0
+        bids: bidsCount.count || 0
       });
 
-      // 2. Buscar lances recentes com relações simplificadas
-      // Usamos a sintaxe padrão do Supabase para relações
-      const { data: bidsData, error: bidsError } = await supabase
+      // 2. Busca de lances com fallback manual para evitar erro de Join
+      const { data: bids, error: bidsError } = await supabase
         .from('bids')
-        .select(`
-          id,
-          amount,
-          created_at,
-          user_id,
-          lot_id,
-          profiles (
-            full_name,
-            email
-          ),
-          lots (
-            title
-          )
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(15);
 
       if (bidsError) throw bidsError;
-      setRecentBids(bidsData || []);
+
+      if (bids && bids.length > 0) {
+        // Busca perfis e lotes manualmente para os lances encontrados
+        const userIds = [...new Set(bids.map(b => b.user_id))];
+        const lotIds = [...new Set(bids.map(b => b.lot_id))];
+
+        const [profilesRes, lotsRes] = await Promise.all([
+          supabase.from('profiles').select('id, full_name, email').in('id', userIds),
+          supabase.from('lots').select('id, title').in('id', lotIds)
+        ]);
+
+        const profilesMap = (profilesRes.data || []).reduce((acc: any, p) => ({ ...acc, [p.id]: p }), {});
+        const lotsMap = (lotsRes.data || []).reduce((acc: any, l) => ({ ...acc, [l.id]: l }), {});
+
+        // Mescla os dados
+        const enrichedBids = bids.map(bid => ({
+          ...bid,
+          profiles: profilesMap[bid.user_id],
+          lots: lotsMap[bid.lot_id]
+        }));
+
+        setRecentBids(enrichedBids);
+      } else {
+        setRecentBids([]);
+      }
+
     } catch (error: any) {
       console.error("Erro ao carregar estatísticas:", error);
       toast({ 
         variant: "destructive", 
-        title: "Erro de Conexão", 
-        description: "Não foi possível carregar os lances recentes. Verifique as permissões no Supabase." 
+        title: "Erro de Carregamento", 
+        description: "Tentando recuperar dados..." 
       });
     } finally {
       setIsLoading(false);
@@ -100,7 +111,6 @@ const AdminOverview = () => {
 
       setRecentBids(prev => prev.filter(b => b.id !== bidId));
 
-      // Atualiza o valor do lote para o próximo lance mais alto
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -126,8 +136,6 @@ const AdminOverview = () => {
 
   useEffect(() => {
     fetchStats();
-    
-    // Realtime para novos lances
     const channel = supabase
       .channel('admin-realtime-bids')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchStats())
@@ -206,12 +214,8 @@ const AdminOverview = () => {
                   </TableRow>
                 ) : recentBids.length > 0 ? (
                   recentBids.map((bid) => {
-                    // Tratamento resiliente para os dados relacionados
-                    const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
-                    const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
-                    
-                    const userName = profile?.full_name || 'Usuário';
-                    const userEmail = profile?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
+                    const userName = bid.profiles?.full_name || 'Usuário';
+                    const userEmail = bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
 
                     return (
                       <TableRow key={bid.id} className="group">
@@ -236,7 +240,7 @@ const AdminOverview = () => {
                         </TableCell>
                         <TableCell>
                           <span className="font-medium text-slate-700">
-                            {lot?.title || `Lote #${bid.lot_id}`}
+                            {bid.lots?.title || `Lote #${bid.lot_id}`}
                           </span>
                         </TableCell>
                         <TableCell>

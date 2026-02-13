@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Mail, Phone, MapPin, Instagram, Facebook, Twitter } from 'lucide-react';
+import { Mail, Phone, Gavel, Instagram, Facebook, Twitter } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -11,14 +11,9 @@ const Footer = () => {
         <div className="grid grid-cols-1 gap-8 md:grid-cols-4">
           <div className="col-span-1 md:col-span-1">
             <Link to="/" className="flex items-center gap-2 mb-6">
-              <img 
-                src="https://i.ibb.co/rf1Bk2N9/leilao-seguro.png" 
-                alt="Selo de Segurança" 
-                className="h-12 w-auto object-contain"
-                onError={(e) => {
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
+              <div className="bg-orange-500 p-1.5 rounded-lg text-white">
+                <Gavel size={20} />
+              </div>
               <span className="text-xl font-bold tracking-tight text-white">
                 AUTO<span className="text-orange-500">BID</span>
               </span>
@@ -64,8 +59,20 @@ const Footer = () => {
             </ul>
           </div>
         </div>
-        <div className="mt-12 border-t border-slate-800 pt-8 text-center text-xs">
-          <p>© {new Date().getFullYear()} AutoBid Leilões. Todos os direitos reservados.</p>
+        
+        <div className="mt-12 border-t border-slate-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
+          <p className="text-xs">© {new Date().getFullYear()} AutoBid Leilões. Todos os direitos reservados.</p>
+          
+          <div className="flex items-center gap-4">
+            <img 
+              src="https://i.ibb.co/rf1Bk2N9/leilao-seguro.png" 
+              alt="Selo de Segurança" 
+              className="h-10 w-auto object-contain opacity-80 hover:opacity-100 transition-opacity"
+              onError={(e) => {
+                e.currentTarget.style.display = 'none';
+              }}
+            />
+          </div>
         </div>
       </div>
     </footer>

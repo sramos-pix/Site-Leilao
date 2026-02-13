@@ -5,7 +5,7 @@ import { useSearchParams, Link, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { Gavel, Mail, Lock, User, Phone, MapPin, ShieldCheck, Loader2, FileText, AlertCircle, Search } from 'lucide-react';
+import { Gavel, Mail, Lock, User, Phone, MapPin, ShieldCheck, Loader2, FileText, AlertCircle, Search, KeyRound } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,7 +18,7 @@ import { validateCPF } from '@/lib/validations';
 
 const authSchema = z.object({
   email: z.string().email('E-mail inválido'),
-  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres'),
+  password: z.string().min(6, 'A senha deve ter pelo menos 6 caracteres').optional().or(z.literal('')),
   fullName: z.string().min(3, 'Nome muito curto').optional(),
   phone: z.string().min(10, 'Telefone inválido').optional(),
   cep: z.string().min(8, 'CEP inválido').optional(),
@@ -43,10 +43,11 @@ const Auth = () => {
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSearchingCep, setIsSearchingCep] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
+  const [showResetOption, setShowResetOption] = React.useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const { register, handleSubmit, formState: { errors }, setValue, watch } = useForm<AuthFormValues>({
+  const { register, handleSubmit, formState: { errors }, setValue, watch, getValues } = useForm<AuthFormValues>({
     resolver: zodResolver(authSchema),
   });
 
@@ -72,27 +73,56 @@ const Auth = () => {
     }
   };
 
+  const handleResetPassword = async () => {
+    const email = getValues('email');
+    if (!email) {
+      toast({ variant: "destructive", title: "E-mail necessário", description: "Digite seu e-mail para recuperar a senha." });
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth?mode=update-password`,
+      });
+      if (error) throw error;
+      
+      toast({ 
+        title: "E-mail enviado!", 
+        description: "Verifique sua caixa de entrada para redefinir sua senha." 
+      });
+      setShowResetOption(false);
+      setErrorMessage(null);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const onSubmit = async (data: AuthFormValues) => {
     setIsLoading(true);
     setErrorMessage(null);
+    setShowResetOption(false);
+    
     try {
       if (mode === 'signup') {
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: data.email,
-          password: data.password,
+          password: data.password || '',
           options: { data: { full_name: data.fullName } }
         });
 
         if (signUpError) {
           if (signUpError.message.includes('already registered')) {
             setErrorMessage("Este e-mail já está cadastrado. Tente fazer login.");
+            setShowResetOption(true);
             return;
           }
           throw signUpError;
         }
 
         if (authData.user) {
-          // Alterado kyc_status para null para que o dashboard mostre "não verificado"
           await supabase.from('profiles').upsert({
             id: authData.user.id,
             full_name: data.fullName,
@@ -113,11 +143,13 @@ const Auth = () => {
       } else {
         const { error: signInError } = await supabase.auth.signInWithPassword({
           email: data.email,
-          password: data.password,
+          password: data.password || '',
         });
+        
         if (signInError) {
           if (signInError.message.includes('Invalid login credentials')) {
             setErrorMessage("E-mail ou senha incorretos.");
+            setShowResetOption(true);
             return;
           }
           throw signInError;
@@ -158,11 +190,24 @@ const Auth = () => {
           </CardHeader>
           <CardContent>
             {errorMessage && (
-              <Alert variant="destructive" className="mb-6 rounded-2xl bg-red-50 border-red-100 text-red-800">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Atenção</AlertTitle>
-                <AlertDescription>{errorMessage}</AlertDescription>
-              </Alert>
+              <div className="space-y-4 mb-6">
+                <Alert variant="destructive" className="rounded-2xl bg-red-50 border-red-100 text-red-800">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Atenção</AlertTitle>
+                  <AlertDescription>{errorMessage}</AlertDescription>
+                </Alert>
+                
+                {showResetOption && (
+                  <Button 
+                    variant="outline" 
+                    onClick={handleResetPassword}
+                    className="w-full border-orange-200 text-orange-600 hover:bg-orange-50 rounded-xl flex items-center gap-2 py-6"
+                  >
+                    <KeyRound size={18} />
+                    Esqueci minha senha / Redefinir Senha
+                  </Button>
+                )}
+              </div>
             )}
 
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">

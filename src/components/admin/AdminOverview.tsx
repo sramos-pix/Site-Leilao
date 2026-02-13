@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Gavel, Package, Users, TrendingUp, 
-  RefreshCw, Loader2, Clock, User 
+  RefreshCw, Loader2, Clock, User, ExternalLink 
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
+import { useNavigate } from 'react-router-dom';
 import {
   Table,
   TableBody,
@@ -19,6 +20,7 @@ import {
 } from "@/components/ui/table";
 
 const AdminOverview = () => {
+  const navigate = useNavigate();
   const [stats, setStats] = useState({
     auctions: 0,
     lots: 0,
@@ -31,7 +33,6 @@ const AdminOverview = () => {
   const fetchStats = async () => {
     setIsLoading(true);
     try {
-      // 1. Buscar estatísticas básicas
       const [auctions, lots, users, bids] = await Promise.all([
         supabase.from('auctions').select('*', { count: 'exact', head: true }),
         supabase.from('lots').select('*', { count: 'exact', head: true }),
@@ -46,8 +47,6 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
-      // 2. Buscar lances recentes com dados relacionados
-      // Removi o !inner para evitar que lances sem perfil sumam da lista
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -69,7 +68,6 @@ const AdminOverview = () => {
 
       if (bidsError) {
         console.error("Erro na consulta de lances:", bidsError);
-        // Fallback para busca simples se a junção falhar totalmente
         const { data: fallbackData } = await supabase
           .from('bids')
           .select('*')
@@ -169,21 +167,24 @@ const AdminOverview = () => {
                   </TableRow>
                 ) : recentBids.length > 0 ? (
                   recentBids.map((bid) => {
-                    // Lógica de exibição: tenta pegar do perfil, senão mostra ID
                     const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
                     const userName = profile?.full_name || 'Usuário';
                     const userEmail = profile?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
 
                     return (
                       <TableRow key={bid.id} className="group">
-                        <TableCell className="pl-6">
+                        <TableCell 
+                          className="pl-6 cursor-pointer hover:bg-slate-50 transition-colors"
+                          onClick={() => navigate(`/admin/users?id=${bid.user_id}`)}
+                        >
                           <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-orange-100 group-hover:text-orange-600 transition-colors">
                               <User size={14} />
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-bold text-slate-900">
+                              <span className="font-bold text-slate-900 flex items-center gap-1 group-hover:text-orange-600 transition-colors">
                                 {userName}
+                                <ExternalLink size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                               </span>
                               <span className="text-xs text-slate-500">
                                 {userEmail}

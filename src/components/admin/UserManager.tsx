@@ -63,7 +63,6 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   };
 
   const onSaveProfile = async (data: any) => {
-    // Validação simples de CPF/CNPJ antes de salvar
     const doc = data.document_id.replace(/\D/g, '');
     if (doc.length === 11 && !validateCPF(data.document_id)) {
       toast({ variant: "destructive", title: "Documento Inválido", description: "O CPF informado não é válido." });
@@ -89,20 +88,16 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         })
         .eq('id', user.id);
 
-      if (error) {
-        if (error.message.includes('column')) {
-          throw new Error("Erro de Banco de Dados: Colunas de endereço ausentes. Execute o SQL de migração no Supabase.");
-        }
-        throw error;
-      }
+      if (error) throw error;
 
       toast({ title: "Sucesso", description: "Dados do usuário atualizados com sucesso." });
       onSuccess();
     } catch (error: any) {
+      console.error("Erro completo do Supabase:", error);
       toast({ 
         variant: "destructive", 
         title: "Erro ao salvar", 
-        description: error.message 
+        description: error.message || "Erro desconhecido no banco de dados." 
       });
     } finally {
       setIsLoading(false);

@@ -1,11 +1,11 @@
 "use client";
 
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
   Users, Gavel, Package, Settings, 
-  Search, LayoutDashboard, LogOut, Loader2, Download, Edit, Trash2, CheckCircle2, XCircle, Clock
+  Search, LayoutDashboard, LogOut, Loader2, Download, Edit, Trash2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -24,7 +24,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useToast } from '@/components/ui/use-toast';
 import UserManager from '@/components/admin/UserManager';
@@ -37,6 +36,10 @@ const Admin = () => {
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
   const [activeTab, setActiveTab] = React.useState('dashboard');
+  const [selectedUserForEdit, setSelectedUserForEdit] = React.useState<any>(null);
+  const [isUserDialogOpen, setIsUserDialogOpen] = React.useState(false);
+  
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -50,6 +53,17 @@ const Admin = () => {
 
       if (error) throw error;
       setUsers(data || []);
+      
+      // Verifica se há um ID na URL para abrir o editor
+      const userIdFromUrl = searchParams.get('id');
+      if (userIdFromUrl && data) {
+        const userToEdit = data.find(u => u.id === userIdFromUrl);
+        if (userToEdit) {
+          setActiveTab('users');
+          setSelectedUserForEdit(userToEdit);
+          setIsUserDialogOpen(true);
+        }
+      }
     } catch (error) {
       console.error("Erro ao carregar dados:", error);
     } finally {
@@ -59,7 +73,7 @@ const Admin = () => {
 
   React.useEffect(() => {
     fetchData();
-  }, []);
+  }, [searchParams]); // Recarrega se os parâmetros da URL mudarem
 
   const handleAdminLogout = () => {
     localStorage.removeItem('admin_auth');
@@ -72,6 +86,21 @@ const Admin = () => {
     const { error } = await supabase.from('profiles').delete().eq('id', id);
     if (error) toast({ variant: "destructive", title: "Erro", description: error.message });
     else fetchData();
+  };
+
+  const openEditDialog = (user: any) => {
+    setSelectedUserForEdit(user);
+    setIsUserDialogOpen(true);
+  };
+
+  const closeEditDialog = () => {
+    setIsUserDialogOpen(false);
+    setSelectedUserForEdit(null);
+    // Limpa o ID da URL ao fechar para não reabrir no refresh
+    if (searchParams.has('id')) {
+      searchParams.delete('id');
+      setSearchParams(searchParams);
+    }
   };
 
   const filteredUsers = users.filter(user => 
@@ -183,15 +212,12 @@ const Admin = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <Button variant="ghost" size="icon"><Edit size={18} /></Button>
-                            </DialogTrigger>
-                            <DialogContent className="max-w-2xl">
-                              <UserManager user={user} onSuccess={fetchData} />
-                            </DialogContent>
-                          </Dialog>
-                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)} className="text-red-500"><Trash2 size={18} /></Button>
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(user)}>
+                            <Edit size={18} />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDeleteUser(user.id)} className="text-red-500">
+                            <Trash2 size={18} />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -201,6 +227,24 @@ const Admin = () => {
             </Card>
           </div>
         )}
+
+        {/* Diálogo de Edição de Usuário Centralizado */}
+        <Dialog open={isUserDialogOpen} onOpenChange={(open) => !open && closeEditDialog()}>
+          <DialogContent className="max-w-2xl">
+            <DialogHeader>
+              <DialogTitle>Editar Cadastro do Usuário</DialogTitle>
+            </DialogHeader>
+            {selectedUserForEdit && (
+              <UserManager 
+                user={selectedUserForEdit} 
+                onSuccess={() => {
+                  fetchData();
+                  closeEditDialog();
+                }} 
+              />
+            )}
+          </DialogContent>
+        </Dialog>
 
         {activeTab === 'settings' && (
           <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">

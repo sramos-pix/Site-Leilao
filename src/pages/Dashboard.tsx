@@ -29,7 +29,6 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Busca perfil
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -38,26 +37,14 @@ const Dashboard = () => {
       
       setProfile(profileData);
 
-      // Busca lances do usuário com dados do lote
-      // Nota: Buscamos os lances que ainda existem no banco
-      const { data: bidsData, error: bidsError } = await supabase
+      const { data: bidsData } = await supabase
         .from('bids')
-        .select(`
-          id,
-          amount,
-          lot_id,
-          created_at,
-          lots (
-            id,
-            title,
-            cover_image_url
-          )
-        `)
+        .select(`id, amount, lot_id, created_at, lots ( id, title, cover_image_url )`)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (bidsError) throw bidsError;
-      setActiveBids(bidsData || []);
+      // Filtra lances que podem ter ficado órfãos (lote deletado)
+      setActiveBids(bidsData?.filter(b => b.lots) || []);
     } catch (error) {
       console.error("Erro ao carregar dashboard:", error);
     } finally {
@@ -67,32 +54,14 @@ const Dashboard = () => {
 
   React.useEffect(() => {
     fetchDashboardData();
-
-    // Escuta mudanças em tempo real na tabela de lances
-    // Isso garante que se o admin apagar, o lance some daqui na hora
     const channel = supabase
       .channel('dashboard-realtime')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'bids' },
-        () => {
-          fetchDashboardData();
-        }
-      )
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchDashboardData())
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50">
-        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-      </div>
-    );
-  }
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-orange-500" /></div>;
 
   const stats = [
     { label: 'Lances Ativos', value: activeBids.length.toString(), icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50' },
@@ -108,44 +77,27 @@ const Dashboard = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-3xl font-bold text-slate-900">Olá, {profile?.full_name || 'Usuário'}</h1>
-              <TooltipProvider>
-                {profile?.kyc_status === 'verified' && (
+              {profile?.kyc_status === 'verified' && (
+                <TooltipProvider>
                   <Tooltip>
-                    <TooltipTrigger asChild>
-                      <ShieldCheck className="text-green-500 cursor-help" size={24} />
-                    </TooltipTrigger>
-                    <TooltipContent className="bg-slate-900 text-white border-none rounded-lg">
-                      <p>Perfil Aprovado!</p>
-                    </TooltipContent>
+                    <TooltipTrigger asChild><ShieldCheck className="text-green-500 cursor-help" size={24} /></TooltipTrigger>
+                    <TooltipContent className="bg-slate-900 text-white border-none rounded-lg"><p>Perfil Aprovado!</p></TooltipContent>
                   </Tooltip>
-                )}
-              </TooltipProvider>
+                </TooltipProvider>
+              )}
             </div>
             <p className="text-slate-500">Bem-vindo ao seu painel de controle.</p>
           </div>
-          <div className="flex gap-3">
-            <Link to="/app/profile">
-              <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl">
-                <User size={20} className="mr-2" />
-                Meu Perfil
-              </Button>
-            </Link>
-          </div>
+          <Link to="/app/profile"><Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl"><User size={20} className="mr-2" /> Meu Perfil</Button></Link>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
           {stats.map((stat) => (
             <Card key={stat.label} className="border-none shadow-sm rounded-2xl overflow-hidden">
               <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div className={`p-3 rounded-xl ${stat.bg}`}>
-                    <stat.icon className={stat.color} size={24} />
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <p className="text-sm font-medium text-slate-500">{stat.label}</p>
-                  <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
-                </div>
+                <div className={`p-3 rounded-xl ${stat.bg} w-fit mb-4`}><stat.icon className={stat.color} size={24} /></div>
+                <p className="text-sm font-medium text-slate-500">{stat.label}</p>
+                <p className="text-2xl font-bold text-slate-900">{stat.value}</p>
               </CardContent>
             </Card>
           ))}
@@ -154,36 +106,21 @@ const Dashboard = () => {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-2 space-y-6">
             <h2 className="text-xl font-bold text-slate-900">Seus Lances Recentes</h2>
-            
             <div className="space-y-4">
               {activeBids.length > 0 ? activeBids.map((bid) => (
                 <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
-                  <CardContent className="p-0">
-                    <div className="flex flex-col sm:flex-row">
-                      <div className="w-full sm:w-48 h-32 bg-slate-200">
-                        <img 
-                          src={bid.lots?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
-                          className="w-full h-full object-cover"
-                          alt={bid.lots?.title}
-                        />
+                  <CardContent className="p-0 flex flex-col sm:flex-row">
+                    <div className="w-full sm:w-48 h-32 bg-slate-200">
+                      <img src={bid.lots?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} className="w-full h-full object-cover" alt={bid.lots?.title} />
+                    </div>
+                    <div className="flex-1 p-6 flex flex-col justify-between">
+                      <div className="flex justify-between items-start">
+                        <div><h3 className="font-bold text-slate-900">{bid.lots?.title}</h3><p className="text-xs text-slate-500">Lote {bid.lot_id}</p></div>
+                        <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
                       </div>
-                      <div className="flex-1 p-6 flex flex-col justify-between">
-                        <div className="flex justify-between items-start">
-                          <div>
-                            <h3 className="font-bold text-slate-900">{bid.lots?.title}</h3>
-                            <p className="text-xs text-slate-500">Lote {bid.lot_id}</p>
-                          </div>
-                          <Badge className="bg-green-100 text-green-600 border-none">Ativo</Badge>
-                        </div>
-                        <div className="flex justify-between items-end mt-4">
-                          <div>
-                            <p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p>
-                            <p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p>
-                          </div>
-                          <Link to={`/lots/${bid.lot_id}`}>
-                            <Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button>
-                          </Link>
-                        </div>
+                      <div className="flex justify-between items-end mt-4">
+                        <div><p className="text-[10px] uppercase font-bold text-slate-400">Seu Lance</p><p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p></div>
+                        <Link to={`/lots/${bid.lot_id}`}><Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button></Link>
                       </div>
                     </div>
                   </CardContent>
@@ -192,9 +129,7 @@ const Dashboard = () => {
                 <div className="text-center py-12 bg-white rounded-3xl border-2 border-dashed border-slate-100">
                   <Gavel className="mx-auto text-slate-300 mb-4" size={48} />
                   <p className="text-slate-500">Você ainda não deu nenhum lance.</p>
-                  <Link to="/">
-                    <Button variant="link" className="text-orange-500 font-bold">Explorar Leilões</Button>
-                  </Link>
+                  <Link to="/"><Button variant="link" className="text-orange-500 font-bold">Explorar Leilões</Button></Link>
                 </div>
               )}
             </div>
@@ -202,40 +137,22 @@ const Dashboard = () => {
 
           <div className="space-y-6">
             <h2 className="text-xl font-bold text-slate-900">Ações Rápidas</h2>
-            <div className="grid grid-cols-1 gap-3">
-              <Link to="/app/verify">
-                <Button className="w-full justify-between bg-white text-slate-900 hover:bg-slate-50 border-none shadow-sm h-14 rounded-xl px-6">
-                  <span className="flex items-center gap-3">
-                    <ShieldCheck className="text-orange-500" size={20} />
-                    Validar Documentos
-                  </span>
-                  <ChevronRight size={16} className="text-slate-400" />
-                </Button>
-              </Link>
-            </div>
+            <Link to="/app/verify">
+              <Button className="w-full justify-between bg-white text-slate-900 hover:bg-slate-50 border-none shadow-sm h-14 rounded-xl px-6">
+                <span className="flex items-center gap-3"><ShieldCheck className="text-orange-500" size={20} /> Validar Documentos</span>
+                <ChevronRight size={16} className="text-slate-400" />
+              </Button>
+            </Link>
 
             {profile?.kyc_status !== 'verified' && (
               <Card className="border-none shadow-sm rounded-2xl bg-slate-900 text-white">
-                <CardHeader>
-                  <CardTitle className="text-lg flex items-center gap-2">
-                    <AlertCircle className="text-orange-500" size={20} />
-                    Aviso Importante
-                  </CardTitle>
-                </CardHeader>
+                <CardHeader><CardTitle className="text-lg flex items-center gap-2"><AlertCircle className="text-orange-500" size={20} /> Aviso Importante</CardTitle></CardHeader>
                 <CardContent>
                   <p className="text-sm text-slate-400 leading-relaxed">
-                    {!profile?.kyc_status 
-                      ? 'Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões e dar lances.'
-                      : profile?.kyc_status === 'pending' 
-                      ? 'Seus documentos estão em análise. Você será notificado em breve.' 
-                      : 'Seu documento foi rejeitado. Por favor, envie um novo documento.'}
+                    {!profile?.kyc_status ? 'Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões.' : profile?.kyc_status === 'pending' ? 'Seus documentos estão em análise.' : 'Seu documento foi rejeitado.'}
                   </p>
                   {(!profile?.kyc_status || profile?.kyc_status === 'rejected') && (
-                    <Link to="/app/verify">
-                      <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
-                        Enviar Documentos
-                      </Button>
-                    </Link>
+                    <Link to="/app/verify"><Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">Enviar Documentos</Button></Link>
                   )}
                 </CardContent>
               </Card>

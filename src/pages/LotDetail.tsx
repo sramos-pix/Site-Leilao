@@ -59,33 +59,18 @@ const LotDetail = () => {
         setActivePhoto(lotData.cover_image_url);
       }
 
-      const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
-      setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
+      // Garante que o valor do input seja sempre o lance atual + incremento mínimo
+      const currentVal = lotData.current_bid || lotData.start_bid;
+      const minIncrement = currentVal < 100000 ? 1000 : 2000;
+      setBidAmount(currentVal + minIncrement);
 
-      // Busca lances reais. Se a relação 'profiles' falhar, pegamos apenas os dados básicos do lance.
-      const { data: bidsData, error: bidsError } = await supabase
+      const { data: bidsData } = await supabase
         .from('bids')
-        .select(`
-          id,
-          amount,
-          created_at,
-          user_id,
-          profiles ( email )
-        `)
+        .select(`id, amount, created_at, user_id, profiles ( email )`)
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
-      if (bidsError) {
-        // Fallback caso a relação profiles falhe
-        const { data: fallbackBids } = await supabase
-          .from('bids')
-          .select('id, amount, created_at, user_id')
-          .eq('lot_id', id)
-          .order('amount', { ascending: false });
-        setRealBids(fallbackBids || []);
-      } else {
-        setRealBids(bidsData || []);
-      }
+      setRealBids(bidsData || []);
 
     } catch (error: any) {
       console.error("Erro ao carregar lote:", error);
@@ -93,23 +78,6 @@ const LotDetail = () => {
       setIsLoading(false);
     }
   };
-
-  const allBids = useMemo(() => {
-    const baseForMock = realBids.length > 0 
-      ? realBids[realBids.length - 1].amount 
-      : (lot?.start_bid || 0);
-
-    const mockBids = [
-      { id: 'm1', amount: baseForMock - 1500, created_at: new Date(Date.now() - 1800000).toISOString(), mockEmail: 'carlos.silva***@gmail.com' },
-      { id: 'm2', amount: baseForMock - 3200, created_at: new Date(Date.now() - 3600000).toISOString(), mockEmail: 'marcos.ant***@uol.com.br' },
-      { id: 'm3', amount: baseForMock - 5800, created_at: new Date(Date.now() - 5400000).toISOString(), mockEmail: 'ana.paula***@outlook.com' },
-      { id: 'm4', amount: baseForMock - 8000, created_at: new Date(Date.now() - 7200000).toISOString(), mockEmail: 'ricardo.m***@hotmail.com' },
-      { id: 'm5', amount: baseForMock - 10500, created_at: new Date(Date.now() - 9000000).toISOString(), mockEmail: 'fernanda.l***@terra.com.br' },
-    ].filter(m => m.amount > 0);
-
-    const combined = [...realBids, ...mockBids];
-    return combined.sort((a, b) => b.amount - a.amount);
-  }, [realBids, lot]);
 
   useEffect(() => {
     fetchLotData();
@@ -192,36 +160,23 @@ const LotDetail = () => {
               </div>
 
               <div className="space-y-4">
-                {allBids.map((bid, index) => {
-                  // Lógica de exibição de e-mail resiliente
-                  let displayEmail = 'usuário@***';
-                  
-                  if (bid.mockEmail) {
-                    displayEmail = bid.mockEmail;
-                  } else if (bid.profiles?.email) {
-                    displayEmail = maskEmail(bid.profiles.email);
-                  } else if (bid.user_id === user?.id) {
-                    displayEmail = maskEmail(user.email);
-                  } else if (bid.user_id) {
-                    displayEmail = `licitante_${bid.user_id.substring(0, 4)}***`;
-                  }
-
-                  return (
-                    <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
-                      <div className="flex items-center gap-4">
-                        <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
-                        <div>
-                          <p className="font-bold text-slate-900">{displayEmail}</p>
-                          <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{formatCurrency(bid.amount)}</p>
-                        {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
+                {realBids.length > 0 ? realBids.map((bid, index) => (
+                  <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
+                    <div className="flex items-center gap-4">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
+                      <div>
+                        <p className="font-bold text-slate-900">{bid.profiles?.email ? maskEmail(bid.profiles.email) : 'Licitante'}</p>
+                        <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
                       </div>
                     </div>
-                  );
-                })}
+                    <div className="text-right">
+                      <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{formatCurrency(bid.amount)}</p>
+                      {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center py-10 text-slate-400 italic">Nenhum lance registrado ainda.</div>
+                )}
               </div>
             </div>
           </div>

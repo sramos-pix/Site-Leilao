@@ -21,17 +21,14 @@ const History = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Busca simplificada: qualquer lote onde o usuário logado é o vencedor
+      // Chamada da RPC para calcular vitórias em tempo real
       const { data, error } = await supabase
-        .from('lots')
-        .select('*')
-        .eq('winner_id', user.id)
-        .order('updated_at', { ascending: false });
+        .rpc("get_user_wins", { p_user: user.id });
 
       if (error) throw error;
       setWins(data || []);
     } catch (error) {
-      console.error("Erro ao buscar histórico:", error);
+      console.error("Erro ao buscar histórico via RPC:", error);
     } finally {
       setIsLoading(false);
     }
@@ -40,9 +37,11 @@ const History = () => {
   React.useEffect(() => {
     fetchWins();
     
+    // Escuta tanto lances quanto mudanças nos lotes para atualizar a lista
     const channel = supabase
-      .channel('history-realtime-final')
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots' }, () => fetchWins())
+      .channel("history-realtime-rpc")
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "bids" }, () => fetchWins())
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "lots" }, () => fetchWins())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -55,7 +54,7 @@ const History = () => {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Meus Arremates</h1>
-          <p className="text-slate-500">Veículos contemplados e prontos para finalização.</p>
+          <p className="text-slate-500">Veículos onde seu lance foi o vencedor após o encerramento.</p>
         </div>
       </div>
 
@@ -74,16 +73,16 @@ const History = () => {
                 <div className="flex justify-between items-start">
                   <div>
                     <h3 className="font-bold text-slate-900">{lot.title}</h3>
-                    <p className="text-xs text-slate-500">Lote #{lot.lot_number || lot.id.substring(0, 5)}</p>
+                    <p className="text-xs text-slate-500">Lote #{lot.lot_number}</p>
                   </div>
-                  <Badge className="bg-orange-100 text-orange-600 border-none font-bold">
-                    Arrematado
+                  <Badge className="bg-green-100 text-green-600 border-none font-bold">
+                    Vencedor
                   </Badge>
                 </div>
                 <div className="flex justify-between items-end mt-4">
                   <div>
-                    <p className="text-[10px] uppercase font-bold text-slate-400">Valor de Arremate</p>
-                    <p className="font-bold text-slate-900 text-lg">{formatCurrency(lot.final_price || lot.current_bid)}</p>
+                    <p className="text-[10px] uppercase font-bold text-slate-400">Valor Final</p>
+                    <p className="font-bold text-slate-900 text-lg">{formatCurrency(lot.final_price)}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button 

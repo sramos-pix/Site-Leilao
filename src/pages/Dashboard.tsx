@@ -40,7 +40,7 @@ const Dashboard = () => {
       
       setProfile(profileData);
 
-      // Busca Lances e Status do Lote
+      // Busca Lances Ativos
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`id, amount, lot_id, created_at, lots ( id, title, cover_image_url, status, winner_id )`)
@@ -49,13 +49,9 @@ const Dashboard = () => {
 
       setActiveBids(bidsData?.filter(b => b.lots) || []);
 
-      // Busca Contagem de Vitórias (Lotes onde o usuário é o vencedor)
-      const { count: wins } = await supabase
-        .from('lots')
-        .select('*', { count: 'exact', head: true })
-        .eq('winner_id', user.id);
-      
-      setWinsCount(wins || 0);
+      // Busca Vitórias Reais via RPC
+      const { data: wins } = await supabase.rpc("get_user_wins", { p_user: user.id });
+      setWinsCount(wins?.length || 0);
 
       // Busca Contagem de Favoritos
       const { count } = await supabase
@@ -75,14 +71,14 @@ const Dashboard = () => {
   React.useEffect(() => {
     fetchDashboardData();
     
-    const bidsChannel = supabase
-      .channel('dashboard-realtime')
+    const channel = supabase
+      .channel('dashboard-realtime-v2')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchDashboardData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lots' }, () => fetchDashboardData())
       .subscribe();
 
     return () => { 
-      supabase.removeChannel(bidsChannel);
+      supabase.removeChannel(channel);
     };
   }, []);
 

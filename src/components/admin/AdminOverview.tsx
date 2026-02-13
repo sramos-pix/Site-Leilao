@@ -65,6 +65,7 @@ const AdminOverview = () => {
         .limit(10);
 
       if (bidsError) {
+        console.error("Erro ao buscar lances detalhados:", bidsError);
         const { data: simpleBids } = await supabase
           .from('bids')
           .select('*')
@@ -150,7 +151,7 @@ const AdminOverview = () => {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="pl-6">Usuário (Nome / E-mail)</TableHead>
+                  <TableHead className="pl-6">Usuário</TableHead>
                   <TableHead>Veículo / Lote</TableHead>
                   <TableHead>Valor do Lance</TableHead>
                   <TableHead className="pr-6">Data/Hora</TableHead>

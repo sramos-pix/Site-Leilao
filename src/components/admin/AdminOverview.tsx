@@ -34,9 +34,11 @@ const AdminOverview = () => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const fetchStats = async () => {
+    // Se estivermos deletando, não queremos que o fetch automático sobrescreva o estado local
+    if (isDeleting) return;
+
     setIsLoading(true);
     try {
-      // 1. Buscar contadores básicos
       const [auctions, lots, users, bidsCount] = await Promise.all([
         supabase.from('auctions').select('*', { count: 'exact', head: true }),
         supabase.from('lots').select('*', { count: 'exact', head: true }),
@@ -51,7 +53,6 @@ const AdminOverview = () => {
         bids: bidsCount.count || 0
       });
 
-      // 2. Busca de lances com fallback manual
       const { data: bids, error: bidsError } = await supabase
         .from('bids')
         .select('*')
@@ -85,22 +86,22 @@ const AdminOverview = () => {
 
     } catch (error: any) {
       console.error("Erro ao carregar estatísticas:", error);
-      toast({ 
-        variant: "destructive", 
-        title: "Erro de Carregamento", 
-        description: "Tentando recuperar dados..." 
-      });
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
-    if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}? Esta ação é irreversível e atualizará o valor atual do lote.`)) return;
+    if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}?`)) return;
     
     setIsDeleting(bidId);
+    
+    // Atualização otimista da UI
+    setRecentBids(prev => prev.filter(b => b.id !== bidId));
+    setStats(prev => ({ ...prev, bids: Math.max(0, prev.bids - 1) }));
+
     try {
-      // 1. Deleta o lance
+      // 1. Deleta o lance no banco
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
@@ -108,11 +109,7 @@ const AdminOverview = () => {
 
       if (deleteError) throw deleteError;
 
-      // 2. Atualiza a UI localmente para feedback imediato
-      setRecentBids(prev => prev.filter(b => b.id !== bidId));
-      setStats(prev => ({ ...prev, bids: Math.max(0, prev.bids - 1) }));
-
-      // 3. Busca o novo lance mais alto para este lote
+      // 2. Busca o novo lance mais alto para este lote
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -121,7 +118,7 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
-      // 4. Atualiza o valor atual do lote (se não houver lances, volta para 0 ou lance inicial)
+      // 3. Atualiza o valor atual do lote
       const newCurrentBid = nextHighestBid?.amount || 0;
       await supabase
         .from('lots')
@@ -133,12 +130,14 @@ const AdminOverview = () => {
         description: `O valor do lote foi atualizado para ${formatCurrency(newCurrentBid)}.` 
       });
       
-      // Recarrega tudo para garantir sincronia
-      fetchStats();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+      // Se der erro, recarrega para restaurar a UI
+      fetchStats();
     } finally {
       setIsDeleting(null);
+      // Pequeno delay para garantir que o banco processou tudo antes do fetch final
+      setTimeout(fetchStats, 500);
     }
   };
 
@@ -146,11 +145,14 @@ const AdminOverview = () => {
     fetchStats();
     const channel = supabase
       .channel('admin-realtime-bids')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchStats())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => {
+        // Só atualiza via realtime se não estivermos no meio de uma deleção
+        if (!isDeleting) fetchStats();
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [isDeleting]); // Re-inscreve se o estado de deleção mudar
 
   const handleUserClick = (userId: string) => {
     navigate(`/admin?id=${userId}`, { replace: true });

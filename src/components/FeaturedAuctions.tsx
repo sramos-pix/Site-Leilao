@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
+import CountdownTimer from './CountdownTimer';
 
 const MOCK_FEATURED = [
   {
@@ -15,28 +16,24 @@ const MOCK_FEATURED = [
     title: 'BMW 320i M Sport 2022',
     current_bid: 215000,
     image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800',
-    ends_at: '2h 15m',
   },
   {
     id: 'l2',
     title: 'Audi A4 Performance 2021',
     current_bid: 185000,
     image: 'https://images.unsplash.com/photo-1606664515524-ed2f786a0bd6?auto=format&fit=crop&q=80&w=800',
-    ends_at: '5h 40m',
   },
   {
     id: 'l3',
     title: 'Mercedes-Benz C300 AMG',
     current_bid: 245000,
     image: 'https://images.unsplash.com/photo-1618843479313-40f8afb4b4d8?auto=format&fit=crop&q=80&w=800',
-    ends_at: '1d 02h',
   },
   {
     id: 'l4',
     title: 'Porsche Macan T 2023',
     current_bid: 420000,
     image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=800',
-    ends_at: '45m',
   }
 ];
 
@@ -76,8 +73,9 @@ const FeaturedAuctions = () => {
                       className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute top-4 left-4">
-                      <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1">
-                        <Clock size={12} /> {item.ends_at}
+                      <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full">
+                        <Clock size={12} /> 
+                        <CountdownTimer randomScarcity={true} />
                       </Badge>
                     </div>
                   </div>

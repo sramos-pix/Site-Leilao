@@ -22,6 +22,8 @@ const History = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Buscamos os lotes onde o usuário é o vencedor (winner_id)
+      // Esta é a mesma lógica usada para o contador de "Vitórias" no Dashboard
       const { data, error } = await supabase
         .from('lots')
         .select('*')
@@ -43,6 +45,9 @@ const History = () => {
 
   if (isLoading) return <div className="flex items-center justify-center min-h-[60vh]"><Loader2 className="animate-spin text-orange-500" /></div>;
 
+  // Formatamos o número com zero à esquerda se for menor que 10, para alinhar com o estilo do Dashboard
+  const displayCount = wins.length < 10 ? `0${wins.length}` : wins.length;
+
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -51,7 +56,7 @@ const History = () => {
           <p className="text-slate-500">Histórico de veículos vencidos e instruções de pagamento.</p>
         </div>
         <Badge className="bg-orange-100 text-orange-600 border-none px-4 py-2 rounded-xl font-bold">
-          {wins.length} {wins.length === 1 ? 'Veículo Arrematado' : 'Veículos Arrematados'}
+          {displayCount} {wins.length === 1 ? 'Veículo Arrematado' : 'Veículos Arrematados'}
         </Badge>
       </div>
 

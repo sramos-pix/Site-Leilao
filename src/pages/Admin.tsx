@@ -1,472 +1,219 @@
+"use client";
+
 import React from 'react';
+import { supabase } from '@/lib/supabase';
 import { 
-  Plus, Gavel, Users, RefreshCw, 
-  Package, BarChart3, Settings, LogOut,
-  TrendingUp, ArrowUpRight, UserPlus, FileSpreadsheet, Trash2,
-  Edit3, Download, FileSearch, ExternalLink
+  Users, Gavel, Package, Settings, 
+  Search, Filter, MoreVertical, Edit, 
+  Trash2, CheckCircle2, XCircle, Clock,
+  ShieldCheck, AlertCircle, Loader2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { 
-  AlertDialog, 
-  AlertDialogAction, 
-  AlertDialogCancel, 
-  AlertDialogContent, 
-  AlertDialogDescription, 
-  AlertDialogFooter, 
-  AlertDialogHeader, 
-  AlertDialogTitle, 
-  AlertDialogTrigger 
-} from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
-import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/ui/use-toast';
-import AuctionForm from '@/components/admin/AuctionForm';
-import LotManager from '@/components/admin/LotManager';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import UserManager from '@/components/admin/UserManager';
-import { Link, useNavigate } from 'react-router-dom';
-import { formatCurrency } from '@/lib/utils';
-import { cn } from '@/lib/utils';
 
 const Admin = () => {
-  const [activeTab, setActiveTab] = React.useState("dashboard");
-  const [auctions, setAuctions] = React.useState<any[]>([]);
   const [users, setUsers] = React.useState<any[]>([]);
-  const [recentBids, setRecentBids] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isAuctionDialogOpen, setIsAuctionDialogOpen] = React.useState(false);
-  const { toast } = useToast();
-  const navigate = useNavigate();
+  const [searchTerm, setSearchTerm] = React.useState('');
 
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const { data: profilesData, error: profilesError } = await supabase
+      // Buscamos todos os campos explicitamente para garantir que zip_code e password venham do banco
+      const { data, error } = await supabase
         .from('profiles')
         .select('*')
         .order('created_at', { ascending: false });
 
-      const { data: auctionsData } = await supabase
-        .from('auctions')
-        .select('*, lots(count)')
-        .order('created_at', { ascending: false });
-
-      const { data: bidsData } = await supabase
-        .from('bids')
-        .select('*, profiles(full_name), lots(title)')
-        .order('created_at', { ascending: false })
-        .limit(5);
-      
-      if (profilesError) throw profilesError;
-      
-      if (auctionsData) setAuctions(auctionsData);
-      if (profilesData) setUsers(profilesData);
-      if (bidsData) setRecentBids(bidsData);
-      
-    } catch (error: any) {
-      console.error("Erro detalhado:", error);
-      toast({ 
-        variant: "destructive", 
-        title: "Erro ao carregar dados", 
-        description: "Ocorreu um erro ao buscar as informações." 
-      });
+      if (error) throw error;
+      setUsers(data || []);
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error);
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const handleAdminLogout = () => {
-    localStorage.removeItem('admin_auth');
-    toast({ title: "Sessão encerrada", description: "Você saiu do painel administrativo." });
-    navigate('/');
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .delete()
-        .eq('id', userId);
-
-      if (error) throw error;
-
-      toast({ title: "Usuário removido", description: "O perfil foi excluído com sucesso." });
-      fetchData();
-    } catch (error: any) {
-      toast({ 
-        variant: "destructive", 
-        title: "Erro ao excluir", 
-        description: error.message 
-      });
-    }
-  };
-
-  const exportUsersCSV = () => {
-    if (users.length === 0) return;
-    
-    const headers = ["Nome", "Email", "Documento", "Telefone", "Cidade", "UF", "Status KYC", "Data Cadastro"];
-    const rows = users.map(u => [
-      u.full_name,
-      u.email,
-      u.document_id || u.cpf || u.cnpj || '',
-      u.phone,
-      u.city,
-      u.state,
-      u.kyc_status,
-      new Date(u.created_at).toLocaleDateString()
-    ]);
-
-    const csvContent = [
-      headers.join(","),
-      ...rows.map(r => r.map(field => `"${field || ''}"`).join(","))
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `usuarios-autobid-${new Date().toISOString().split('T')[0]}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({ title: "Relatório Gerado", description: "O arquivo CSV foi baixado com sucesso." });
-  };
-
-  const handleExportReport = (auction: any) => {
-    toast({ title: "Gerando Relatório", description: `O relatório de "${auction.title}" está sendo processado.` });
-    setTimeout(() => {
-      const content = `Relatório: ${auction.title}\nStatus: ${auction.status}\nData: ${new Date().toLocaleDateString()}`;
-      const blob = new Blob([content], { type: 'text/plain' });
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `relatorio-${auction.id}.txt`;
-      a.click();
-    }, 1000);
-  };
-
-  const handleDownloadDoc = (url: string, name: string) => {
-    if (!url) return;
-    const link = document.createElement('a');
-    link.href = url;
-    link.target = '_blank';
-    link.download = `documento-${name.replace(/\s+/g, '-').toLowerCase()}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast({ title: "Abrindo documento", description: "O arquivo será aberto em uma nova aba." });
   };
 
   React.useEffect(() => {
     fetchData();
   }, []);
 
-  const menuItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: BarChart3 },
-    { id: 'auctions', label: 'Leilões', icon: Package },
-    { id: 'users', label: 'Usuários', icon: Users },
-  ];
+  const filteredUsers = users.filter(user => 
+    user.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    user.document_id?.includes(searchTerm)
+  );
+
+  const getKycBadge = (status: string) => {
+    switch (status) {
+      case 'verified':
+        return <Badge className="bg-green-100 text-green-600 border-none"><CheckCircle2 size={12} className="mr-1" /> Verificado</Badge>;
+      case 'rejected':
+        return <Badge className="bg-red-100 text-red-600 border-none"><XCircle size={12} className="mr-1" /> Rejeitado</Badge>;
+      case 'pending':
+        return <Badge className="bg-orange-100 text-orange-600 border-none"><Clock size={12} className="mr-1" /> Pendente</Badge>;
+      default:
+        return <Badge variant="outline" className="text-slate-400">Não Enviado</Badge>;
+    }
+  };
 
   return (
-    <div className="flex min-h-screen bg-slate-100">
-      <aside className="w-64 bg-slate-900 text-white hidden lg:flex flex-col sticky top-0 h-screen">
-        <div className="p-6 border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <div className="bg-orange-500 p-1.5 rounded-lg"><Gavel size={20} /></div>
-            <span className="font-bold text-lg tracking-tight">AUTO BID <span className="text-orange-500">PRO</span></span>
+    <div className="min-h-screen bg-slate-50 flex">
+      {/* Sidebar */}
+      <div className="w-64 bg-slate-900 text-white p-6 hidden lg:block">
+        <div className="flex items-center gap-2 mb-10">
+          <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
+            <Gavel size={18} />
           </div>
+          <span className="font-bold text-xl tracking-tight">ADMIN</span>
         </div>
-        <nav className="flex-1 p-4 space-y-1">
-          {menuItems.map((item) => (
-            <Button 
-              key={item.id}
-              variant="ghost" 
-              onClick={() => setActiveTab(item.id)}
-              className={cn(
-                "w-full justify-start gap-3 rounded-xl transition-all",
-                activeTab === item.id ? "bg-orange-500 text-white hover:bg-orange-600" : "text-slate-400 hover:bg-slate-800 hover:text-white"
-              )}
-            >
-              <item.icon size={18} /> {item.label}
-            </Button>
-          ))}
-          <Button variant="ghost" className="w-full justify-start gap-3 text-slate-400 hover:bg-slate-800 hover:text-white rounded-xl">
-            <Settings size={18} /> Configurações
+        
+        <nav className="space-y-2">
+          <Button variant="ghost" className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl">
+            <Users size={20} className="mr-3" /> Usuários
+          </Button>
+          <Button variant="ghost" className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl">
+            <Package size={20} className="mr-3" /> Lotes
+          </Button>
+          <Button variant="ghost" className="w-full justify-start text-slate-400 hover:text-white hover:bg-slate-800 rounded-xl">
+            <Settings size={20} className="mr-3" /> Configurações
           </Button>
         </nav>
-        <div className="p-4 border-t border-slate-800">
-          <Button 
-            variant="ghost" 
-            onClick={handleAdminLogout}
-            className="w-full justify-start gap-3 text-slate-400 hover:text-red-400 hover:bg-red-400/10 rounded-xl"
-          >
-            <LogOut size={18} /> Sair do Painel
-          </Button>
-        </div>
-      </aside>
+      </div>
 
-      <main className="flex-1 p-8 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
-          <header className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold text-slate-900 capitalize">{activeTab}</h1>
-              <p className="text-slate-500">Gerenciamento centralizado da plataforma.</p>
+      {/* Main Content */}
+      <div className="flex-1 p-8 overflow-y-auto">
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-2xl font-bold text-slate-900">Gerenciamento de Usuários</h1>
+          <div className="flex gap-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <Input 
+                placeholder="Buscar usuário..." 
+                className="pl-10 w-64 bg-white border-none shadow-sm rounded-xl"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
             </div>
-            <div className="flex gap-3">
-              {activeTab === 'users' && (
-                <Button variant="outline" onClick={exportUsersCSV} className="bg-white rounded-xl shadow-sm border-none text-slate-600">
-                  <FileSpreadsheet size={20} className="mr-2 text-green-600" /> Exportar CSV
-                </Button>
+            <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
+              Exportar CSV
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Total de Usuários</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-slate-900">{users.length}</p>
+            </CardContent>
+          </Card>
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Aguardando KYC</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-orange-500">
+                {users.filter(u => u.kyc_status === 'pending').length}
+              </p>
+            </CardContent>
+          </Card>
+          <Card className="border-none shadow-sm rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm font-medium text-slate-500">Verificados</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-3xl font-bold text-green-500">
+                {users.filter(u => u.kyc_status === 'verified').length}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+
+        <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
+          <Table>
+            <TableHeader className="bg-slate-100">
+              <TableRow>
+                <TableHead className="font-bold">Usuário</TableHead>
+                <TableHead className="font-bold">Documento</TableHead>
+                <TableHead className="font-bold">Status KYC</TableHead>
+                <TableHead className="font-bold">Cadastro</TableHead>
+                <TableHead className="text-right font-bold">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="bg-white">
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10">
+                    <Loader2 className="h-8 w-8 animate-spin text-orange-500 mx-auto" />
+                  </TableCell>
+                </TableRow>
+              ) : filteredUsers.length > 0 ? (
+                filteredUsers.map((user) => (
+                  <TableRow key={user.id} className="hover:bg-slate-50 transition-colors">
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="font-bold text-slate-900">{user.full_name || 'Sem Nome'}</span>
+                        <span className="text-xs text-slate-500">{user.email}</span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-slate-600 font-medium">
+                      {user.document_id || '---'}
+                    </TableCell>
+                    <TableCell>
+                      {getKycBadge(user.kyc_status)}
+                    </TableCell>
+                    <TableCell className="text-slate-500 text-sm">
+                      {new Date(user.created_at).toLocaleDateString('pt-BR')}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="icon" className="rounded-lg hover:bg-slate-100">
+                            <Edit size={18} className="text-slate-400" />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="max-w-2xl">
+                          <DialogHeader>
+                            <DialogTitle>Gerenciar Usuário: {user.full_name}</DialogTitle>
+                          </DialogHeader>
+                          <UserManager user={user} onSuccess={() => fetchData()} />
+                        </DialogContent>
+                      </Dialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-10 text-slate-400 italic">
+                    Nenhum usuário encontrado.
+                  </TableCell>
+                </TableRow>
               )}
-              <Dialog open={isAuctionDialogOpen} onOpenChange={setIsAuctionDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl shadow-lg shadow-orange-200">
-                    <Plus size={20} className="mr-2" /> Novo Leilão
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader><DialogTitle>Criar Novo Leilão</DialogTitle></DialogHeader>
-                  <AuctionForm onSuccess={() => { setIsAuctionDialogOpen(false); fetchData(); }} />
-                </DialogContent>
-              </Dialog>
-              <Button variant="outline" onClick={fetchData} className="bg-white rounded-xl shadow-sm border-none">
-                <RefreshCw size={18} className={isLoading ? "animate-spin" : ""} />
-              </Button>
-            </div>
-          </header>
-
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsContent value="dashboard" className="space-y-8">
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <Card className="border-none shadow-sm bg-white">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="p-3 bg-blue-50 rounded-2xl text-blue-600"><TrendingUp size={24} /></div>
-                      <Badge className="bg-green-100 text-green-700 border-none">+8%</Badge>
-                    </div>
-                    <p className="text-sm font-medium text-slate-500">Volume de Lances</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">{formatCurrency(842000)}</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-none shadow-sm bg-white">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="p-3 bg-orange-50 rounded-2xl text-orange-600"><Gavel size={24} /></div>
-                    </div>
-                    <p className="text-sm font-medium text-slate-500">Leilões em Andamento</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">{auctions.filter(a => a.status === 'live').length}</p>
-                  </CardContent>
-                </Card>
-                <Card className="border-none shadow-sm bg-white">
-                  <CardContent className="p-6">
-                    <div className="flex justify-between items-start mb-4">
-                      <div className="p-3 bg-purple-50 rounded-2xl text-purple-600"><Users size={24} /></div>
-                    </div>
-                    <p className="text-sm font-medium text-slate-500">Total de Usuários</p>
-                    <p className="text-3xl font-bold text-slate-900 mt-1">{users.length}</p>
-                  </CardContent>
-                </Card>
-              </div>
-              
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                <Card className="border-none shadow-sm bg-white p-6 rounded-3xl">
-                  <CardTitle className="mb-6 flex items-center gap-2">
-                    <ArrowUpRight className="text-orange-500" size={20} /> Lances Recentes
-                  </CardTitle>
-                  <div className="space-y-4">
-                    {recentBids.length > 0 ? recentBids.map(bid => (
-                      <div key={bid.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
-                        <div className="p-2 bg-white rounded-xl shadow-sm text-orange-600">
-                          <Gavel size={18} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-slate-900">{bid.profiles?.full_name || 'Usuário'}</p>
-                          <p className="text-xs text-slate-500">{bid.lots?.title}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-sm font-bold text-green-600">{formatCurrency(bid.amount)}</p>
-                          <p className="text-[10px] text-slate-400">{new Date(bid.created_at).toLocaleTimeString()}</p>
-                        </div>
-                      </div>
-                    )) : (
-                      <p className="text-center py-8 text-slate-400 text-sm italic">Nenhum lance recente.</p>
-                    )}
-                  </div>
-                </Card>
-
-                <Card className="border-none shadow-sm bg-white p-6 rounded-3xl">
-                  <CardTitle className="mb-6 flex items-center gap-2">
-                    <UserPlus className="text-blue-500" size={20} /> Novos Usuários
-                  </CardTitle>
-                  <div className="space-y-4">
-                    {users.slice(0, 5).map(user => (
-                      <div key={user.id} className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl">
-                        <div className="w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-slate-400 font-bold">
-                          {user.full_name?.charAt(0) || 'U'}
-                        </div>
-                        <div className="flex-1">
-                          <p className="text-sm font-bold text-slate-900">{user.full_name || 'Sem Nome'}</p>
-                          <p className="text-xs text-slate-500">{user.email}</p>
-                        </div>
-                        <Badge className={cn(
-                          "border-none text-[10px]",
-                          user.kyc_status === 'verified' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                        )}>
-                          {user.kyc_status === 'verified' ? 'Aprovado' : 'Pendente'}
-                        </Badge>
-                      </div>
-                    ))}
-                  </div>
-                </Card>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="auctions">
-              <div className="grid grid-cols-1 gap-4">
-                {auctions.map(auction => (
-                  <Card key={auction.id} className="border-none shadow-sm bg-white hover:shadow-md transition-shadow rounded-2xl overflow-hidden">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between p-6 gap-4">
-                      <div className="flex items-center gap-4">
-                        <div className="w-12 h-12 bg-slate-100 rounded-xl flex items-center justify-center text-slate-400">
-                          <Package size={24} />
-                        </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <h3 className="font-bold text-slate-900">{auction.title}</h3>
-                            <Badge className={auction.status === 'live' ? 'bg-red-500' : 'bg-blue-500'}>{auction.status}</Badge>
-                          </div>
-                          <p className="text-xs text-slate-500">{auction.location} • {auction.lots?.[0]?.count || 0} lotes cadastrados</p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" size="sm" className="rounded-xl border-slate-200">
-                              <Edit3 size={16} className="mr-2" /> Lotes
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent className="max-w-3xl">
-                            <DialogHeader><DialogTitle>Gerenciar Lotes: {auction.title}</DialogTitle></DialogHeader>
-                            <LotManager auctionId={auction.id} />
-                          </DialogContent>
-                        </Dialog>
-                        <Button variant="outline" size="sm" className="rounded-xl border-slate-200" onClick={() => handleExportReport(auction)}>
-                          <Download size={16} className="mr-2" /> Relatório
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-
-            <TabsContent value="users">
-              <Card className="border-none shadow-sm bg-white overflow-hidden rounded-3xl">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left text-sm">
-                    <thead className="bg-slate-50 border-b border-slate-100">
-                      <tr>
-                        <th className="px-6 py-4 font-bold text-slate-600">Usuário</th>
-                        <th className="px-6 py-4 font-bold text-slate-600">Documento</th>
-                        <th className="px-6 py-4 font-bold text-slate-600">Arquivo</th>
-                        <th className="px-6 py-4 font-bold text-slate-600">Status KYC</th>
-                        <th className="px-6 py-4 font-bold text-slate-600">Ações</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-50">
-                      {users.map(user => (
-                        <tr key={user.id} className="hover:bg-slate-50/50 transition-colors">
-                          <td className="px-6 py-4">
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <button className="text-left hover:opacity-70 transition-opacity">
-                                  <div className="font-bold text-slate-900">{user.full_name || 'Sem Nome'}</div>
-                                  <div className="text-xs text-slate-500">{user.email}</div>
-                                </button>
-                              </DialogTrigger>
-                              <DialogContent className="max-w-2xl">
-                                <DialogHeader><DialogTitle>Perfil Completo: {user.full_name}</DialogTitle></DialogHeader>
-                                <UserManager user={user} onSuccess={() => fetchData()} />
-                              </DialogContent>
-                            </Dialog>
-                          </td>
-                          <td className="px-6 py-4 font-mono text-xs text-slate-600">{user.document_id || user.cpf || user.cnpj || '---'}</td>
-                          <td className="px-6 py-4">
-                            {user.document_url ? (
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                onClick={() => handleDownloadDoc(user.document_url, user.full_name)}
-                                className="text-blue-600 hover:bg-blue-50 rounded-xl"
-                              >
-                                <Download size={16} className="mr-2" /> Baixar
-                              </Button>
-                            ) : (
-                              <span className="text-slate-400 text-xs italic">Não enviado</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4">
-                            <Badge className={cn(
-                              "border-none px-3 py-1",
-                              user.kyc_status === 'verified' ? 'bg-green-100 text-green-700' : 
-                              user.kyc_status === 'rejected' ? 'bg-red-100 text-red-700' : 'bg-orange-100 text-orange-700'
-                            )}>
-                              {user.kyc_status === 'verified' ? 'Verificado' : user.kyc_status === 'rejected' ? 'Rejeitado' : 'Pendente'}
-                            </Badge>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <Dialog>
-                                <DialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="text-orange-600 hover:bg-orange-50 rounded-xl">
-                                    <Edit3 size={16} className="mr-2" /> Gerenciar
-                                  </Button>
-                                </DialogTrigger>
-                                <DialogContent className="max-w-2xl">
-                                  <DialogHeader><DialogTitle>Editar Perfil do Usuário</DialogTitle></DialogHeader>
-                                  <UserManager user={user} onSuccess={() => fetchData()} />
-                                </DialogContent>
-                              </Dialog>
-
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="sm" className="text-red-500 hover:bg-red-50 rounded-xl">
-                                    <Trash2 size={16} />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Excluir Usuário?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Esta ação removerá o perfil de <strong>{user.full_name}</strong> permanentemente do banco de dados. Esta ação não pode ser desfeita.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction 
-                                      onClick={() => handleDeleteUser(user.id)}
-                                      className="bg-red-500 hover:bg-red-600"
-                                    >
-                                      Excluir Definitivamente
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Card>
-            </TabsContent>
-          </Tabs>
-        </div>
-      </main>
+            </TableBody>
+          </Table>
+        </Card>
+      </div>
     </div>
   );
 };

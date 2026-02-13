@@ -99,7 +99,7 @@ const Dashboard = () => {
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <h1 className="text-4xl font-black text-slate-900 tracking-tight">
-                Olá, {profile?.full_name?.split(' ')[0] || 'Usuário'}
+                Olá, {profile?.full_name || 'Usuário'}
               </h1>
               {profile?.kyc_status === 'verified' && (
                 <TooltipProvider>

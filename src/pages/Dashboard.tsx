@@ -273,7 +273,7 @@ const Dashboard = () => {
                       ? 'Seus documentos estão em análise. Você será notificado em breve assim que puder dar lances.' 
                       : 'Seu documento foi rejeitado. Por favor, envie um novo documento para poder participar.'}
                   </p>
-                  {profile?.kyc_status !== 'pending' && (
+                  {(!profile?.kyc_status || profile?.kyc_status === 'rejected') && (
                     <Link to="/app/verify">
                       <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
                         {!profile?.kyc_status ? 'Enviar Documentos Agora' : 'Reenviar Documentos'}

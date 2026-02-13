@@ -92,6 +92,7 @@ const Auth = () => {
         }
 
         if (authData.user) {
+          // Alterado kyc_status para null para que o dashboard mostre "não verificado"
           await supabase.from('profiles').upsert({
             id: authData.user.id,
             full_name: data.fullName,
@@ -103,7 +104,7 @@ const Auth = () => {
             city: data.city,
             state: data.state,
             document_id: data.documentId,
-            kyc_status: 'pending'
+            kyc_status: null 
           });
         }
 

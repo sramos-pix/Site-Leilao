@@ -18,6 +18,7 @@ import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
 import CountdownTimer from '@/components/CountdownTimer';
 import { supabase } from '@/lib/supabase';
+import Navbar from '@/components/Navbar';
 
 const LotDetail = () => {
   const { id } = useParams();
@@ -115,7 +116,6 @@ const LotDetail = () => {
   const allBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Processar Lances Reais do Banco
     const processedRealBids = realBids.map(b => ({
       id: b.id,
       amount: b.amount,
@@ -125,14 +125,12 @@ const LotDetail = () => {
       display_name: b.user_id === user?.id ? "Você" : "Licitante"
     }));
 
-    // 2. Gerar Lances Fictícios Determinísticos (Sempre presentes)
     const fakeEmails = [
       "ca***@gmail.com", "an***@hotmail.com", "ro***@outlook.com", 
       "ju***@yahoo.com", "ma***@gmail.com", "fe***@uol.com.br",
       "ti***@terra.com.br", "lu***@ig.com.br", "bi***@globo.com"
     ];
     
-    // Semente baseada no ID do lote para que os lances sejam consistentes para cada veículo
     const seed = id ? id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) : 0;
     const fakes = [];
     
@@ -140,16 +138,12 @@ const LotDetail = () => {
     const startValue = lot.start_bid;
     const increment = lot.bid_increment || 1000;
 
-    // Gerar 8 lances fictícios para preencher o histórico
     for (let i = 0; i < 8; i++) {
-      // O valor do fake é calculado para ser progressivo mas ficar abaixo do topo atual se houver lances reais
       const fakeAmount = startValue + (i * increment * 0.8);
-      
       if (fakeAmount < currentMax && fakeAmount >= startValue) {
         fakes.push({
           id: `fake-${i}-${id}`,
           amount: fakeAmount,
-          // Datas retroativas para parecer um histórico real
           created_at: new Date(Date.now() - (i + 1) * 7200000).toISOString(),
           is_fake: true,
           display_name: fakeEmails[(seed + i) % fakeEmails.length]
@@ -157,7 +151,6 @@ const LotDetail = () => {
       }
     }
 
-    // 3. Fallback: Se não houver nada, garante o lance inicial como fictício
     if (processedRealBids.length === 0 && fakes.length === 0) {
       fakes.push({
         id: `fake-initial-${id}`,
@@ -168,7 +161,6 @@ const LotDetail = () => {
       });
     }
 
-    // Unir lances reais e fictícios e ordenar pelo maior valor
     return [...processedRealBids, ...fakes].sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id, user]);
 
@@ -177,7 +169,8 @@ const LotDetail = () => {
 
   return (
     <div className="bg-slate-50 min-h-screen pb-20">
-      <div className="container mx-auto px-4 py-8">
+      <Navbar />
+      <div className="container mx-auto px-4 py-8 mt-4">
         <Link to="/auctions" className="inline-flex items-center text-sm text-slate-500 hover:text-orange-600 mb-6 font-bold">
           <ChevronLeft size={16} className="mr-1" /> VOLTAR PARA LEILÕES
         </Link>

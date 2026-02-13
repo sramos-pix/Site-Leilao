@@ -31,6 +31,7 @@ const AdminOverview = () => {
   const fetchStats = async () => {
     setIsLoading(true);
     try {
+      // 1. Buscar estatísticas básicas
       const [auctions, lots, users, bids] = await Promise.all([
         supabase.from('auctions').select('*', { count: 'exact', head: true }),
         supabase.from('lots').select('*', { count: 'exact', head: true }),
@@ -45,7 +46,8 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
-      // Tentativa de busca com junção explícita
+      // 2. Buscar lances recentes com dados relacionados
+      // Removi o !inner para evitar que lances sem perfil sumam da lista
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -67,9 +69,16 @@ const AdminOverview = () => {
 
       if (bidsError) {
         console.error("Erro na consulta de lances:", bidsError);
+        // Fallback para busca simples se a junção falhar totalmente
+        const { data: fallbackData } = await supabase
+          .from('bids')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(10);
+        setRecentBids(fallbackData || []);
+      } else {
+        setRecentBids(bidsData || []);
       }
-      
-      setRecentBids(bidsData || []);
 
     } catch (error) {
       console.error("Erro crítico ao carregar estatísticas:", error);
@@ -160,9 +169,10 @@ const AdminOverview = () => {
                   </TableRow>
                 ) : recentBids.length > 0 ? (
                   recentBids.map((bid) => {
-                    // Tenta pegar do objeto profiles (que vem da junção)
-                    const userName = bid.profiles?.full_name || 'Usuário';
-                    const userEmail = bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
+                    // Lógica de exibição: tenta pegar do perfil, senão mostra ID
+                    const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
+                    const userName = profile?.full_name || 'Usuário';
+                    const userEmail = profile?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
 
                     return (
                       <TableRow key={bid.id} className="group">

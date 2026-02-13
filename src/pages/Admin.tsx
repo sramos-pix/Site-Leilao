@@ -2,8 +2,8 @@ import React from 'react';
 import { 
   Plus, Gavel, Users, RefreshCw, 
   Package, BarChart3, Settings, LogOut,
-  ShieldCheck, ShieldAlert, ShieldQuestion,
-  TrendingUp, AlertTriangle, FileText, History
+  TrendingUp, AlertTriangle, FileText, History,
+  Download, Edit3
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -14,6 +14,7 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import LotForm from '@/components/admin/LotForm';
 import AuctionForm from '@/components/admin/AuctionForm';
+import LotManager from '@/components/admin/LotManager';
 import { Link } from 'react-router-dom';
 import { formatCurrency } from '@/lib/utils';
 
@@ -23,6 +24,7 @@ const Admin = () => {
   const [auditLogs, setAuditLogs] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isAuctionDialogOpen, setIsAuctionDialogOpen] = React.useState(false);
+  const [selectedAuctionId, setSelectedAuctionId] = React.useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -43,6 +45,24 @@ const Admin = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleExportReport = (auction: any) => {
+    toast({
+      title: "Gerando Relatório",
+      description: `O relatório do leilão "${auction.title}" está sendo processado e será baixado em instantes.`,
+    });
+    
+    // Simulação de download de CSV/PDF
+    setTimeout(() => {
+      const content = `Relatório de Leilão: ${auction.title}\nStatus: ${auction.status}\nData: ${new Date().toLocaleDateString()}`;
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `relatorio-${auction.id}.txt`;
+      a.click();
+    }, 1500);
   };
 
   React.useEffect(() => {
@@ -160,8 +180,28 @@ const Admin = () => {
                         <p className="text-sm text-slate-500 mt-1">{auction.location} • {auction.lots?.[0]?.count || 0} lotes</p>
                       </div>
                       <div className="flex gap-2">
-                        <Button variant="outline" size="sm">Gerenciar Lotes</Button>
-                        <Button variant="outline" size="sm">Relatório</Button>
+                        <Dialog>
+                          <DialogTrigger asChild>
+                            <Button variant="outline" size="sm" className="rounded-xl">
+                              <Edit3 size={16} className="mr-2" /> Gerenciar Lotes
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="max-w-3xl">
+                            <DialogHeader>
+                              <DialogTitle>Gerenciar Lotes: {auction.title}</DialogTitle>
+                            </DialogHeader>
+                            <LotManager auctionId={auction.id} />
+                          </DialogContent>
+                        </Dialog>
+                        
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="rounded-xl"
+                          onClick={() => handleExportReport(auction)}
+                        >
+                          <Download size={16} className="mr-2" /> Relatório
+                        </Button>
                       </div>
                     </CardHeader>
                   </Card>

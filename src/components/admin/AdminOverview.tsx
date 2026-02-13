@@ -51,7 +51,7 @@ const AdminOverview = () => {
         bids: bidsCount.count || 0
       });
 
-      // 2. Busca de lances com fallback manual para evitar erro de Join
+      // 2. Busca de lances com fallback manual
       const { data: bids, error: bidsError } = await supabase
         .from('bids')
         .select('*')
@@ -61,7 +61,6 @@ const AdminOverview = () => {
       if (bidsError) throw bidsError;
 
       if (bids && bids.length > 0) {
-        // Busca perfis e lotes manualmente para os lances encontrados
         const userIds = [...new Set(bids.map(b => b.user_id))];
         const lotIds = [...new Set(bids.map(b => b.lot_id))];
 
@@ -73,7 +72,6 @@ const AdminOverview = () => {
         const profilesMap = (profilesRes.data || []).reduce((acc: any, p) => ({ ...acc, [p.id]: p }), {});
         const lotsMap = (lotsRes.data || []).reduce((acc: any, l) => ({ ...acc, [l.id]: l }), {});
 
-        // Mescla os dados
         const enrichedBids = bids.map(bid => ({
           ...bid,
           profiles: profilesMap[bid.user_id],
@@ -98,10 +96,11 @@ const AdminOverview = () => {
   };
 
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
-    if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}?`)) return;
+    if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}? Esta ação é irreversível e atualizará o valor atual do lote.`)) return;
     
     setIsDeleting(bidId);
     try {
+      // 1. Deleta o lance
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
@@ -109,8 +108,11 @@ const AdminOverview = () => {
 
       if (deleteError) throw deleteError;
 
+      // 2. Atualiza a UI localmente para feedback imediato
       setRecentBids(prev => prev.filter(b => b.id !== bidId));
+      setStats(prev => ({ ...prev, bids: Math.max(0, prev.bids - 1) }));
 
+      // 3. Busca o novo lance mais alto para este lote
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -119,13 +121,19 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
+      // 4. Atualiza o valor atual do lote (se não houver lances, volta para 0 ou lance inicial)
       const newCurrentBid = nextHighestBid?.amount || 0;
       await supabase
         .from('lots')
         .update({ current_bid: newCurrentBid })
         .eq('id', lotId);
 
-      toast({ title: "Lance removido com sucesso" });
+      toast({ 
+        title: "Lance removido", 
+        description: `O valor do lote foi atualizado para ${formatCurrency(newCurrentBid)}.` 
+      });
+      
+      // Recarrega tudo para garantir sincronia
       fetchStats();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });

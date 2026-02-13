@@ -20,11 +20,18 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
     }
 
     if (randomScarcity) {
-      // Gera um tempo curto (entre 5 e 15 minutos) baseado no ID do lote para ser persistente
-      const idNum = typeof lotId === 'string' ? lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : (Number(lotId) || 0);
-      const baseMinutes = 5;
-      const extraMinutes = idNum % 10;
-      setSecondsLeft((baseMinutes + extraMinutes) * 60);
+      // Gera um tempo aleatório entre 1h (3600s) e 12h (43200s) baseado no ID do lote para ser persistente por sessão
+      const idNum = typeof lotId === 'string' 
+        ? lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) 
+        : (Number(lotId) || Math.floor(Math.random() * 1000));
+      
+      const minSeconds = 3600; // 1 hora
+      const maxSeconds = 43200; // 12 horas
+      const range = maxSeconds - minSeconds;
+      
+      // Usa o ID para garantir que o mesmo lote tenha o mesmo tempo "aleatório"
+      const randomFactor = (idNum * 1337) % range;
+      setSecondsLeft(minSeconds + randomFactor);
     } else {
       setSecondsLeft(7200); // 2 horas padrão
     }
@@ -49,7 +56,7 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
   };
 
   return (
-    <span className={secondsLeft < 300 ? "text-white font-bold animate-pulse" : ""}>
+    <span className={secondsLeft < 3600 ? "text-white font-bold animate-pulse" : ""}>
       {formatTime(secondsLeft)}
     </span>
   );

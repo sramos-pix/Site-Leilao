@@ -28,7 +28,6 @@ const LotDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState<number>(0);
-  const [isFavorite, setIsFavorite] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
 
@@ -63,28 +62,29 @@ const LotDetail = () => {
       const minIncrement = lotData.current_bid < 100000 ? 1000 : 2000;
       setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
 
-      // Buscar lances REAIS do banco com o perfil (email)
-      const { data: bidsData } = await supabase
+      // Busca lances reais. Se a relação 'profiles' falhar, pegamos apenas os dados básicos do lance.
+      const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
           id,
           amount,
           created_at,
+          user_id,
           profiles ( email )
         `)
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
-      setRealBids(bidsData || []);
-
-      if (currentUser) {
-        const { data: favData } = await supabase
-          .from('favorites')
-          .select('id')
-          .eq('user_id', currentUser.id)
+      if (bidsError) {
+        // Fallback caso a relação profiles falhe
+        const { data: fallbackBids } = await supabase
+          .from('bids')
+          .select('id, amount, created_at, user_id')
           .eq('lot_id', id)
-          .single();
-        setIsFavorite(!!favData);
+          .order('amount', { ascending: false });
+        setRealBids(fallbackBids || []);
+      } else {
+        setRealBids(bidsData || []);
       }
 
     } catch (error: any) {
@@ -94,24 +94,19 @@ const LotDetail = () => {
     }
   };
 
-  // Lances combinados: Reais no topo, fictícios abaixo
   const allBids = useMemo(() => {
-    // Valor base para os fictícios: menor lance real ou lance inicial
     const baseForMock = realBids.length > 0 
       ? realBids[realBids.length - 1].amount 
       : (lot?.start_bid || 0);
 
-    // Geramos lances fictícios que são sempre menores que o menor lance real
     const mockBids = [
-      { id: 'm1', amount: baseForMock - 1500, created_at: new Date(Date.now() - 1800000).toISOString(), profiles: { email: 'carlos.silva***@gmail.com' } },
-      { id: 'm2', amount: baseForMock - 3200, created_at: new Date(Date.now() - 3600000).toISOString(), profiles: { email: 'marcos.ant***@uol.com.br' } },
-      { id: 'm3', amount: baseForMock - 5800, created_at: new Date(Date.now() - 5400000).toISOString(), profiles: { email: 'ana.paula***@outlook.com' } },
-      { id: 'm4', amount: baseForMock - 8000, created_at: new Date(Date.now() - 7200000).toISOString(), profiles: { email: 'ricardo.m***@hotmail.com' } },
-      { id: 'm5', amount: baseForMock - 10500, created_at: new Date(Date.now() - 9000000).toISOString(), profiles: { email: 'fernanda.l***@terra.com.br' } },
-    ].filter(m => m.amount > 0); // Filtro simples para garantir que existam
+      { id: 'm1', amount: baseForMock - 1500, created_at: new Date(Date.now() - 1800000).toISOString(), mockEmail: 'carlos.silva***@gmail.com' },
+      { id: 'm2', amount: baseForMock - 3200, created_at: new Date(Date.now() - 3600000).toISOString(), mockEmail: 'marcos.ant***@uol.com.br' },
+      { id: 'm3', amount: baseForMock - 5800, created_at: new Date(Date.now() - 5400000).toISOString(), mockEmail: 'ana.paula***@outlook.com' },
+      { id: 'm4', amount: baseForMock - 8000, created_at: new Date(Date.now() - 7200000).toISOString(), mockEmail: 'ricardo.m***@hotmail.com' },
+      { id: 'm5', amount: baseForMock - 10500, created_at: new Date(Date.now() - 9000000).toISOString(), mockEmail: 'fernanda.l***@terra.com.br' },
+    ].filter(m => m.amount > 0);
 
-    // Unimos e ordenamos por valor decrescente
-    // Isso garante que os lances reais (maiores) fiquem no topo
     const combined = [...realBids, ...mockBids];
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot]);
@@ -119,9 +114,8 @@ const LotDetail = () => {
   useEffect(() => {
     fetchLotData();
     const channel = supabase
-      .channel(`lot-${id}`)
+      .channel(`lot-realtime-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => fetchLotData())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => fetchLotData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
@@ -199,15 +193,25 @@ const LotDetail = () => {
 
               <div className="space-y-4">
                 {allBids.map((bid, index) => {
-                  const profile = Array.isArray(bid.profiles) ? bid.profiles[0] : bid.profiles;
-                  const email = profile?.email || 'usuário@***';
+                  // Lógica de exibição de e-mail resiliente
+                  let displayEmail = 'usuário@***';
+                  
+                  if (bid.mockEmail) {
+                    displayEmail = bid.mockEmail;
+                  } else if (bid.profiles?.email) {
+                    displayEmail = maskEmail(bid.profiles.email);
+                  } else if (bid.user_id === user?.id) {
+                    displayEmail = maskEmail(user.email);
+                  } else if (bid.user_id) {
+                    displayEmail = `licitante_${bid.user_id.substring(0, 4)}***`;
+                  }
 
                   return (
                     <div key={bid.id} className={`flex items-center justify-between p-5 rounded-3xl ${index === 0 ? 'bg-orange-50 border-2 border-orange-100' : 'bg-slate-50'}`}>
                       <div className="flex items-center gap-4">
                         <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-bold ${index === 0 ? 'bg-orange-500 text-white' : 'bg-slate-200 text-slate-500'}`}><User size={20} /></div>
                         <div>
-                          <p className="font-bold text-slate-900">{maskEmail(email)}</p>
+                          <p className="font-bold text-slate-900">{displayEmail}</p>
                           <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
                         </div>
                       </div>

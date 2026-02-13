@@ -4,7 +4,7 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Gavel, LayoutDashboard, History, User, 
-  LogOut, Bell, Menu, X, ShieldAlert, AlertCircle
+  LogOut, Bell, Menu, X, ShieldAlert, AlertCircle, Home
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -69,12 +69,21 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
       <header className="bg-white border-b sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <Link to="/app" className="flex items-center gap-2">
-            <div className="bg-orange-500 p-1.5 rounded-lg text-white">
-              <Gavel size={20} />
-            </div>
-            <span className="font-bold text-xl tracking-tight text-slate-900">AUTO BID</span>
-          </Link>
+          <div className="flex items-center gap-6">
+            <Link to="/app" className="flex items-center gap-2">
+              <div className="bg-orange-500 p-1.5 rounded-lg text-white">
+                <Gavel size={20} />
+              </div>
+              <span className="font-bold text-xl tracking-tight text-slate-900">AUTO BID</span>
+            </Link>
+
+            <Link to="/">
+              <Button variant="ghost" className="hidden md:flex gap-2 text-slate-600 hover:text-orange-600 font-bold rounded-xl">
+                <Home size={18} />
+                Início
+              </Button>
+            </Link>
+          </div>
 
           <nav className="hidden md:flex items-center gap-1">
             {menuItems.map((item) => (
@@ -114,6 +123,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
       {isMenuOpen && (
         <div className="md:hidden bg-white border-b p-4 space-y-2">
+          <Link to="/" onClick={() => setIsMenuOpen(false)}>
+            <Button variant="ghost" className="w-full justify-start gap-3 rounded-xl text-slate-600">
+              <Home size={20} />
+              Início
+            </Button>
+          </Link>
           {menuItems.map((item) => (
             <Link key={item.path} to={item.path} onClick={() => setIsMenuOpen(false)}>
               <Button 

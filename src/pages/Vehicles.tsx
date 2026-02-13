@@ -82,8 +82,9 @@ const Vehicles = () => {
                     />
                     <div className="absolute top-4 left-4 flex gap-2">
                       <Badge className="bg-slate-900 text-white border-none px-3 py-1 rounded-none text-[11px] font-bold uppercase">LOTE #{lot.lot_number}</Badge>
-                      <Badge className="bg-red-500 text-white border-none px-3 py-1 rounded-full text-[11px] font-bold flex items-center gap-1">
-                        <Clock size={12} /> <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
+                      <Badge className="bg-orange-500 text-white border-none px-4 py-1.5 rounded-full text-[11px] font-black flex items-center gap-2 shadow-lg shadow-orange-500/30">
+                        <Clock size={14} className="animate-pulse" /> 
+                        <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
                       </Badge>
                     </div>
                     <Button 

@@ -63,7 +63,6 @@ const LotDetail = () => {
       const minIncrement = lotData.bid_increment || 1000;
       setBidAmount(currentVal + minIncrement);
 
-      // Busca lances sem tentar fazer join com profiles para evitar erros de relação
       const { data: bidsData } = await supabase
         .from('bids')
         .select('*')
@@ -116,6 +115,7 @@ const LotDetail = () => {
   const allBids = useMemo(() => {
     if (!lot) return [];
     
+    // 1. Mapeia lances reais do banco
     const bids = realBids.map(b => ({
       id: b.id,
       amount: b.amount,
@@ -125,27 +125,35 @@ const LotDetail = () => {
       display_name: b.user_id === user?.id ? "Você" : "Licitante"
     }));
 
-    const baseForFakes = bids.length > 0 ? bids[bids.length - 1].amount : lot.start_bid;
+    // 2. Gera lances fictícios baseados no valor inicial
     const fakeEmails = [
       "ca***@gmail.com", "an***@hotmail.com", "ro***@outlook.com", 
       "ju***@yahoo.com", "ma***@gmail.com", "fe***@uol.com.br"
     ];
+    
+    // Usamos o ID do lote para manter os mesmos e-mails fictícios para o mesmo carro
     const seed = (id || "1").length;
-
     const fakes = [];
+    
+    // Geramos 6 lances fictícios que ficam "abaixo" do valor atual
+    const baseValue = lot.start_bid;
     for (let i = 1; i <= 6; i++) {
-      const fakeAmount = baseForFakes - (i * 1500);
-      if (fakeAmount > 0) {
+      const fakeAmount = baseValue + (i * 800);
+      // Só adicionamos o fictício se ele for menor que o lance atual mais alto
+      const currentMax = bids.length > 0 ? bids[0].amount : lot.current_bid || lot.start_bid;
+      
+      if (fakeAmount < currentMax) {
         fakes.push({
           id: `fake-${i}`,
           amount: fakeAmount,
-          created_at: new Date(Date.now() - (i * 3600000 * 4)).toISOString(),
+          created_at: new Date(Date.now() - (i * 3600000 * 5)).toISOString(),
           is_fake: true,
           display_name: fakeEmails[(seed + i) % fakeEmails.length]
         });
       }
     }
 
+    // 3. Junta tudo e ordena por valor (maior primeiro)
     return [...bids, ...fakes].sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id, user]);
 

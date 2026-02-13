@@ -1,34 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ArrowRight, ShieldCheck, Zap, Trophy, Car, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { ArrowRight, ShieldCheck, Zap, Trophy, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
-import { checkConnection } from '@/lib/supabase';
 
 const Index = () => {
-  const [dbStatus, setDbStatus] = useState<{connected: boolean, error: string | null} | null>(null);
-
-  useEffect(() => {
-    checkConnection().then(setDbStatus);
-  }, []);
-
   return (
     <div className="flex flex-col min-h-screen">
-      {/* Status de Conexão - Debug */}
-      <div className="bg-slate-100 py-2 px-4 flex justify-center items-center gap-4 text-xs font-medium">
-        {dbStatus === null ? (
-          <span className="text-slate-500">Verificando conexão com banco...</span>
-        ) : dbStatus.connected ? (
-          <span className="text-green-600 flex items-center gap-1">
-            <CheckCircle2 size={14} /> Banco de Dados Conectado
-          </span>
-        ) : (
-          <span className="text-red-600 flex items-center gap-1">
-            <AlertCircle size={14} /> Erro de Conexão: {dbStatus.error}
-          </span>
-        )}
-      </div>
-
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-slate-50 pt-16 pb-24 lg:pt-32 lg:pb-40">
         <div className="container mx-auto px-4 relative z-10">
@@ -66,7 +44,7 @@ const Index = () => {
         <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-1/2 h-full bg-orange-500/5 rounded-full blur-3xl" />
       </section>
 
-      {/* Resto do conteúdo omitido para brevidade, mas mantido no arquivo real */}
+      {/* Features Section */}
       <section className="py-20 bg-white">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">

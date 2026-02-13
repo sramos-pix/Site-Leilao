@@ -58,8 +58,8 @@ const Profile = () => {
     </div>
   );
 
-  // Tenta encontrar o CPF em diferentes campos possíveis
-  const displayCpf = profile?.cpf || profile?.document_number || profile?.documento || profile?.tax_id;
+  // Mapeamento exato das colunas do seu banco de dados
+  const displayCpf = profile?.document_id || profile?.cpf || profile?.document_number;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 p-4 md:p-0">

@@ -30,18 +30,24 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [userBids, setUserBids] = useState<any[]>([]);
 
-  // Gera histórico de lances dinâmico baseado no valor atual
+  // Gera histórico de lances dinâmico mesclando lances reais do usuário com fictícios
   const dynamicBids = useMemo(() => {
     if (!lot) return [];
     const current = lot.current_bid || lot.start_bid;
-    return [
-      { id: 1, email: 'carlos.silva@gmail.com', amount: current, time: 'há 2 minutos' },
-      { id: 2, email: 'ana.oliveira@uol.com.br', amount: current * 0.98, time: 'há 15 minutos' },
-      { id: 3, email: 'marcos.v@hotmail.com', amount: current * 0.95, time: 'há 1 hora' },
-      { id: 4, email: 'fernanda.lima@outlook.com', amount: current * 0.92, time: 'há 3 horas' },
+    
+    // Lances fictícios base
+    const baseBids = [
+      { id: 'm1', email: 'ana.oliveira@uol.com.br', amount: current * 0.98, time: 'há 15 minutos' },
+      { id: 'm2', email: 'marcos.v@hotmail.com', amount: current * 0.95, time: 'há 1 hora' },
+      { id: 'm3', email: 'fernanda.lima@outlook.com', amount: current * 0.92, time: 'há 3 horas' },
     ];
-  }, [lot]);
+
+    // Se o usuário deu um lance, ele vai para o topo
+    const allBids = [...userBids, ...baseBids];
+    return allBids.sort((a, b) => b.amount - a.amount).slice(0, 5);
+  }, [lot, userBids]);
 
   useEffect(() => {
     const fetchLotData = async () => {
@@ -77,14 +83,31 @@ const LotDetail = () => {
         setBidAmount((lotData.current_bid || lotData.start_bid) + minIncrement);
 
         if (currentUser) {
+          // Carregar se é favorito
           const { data: favData } = await supabase
             .from('favorites')
             .select('id')
             .eq('user_id', currentUser.id)
             .eq('lot_id', id)
             .single();
-          
           setIsFavorite(!!favData);
+
+          // Carregar lances reais do usuário para este lote
+          const { data: bidsData } = await supabase
+            .from('bids')
+            .select('*')
+            .eq('lot_id', id)
+            .eq('user_id', currentUser.id)
+            .order('amount', { ascending: false });
+          
+          if (bidsData) {
+            setUserBids(bidsData.map(b => ({
+              id: b.id,
+              email: currentUser.email,
+              amount: b.amount,
+              time: 'agora mesmo'
+            })));
+          }
         }
 
       } catch (error: any) {
@@ -119,15 +142,40 @@ const LotDetail = () => {
   };
 
   const handleBid = async () => {
-    if (!lot) return;
+    if (!lot || !user) {
+      toast({ title: "Acesso restrito", description: "Você precisa estar logado para dar um lance.", variant: "destructive" });
+      return;
+    }
+    
+    if (bidAmount <= (lot.current_bid || lot.start_bid)) {
+      toast({ title: "Lance inválido", description: "O valor deve ser maior que o lance atual.", variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
+      
       toast({ 
         title: "Lance efetuado!", 
         description: `Seu lance de ${formatCurrency(bidAmount)} foi registrado.` 
       });
+
+      // Atualiza estado local para refletir no topo do histórico imediatamente
+      const newBid = {
+        id: Date.now().toString(),
+        email: user.email,
+        amount: bidAmount,
+        time: 'agora mesmo'
+      };
+      
+      setUserBids([newBid, ...userBids]);
       setLot({ ...lot, current_bid: bidAmount });
+      
+      // Sugere próximo incremento
+      const minIncrement = bidAmount < 100000 ? 1000 : 2000;
+      setBidAmount(bidAmount + minIncrement);
+
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao dar lance", description: error.message });
     } finally {
@@ -290,7 +338,7 @@ const LotDetail = () => {
               
               <div className="mt-8 p-6 bg-slate-900 rounded-3xl text-center">
                 <p className="text-slate-400 text-sm font-medium">
-                  Total de <span className="text-white font-bold">14 lances</span> realizados neste lote.
+                  Total de <span className="text-white font-bold">{dynamicBids.length + 10} lances</span> realizados neste lote.
                 </p>
               </div>
             </div>

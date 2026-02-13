@@ -61,10 +61,10 @@ const FeaturedLots = () => {
                   className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
                 <div className="absolute top-4 left-4 flex gap-2">
-                  <Badge className="bg-slate-900 text-white border-none px-3 py-1 flex items-center gap-1 text-[12px]">
+                  <Badge className="bg-slate-900 text-white border-none px-3 py-1 flex items-center gap-1">
                     LOTE #{lot.lot_number}
                   </Badge>
-                  <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 text-[12px]">
+                  <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1">
                     <Clock size={12} /> 
                     <CountdownTimer randomScarcity={true} />
                   </Badge>

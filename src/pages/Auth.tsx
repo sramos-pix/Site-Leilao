@@ -40,7 +40,7 @@ const Auth = () => {
   const mode = searchParams.get('mode') || 'login';
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSearchingCep, setIsSearchingCep] = React.useState(false);
-  const [rateLimitError, setRateLimitError] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -72,7 +72,7 @@ const Auth = () => {
 
   const onSubmit = async (data: AuthFormValues) => {
     setIsLoading(true);
-    setRateLimitError(false);
+    setErrorMessage(null);
     try {
       if (mode === 'signup') {
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
@@ -81,7 +81,13 @@ const Auth = () => {
           options: { data: { full_name: data.fullName } }
         });
 
-        if (signUpError) throw signUpError;
+        if (signUpError) {
+          if (signUpError.message.includes('already registered')) {
+            setErrorMessage("Este e-mail já está cadastrado. Tente fazer login.");
+            return;
+          }
+          throw signUpError;
+        }
 
         if (authData.user) {
           await supabase.from('profiles').upsert({
@@ -104,7 +110,13 @@ const Auth = () => {
           email: data.email,
           password: data.password,
         });
-        if (signInError) throw signInError;
+        if (signInError) {
+          if (signInError.message.includes('Invalid login credentials')) {
+            setErrorMessage("E-mail ou senha incorretos.");
+            return;
+          }
+          throw signInError;
+        }
         navigate('/app');
       }
     } catch (error: any) {
@@ -140,24 +152,25 @@ const Auth = () => {
             </Tabs>
           </CardHeader>
           <CardContent>
+            {errorMessage && (
+              <Alert variant="destructive" className="mb-6 rounded-2xl bg-red-50 border-red-100 text-red-800">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Atenção</AlertTitle>
+                <AlertDescription>{errorMessage}</AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
                   <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                    <User size={18} className="text-orange-500" /> Dados Pessoais
+                    <User size={18} className="text-orange-500" /> Dados de Acesso
                   </h3>
                   {mode === 'signup' && (
-                    <>
-                      <div className="space-y-2">
-                        <Label>Nome Completo</Label>
-                        <Input {...register('fullName')} placeholder="João Silva" />
-                      </div>
-                      <div className="space-y-2">
-                        <Label>CPF</Label>
-                        <Input {...register('documentId')} placeholder="000.000.000-00" />
-                        {errors.documentId && <p className="text-xs text-red-500">{errors.documentId.message}</p>}
-                      </div>
-                    </>
+                    <div className="space-y-2">
+                      <Label>Nome Completo</Label>
+                      <Input {...register('fullName')} placeholder="João Silva" />
+                    </div>
                   )}
                   <div className="space-y-2">
                     <Label>E-mail</Label>
@@ -167,12 +180,19 @@ const Auth = () => {
                     <Label>Senha</Label>
                     <Input type="password" {...register('password')} placeholder="••••••••" />
                   </div>
+                  {mode === 'signup' && (
+                    <div className="space-y-2">
+                      <Label>CPF</Label>
+                      <Input {...register('documentId')} placeholder="000.000.000-00" />
+                      {errors.documentId && <p className="text-xs text-red-500">{errors.documentId.message}</p>}
+                    </div>
+                  )}
                 </div>
 
                 {mode === 'signup' && (
                   <div className="space-y-4">
                     <h3 className="font-bold text-slate-900 flex items-center gap-2">
-                      <MapPin size={18} className="text-orange-500" /> Endereço
+                      <MapPin size={18} className="text-orange-500" /> Endereço e Contato
                     </h3>
                     <div className="space-y-2">
                       <Label>CEP</Label>

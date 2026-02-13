@@ -36,7 +36,6 @@ const LotDetail = () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       setUser(currentUser);
 
-      // 1. Busca dados do lote
       const { data: lotData, error: lotError } = await supabase
         .from('lots')
         .select('*')
@@ -45,7 +44,6 @@ const LotDetail = () => {
 
       if (lotError) throw lotError;
 
-      // 2. Busca fotos
       const { data: photosData } = await supabase
         .from('lot_photos')
         .select('*')
@@ -65,14 +63,12 @@ const LotDetail = () => {
       const minIncrement = lotData.bid_increment || 1000;
       setBidAmount(currentVal + minIncrement);
 
-      // 3. Busca lances reais (Simplificado para evitar erros de join)
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
-        .select('*')
+        .select('*, profiles(email)')
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
-      if (bidsError) console.error("Erro ao buscar lances:", bidsError);
       setRealBids(bidsData || []);
 
     } catch (error: any) {
@@ -119,31 +115,32 @@ const LotDetail = () => {
   const allBids = useMemo(() => {
     if (!lot) return [];
     
-    // Mapeia lances reais
     const bids = realBids.map(b => ({
       id: b.id,
       amount: b.amount,
       created_at: b.created_at,
       user_id: b.user_id,
       is_fake: false,
-      display_name: b.user_id === user?.id ? "Você" : "Licitante"
+      display_name: b.user_id === user?.id ? "Você" : (b.profiles?.email ? maskEmail(b.profiles.email) : "Licitante")
     }));
 
-    // Gera lances fictícios para preencher o histórico
     const baseForFakes = bids.length > 0 ? bids[bids.length - 1].amount : lot.start_bid;
-    const names = ["Carlos M.", "Ana P.", "Roberto S.", "Juliana F.", "Marcos T.", "Fernanda L."];
+    const fakeEmails = [
+      "ca***@gmail.com", "an***@hotmail.com", "ro***@outlook.com", 
+      "ju***@yahoo.com", "ma***@gmail.com", "fe***@uol.com.br"
+    ];
     const seed = (id || "1").length;
 
     const fakes = [];
-    for (let i = 1; i <= 5; i++) {
-      const fakeAmount = baseForFakes - (i * 1200);
+    for (let i = 1; i <= 6; i++) {
+      const fakeAmount = baseForFakes - (i * 1500);
       if (fakeAmount > 0) {
         fakes.push({
           id: `fake-${i}`,
           amount: fakeAmount,
-          created_at: new Date(Date.now() - (i * 3600000 * 2)).toISOString(),
+          created_at: new Date(Date.now() - (i * 3600000 * 4)).toISOString(),
           is_fake: true,
-          display_name: names[(seed + i) % names.length]
+          display_name: fakeEmails[(seed + i) % fakeEmails.length]
         });
       }
     }

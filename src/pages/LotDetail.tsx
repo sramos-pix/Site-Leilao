@@ -31,19 +31,20 @@ const LotDetail = () => {
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
 
-  const generateFakeBids = (currentAmount: number, lotId: string) => {
+  const generateFakeBids = (baseAmount: number, lotId: string) => {
     const fakeBids = [];
     const seed = lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const names = ["Carlos M.", "Ana P.", "Roberto S.", "Juliana F.", "Marcos T.", "Fernanda L.", "Ricardo W.", "Patrícia G."];
     
-    for (let i = 1; i <= 4; i++) {
-      const amount = currentAmount - (i * (seed % 5000 + 1000));
+    // Gera lances fictícios sempre menores que o valor base (que será o menor lance real ou o inicial)
+    for (let i = 1; i <= 5; i++) {
+      const amount = baseAmount - (i * (seed % 3000 + 500));
       if (amount <= 0) continue;
       
       fakeBids.push({
         id: `fake-${i}`,
         amount: amount,
-        created_at: new Date(Date.now() - (i * 3600000 * (seed % 5 + 1))).toISOString(),
+        created_at: new Date(Date.now() - (i * 7200000)).toISOString(),
         is_fake: true,
         user_name: names[(seed + i) % names.length]
       });
@@ -103,6 +104,7 @@ const LotDetail = () => {
     const channel = supabase
       .channel(`lot-realtime-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => fetchLotData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => fetchLotData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
@@ -123,6 +125,7 @@ const LotDetail = () => {
     try {
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance efetuado com sucesso!" });
+      // Força atualização imediata
       await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
@@ -133,13 +136,13 @@ const LotDetail = () => {
 
   const allBids = useMemo(() => {
     if (!lot) return [];
-    const currentVal = lot.current_bid || lot.start_bid;
-    const fakes = generateFakeBids(currentVal, id || "1");
     
-    // Filtra fakes que por acaso sejam maiores que o lance real atual (segurança)
-    const validFakes = fakes.filter(f => f.amount < currentVal);
+    // O valor base para os fakes deve ser o menor lance real ou o valor inicial do lote
+    const lowestRealBid = realBids.length > 0 ? realBids[realBids.length - 1].amount : lot.start_bid;
+    const fakes = generateFakeBids(lowestRealBid, id || "1");
     
-    const combined = [...realBids, ...validFakes];
+    // Combina e ordena: Reais primeiro (por valor), depois Fakes
+    const combined = [...realBids, ...fakes];
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id]);
 
@@ -209,14 +212,14 @@ const LotDetail = () => {
                         <div>
                           <p className="font-bold text-slate-900 flex items-center gap-2">
                             {bid.is_fake ? bid.user_name : (bid.profiles?.email ? maskEmail(bid.profiles.email) : 'Licitante')}
-                            {isMyBid && <Badge className="bg-blue-500 text-[10px] h-4">VOCÊ</Badge>}
+                            {isMyBid && <Badge className="bg-blue-500 text-[10px] h-4 text-white border-none">VOCÊ</Badge>}
                           </p>
                           <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
                         </div>
                       </div>
                       <div className="text-right">
                         <p className={`text-lg font-black ${index === 0 ? 'text-orange-600' : 'text-slate-900'}`}>{formatCurrency(bid.amount)}</p>
-                        {index === 0 && <Badge className="bg-orange-500 text-[10px]">LANCE ATUAL</Badge>}
+                        {index === 0 && <Badge className="bg-orange-500 text-[10px] text-white border-none">LANCE ATUAL</Badge>}
                       </div>
                     </div>
                   );

@@ -54,7 +54,6 @@ const Admin = () => {
       if (error) throw error;
       setUsers(data || []);
       
-      // Verifica se há um ID na URL para abrir o editor
       const userIdFromUrl = searchParams.get('id');
       if (userIdFromUrl && data) {
         const userToEdit = data.find(u => u.id === userIdFromUrl);
@@ -73,7 +72,7 @@ const Admin = () => {
 
   React.useEffect(() => {
     fetchData();
-  }, [searchParams]); // Recarrega se os parâmetros da URL mudarem
+  }, [searchParams]);
 
   const handleAdminLogout = () => {
     localStorage.removeItem('admin_auth');
@@ -96,7 +95,6 @@ const Admin = () => {
   const closeEditDialog = () => {
     setIsUserDialogOpen(false);
     setSelectedUserForEdit(null);
-    // Limpa o ID da URL ao fechar para não reabrir no refresh
     if (searchParams.has('id')) {
       searchParams.delete('id');
       setSearchParams(searchParams);
@@ -119,7 +117,6 @@ const Admin = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex">
-      {/* Sidebar */}
       <div className="w-64 bg-slate-900 text-white p-6 hidden lg:flex flex-col sticky top-0 h-screen">
         <div className="flex items-center gap-2 mb-10">
           <div className="w-8 h-8 bg-orange-500 rounded-lg flex items-center justify-center">
@@ -158,14 +155,10 @@ const Admin = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 p-8 overflow-y-auto">
         {activeTab === 'dashboard' && <AdminOverview />}
-        
         {activeTab === 'auctions' && <AuctionManager />}
-        
         {activeTab === 'lots' && <LotManager />}
-
         {activeTab === 'users' && (
           <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -180,7 +173,6 @@ const Admin = () => {
                 />
               </div>
             </div>
-
             <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
               <Table>
                 <TableHeader className="bg-slate-100">
@@ -227,31 +219,12 @@ const Admin = () => {
             </Card>
           </div>
         )}
-
-        {/* Diálogo de Edição de Usuário Centralizado */}
         <Dialog open={isUserDialogOpen} onOpenChange={(open) => !open && closeEditDialog()}>
           <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Editar Cadastro do Usuário</DialogTitle>
-            </DialogHeader>
-            {selectedUserForEdit && (
-              <UserManager 
-                user={selectedUserForEdit} 
-                onSuccess={() => {
-                  fetchData();
-                  closeEditDialog();
-                }} 
-              />
-            )}
+            <DialogHeader><DialogTitle>Editar Cadastro do Usuário</DialogTitle></DialogHeader>
+            {selectedUserForEdit && <UserManager user={selectedUserForEdit} onSuccess={() => { fetchData(); closeEditDialog(); }} />}
           </DialogContent>
         </Dialog>
-
-        {activeTab === 'settings' && (
-          <div className="flex flex-col items-center justify-center py-20 bg-white rounded-3xl border-2 border-dashed border-slate-100">
-            <Settings className="text-slate-200 mb-4" size={48} />
-            <p className="text-slate-500">Configurações do sistema em desenvolvimento.</p>
-          </div>
-        )}
       </div>
     </div>
   );

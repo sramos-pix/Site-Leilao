@@ -45,7 +45,7 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
-      // Consulta detalhada buscando nome e email da tabela profiles
+      // Tentativa de busca com junção explícita
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -54,7 +54,7 @@ const AdminOverview = () => {
           created_at,
           user_id,
           lot_id,
-          profiles!inner (
+          profiles (
             full_name,
             email
           ),
@@ -66,18 +66,10 @@ const AdminOverview = () => {
         .limit(10);
 
       if (bidsError) {
-        console.error("Erro ao buscar lances com perfis:", bidsError);
-        // Fallback para busca simples se a junção falhar
-        const { data: simpleBids } = await supabase
-          .from('bids')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(10);
-          
-        setRecentBids(simpleBids || []);
-      } else {
-        setRecentBids(bidsData || []);
+        console.error("Erro na consulta de lances:", bidsError);
       }
+      
+      setRecentBids(bidsData || []);
 
     } catch (error) {
       console.error("Erro crítico ao carregar estatísticas:", error);
@@ -167,36 +159,42 @@ const AdminOverview = () => {
                     </TableCell>
                   </TableRow>
                 ) : recentBids.length > 0 ? (
-                  recentBids.map((bid) => (
-                    <TableRow key={bid.id} className="group">
-                      <TableCell className="pl-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
-                            <User size={14} />
+                  recentBids.map((bid) => {
+                    // Tenta pegar do objeto profiles (que vem da junção)
+                    const userName = bid.profiles?.full_name || 'Usuário';
+                    const userEmail = bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
+
+                    return (
+                      <TableRow key={bid.id} className="group">
+                        <TableCell className="pl-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500">
+                              <User size={14} />
+                            </div>
+                            <div className="flex flex-col">
+                              <span className="font-bold text-slate-900">
+                                {userName}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                {userEmail}
+                              </span>
+                            </div>
                           </div>
-                          <div className="flex flex-col">
-                            <span className="font-bold text-slate-900">
-                              {bid.profiles?.full_name || 'Usuário Desconhecido'}
-                            </span>
-                            <span className="text-xs text-slate-500">
-                              {bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`}
-                            </span>
-                          </div>
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-medium text-slate-700">
-                          {bid.lots?.title || `Lote #${bid.lot_id}`}
-                        </span>
-                      </TableCell>
-                      <TableCell>
-                        <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>
-                      </TableCell>
-                      <TableCell className="pr-6 text-slate-500 text-sm">
-                        {formatDate(bid.created_at)}
-                      </TableCell>
-                    </TableRow>
-                  ))
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-medium text-slate-700">
+                            {bid.lots?.title || `Lote #${bid.lot_id}`}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>
+                        </TableCell>
+                        <TableCell className="pr-6 text-slate-500 text-sm">
+                          {formatDate(bid.created_at)}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 ) : (
                   <TableRow>
                     <TableCell colSpan={4} className="text-center py-10 text-slate-400 italic">

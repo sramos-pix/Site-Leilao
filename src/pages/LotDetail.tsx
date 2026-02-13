@@ -203,8 +203,8 @@ const LotDetail = () => {
               <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-8 border-y border-slate-100">
                 <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Gauge size={16} /><span className="text-[10px] font-black">KM</span></div><p className="font-bold">{lot.mileage_km?.toLocaleString()} km</p></div>
                 <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Calendar size={16} /><span className="text-[10px] font-black">ANO</span></div><p className="font-bold">{lot.year}</p></div>
-                <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Settings2 size={16} /><span className="text-[10px] font-black">CÂMBIO</span></div><p className="font-bold">Automático</p></div>
-                <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Fuel size={16} /><span className="text-[10px] font-black">MOTOR</span></div><p className="font-bold">Flex</p></div>
+                <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Settings2 size={16} /><span className="text-[10px] font-black">CÂMBIO</span></div><p className="font-bold">{lot.transmission || 'Automático'}</p></div>
+                <div className="space-y-1"><div className="flex items-center gap-2 text-slate-400 mb-1"><Fuel size={16} /><span className="text-[10px] font-black">MOTOR</span></div><p className="font-bold">{lot.fuel_type || 'Flex'}</p></div>
               </div>
 
               <div className="mt-8">

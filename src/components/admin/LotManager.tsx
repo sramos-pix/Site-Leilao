@@ -109,8 +109,8 @@ const LotManager = () => {
       model: formData.get('model'),
       year: parseInt(formData.get('year') as string),
       mileage_km: parseInt(formData.get('mileage_km') as string),
-      transmission: formData.get('transmission'),
-      fuel_type: formData.get('fuel_type'),
+      transmission: formData.get('transmission') === "none" ? null : formData.get('transmission'),
+      fuel_type: formData.get('fuel_type') === "none" ? null : formData.get('fuel_type'),
       start_bid: parseFloat(formData.get('start_bid') as string),
       bid_increment: parseFloat(formData.get('bid_increment') as string) || 500,
       description: formData.get('description'),
@@ -186,9 +186,10 @@ const LotManager = () => {
               
               <div className="space-y-2">
                 <Label className="flex items-center gap-2"><Settings2 size={14} /> Câmbio</Label>
-                <Select name="transmission" defaultValue={editingLot?.transmission || "Automático"}>
+                <Select name="transmission" defaultValue={editingLot?.transmission || "none"}>
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o câmbio" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">Não informado</SelectItem>
                     <SelectItem value="Automático">Automático</SelectItem>
                     <SelectItem value="Manual">Manual</SelectItem>
                     <SelectItem value="CVT">CVT</SelectItem>
@@ -200,9 +201,10 @@ const LotManager = () => {
 
               <div className="space-y-2">
                 <Label className="flex items-center gap-2"><Fuel size={14} /> Combustível</Label>
-                <Select name="fuel_type" defaultValue={editingLot?.fuel_type || "Flex"}>
+                <Select name="fuel_type" defaultValue={editingLot?.fuel_type || "none"}>
                   <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
                   <SelectContent>
+                    <SelectItem value="none">Não informado</SelectItem>
                     <SelectItem value="Flex">Flex</SelectItem>
                     <SelectItem value="Gasolina">Gasolina</SelectItem>
                     <SelectItem value="Diesel">Diesel</SelectItem>
@@ -283,7 +285,7 @@ const LotManager = () => {
                     </div>
                     <div className="flex flex-col">
                       <span className="font-bold group-hover:text-orange-600 transition-colors">{lot.title}</span>
-                      <span className="text-[10px] text-slate-400">{lot.transmission} • {lot.fuel_type}</span>
+                      <span className="text-[10px] text-slate-400">{lot.transmission || 'N/I'} • {lot.fuel_type || 'N/I'}</span>
                     </div>
                   </Link>
                 </TableCell>

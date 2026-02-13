@@ -12,24 +12,69 @@ import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import CountdownTimer from '@/components/CountdownTimer';
+import { toast } from 'react-hot-toast';
 
 const Vehicles = () => {
   const [lots, setLots] = React.useState<any[]>([]);
+  const [favorites, setFavorites] = React.useState<string[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [user, setUser] = React.useState<any>(null);
 
   const fetchLots = async () => {
     setIsLoading(true);
     try {
-      const { data } = await supabase
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
+
+      const { data: lotsData } = await supabase
         .from('lots')
         .select('*')
         .order('created_at', { ascending: false });
-      setLots(data || []);
+      
+      setLots(lotsData || []);
+
+      if (session?.user) {
+        const { data: favsData } = await supabase
+          .from('favorites')
+          .select('lot_id')
+          .eq('user_id', session.user.id);
+        
+        setFavorites(favsData?.map(f => f.lot_id) || []);
+      }
     } catch (error) {
       console.error(error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const toggleFavorite = async (lotId: string) => {
+    if (!user) {
+      toast.error('Você precisa estar logado para favoritar!');
+      return;
+    }
+
+    const isFavorite = favorites.includes(lotId);
+    
+    try {
+      if (isFavorite) {
+        await supabase
+          .from('favorites')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('lot_id', lotId);
+        setFavorites(prev => prev.filter(id => id !== lotId));
+        toast.success('Removido dos favoritos');
+      } else {
+        await supabase
+          .from('favorites')
+          .insert([{ user_id: user.id, lot_id: lotId }]);
+        setFavorites(prev => [...prev, lotId]);
+        toast.success('Adicionado aos favoritos!');
+      }
+    } catch (error) {
+      toast.error('Erro ao atualizar favoritos');
     }
   };
 
@@ -90,9 +135,14 @@ const Vehicles = () => {
                     <Button 
                       variant="secondary" 
                       size="icon" 
-                      className="absolute top-4 right-4 rounded-full bg-white/90 backdrop-blur-md border-none shadow-sm hover:bg-orange-500 hover:text-white transition-colors"
+                      onClick={() => toggleFavorite(lot.id)}
+                      className={`absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300 ${
+                        favorites.includes(lot.id) 
+                          ? 'bg-orange-500 text-white scale-110' 
+                          : 'bg-white/90 text-slate-600 hover:bg-orange-500 hover:text-white'
+                      }`}
                     >
-                      <Heart size={18} />
+                      <Heart size={18} fill={favorites.includes(lot.id) ? "currentColor" : "none"} />
                     </Button>
                   </div>
                   <CardContent className="p-8">

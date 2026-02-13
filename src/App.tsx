@@ -11,6 +11,7 @@ import AuctionDetail from "./pages/AuctionDetail";
 import LotDetail from "./pages/LotDetail";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
+import Verification from "./pages/Verification";
 
 const queryClient = new QueryClient();
 
@@ -29,6 +30,7 @@ const App = () => (
               <Route path="/auctions/:id" element={<AuctionDetail />} />
               <Route path="/lots/:id" element={<LotDetail />} />
               <Route path="/app" element={<Dashboard />} />
+              <Route path="/app/verify" element={<Verification />} />
               <Route path="/admin" element={<Admin />} />
             </Routes>
           </main>

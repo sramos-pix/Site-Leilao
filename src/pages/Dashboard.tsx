@@ -169,13 +169,15 @@ const Dashboard = () => {
                 </span>
                 <ChevronRight size={16} className="text-slate-400" />
               </Button>
-              <Button className="w-full justify-between bg-white text-slate-900 hover:bg-slate-50 border-none shadow-sm h-14 rounded-xl px-6">
-                <span className="flex items-center gap-3">
-                  <ShieldCheck className="text-orange-500" size={20} />
-                  Validar Documentos
-                </span>
-                <ChevronRight size={16} className="text-slate-400" />
-              </Button>
+              <Link to="/app/verify">
+                <Button className="w-full justify-between bg-white text-slate-900 hover:bg-slate-50 border-none shadow-sm h-14 rounded-xl px-6">
+                  <span className="flex items-center gap-3">
+                    <ShieldCheck className="text-orange-500" size={20} />
+                    Validar Documentos
+                  </span>
+                  <ChevronRight size={16} className="text-slate-400" />
+                </Button>
+              </Link>
             </div>
 
             {profile?.kyc_status !== 'verified' && (
@@ -188,11 +190,17 @@ const Dashboard = () => {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-slate-400 leading-relaxed">
-                    Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões com lances altos.
+                    {profile?.kyc_status === 'pending' 
+                      ? 'Seus documentos estão em análise. Você será notificado em breve.' 
+                      : 'Seu perfil ainda não foi verificado. Envie seus documentos para poder participar de leilões.'}
                   </p>
-                  <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
-                    Enviar Documentos
-                  </Button>
+                  {profile?.kyc_status !== 'pending' && (
+                    <Link to="/app/verify">
+                      <Button className="w-full mt-6 bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
+                        Enviar Documentos
+                      </Button>
+                    </Link>
+                  )}
                 </CardContent>
               </Card>
             )}

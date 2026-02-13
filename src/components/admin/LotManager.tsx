@@ -13,7 +13,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, X, CheckCircle2 } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 
@@ -99,7 +99,7 @@ const LotManager = () => {
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     
-    const lotData = {
+    const lotData: any = {
       auction_id: formData.get('auction_id'),
       lot_number: parseInt(formData.get('lot_number') as string),
       title: formData.get('title'),
@@ -117,7 +117,15 @@ const LotManager = () => {
       : await supabase.from('lots').insert(lotData);
 
     if (error) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      if (error.message.includes('description')) {
+        toast({ 
+          variant: "destructive", 
+          title: "Erro de Banco de Dados", 
+          description: "A coluna 'description' não existe na tabela 'lots'. Por favor, adicione-a no painel do Supabase." 
+        });
+      } else {
+        toast({ variant: "destructive", title: "Erro", description: error.message });
+      }
     } else {
       toast({ title: "Sucesso!" });
       setIsDialogOpen(false);
@@ -156,7 +164,11 @@ const LotManager = () => {
               <div className="space-y-2"><Label>Lance Inicial</Label><Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} required /></div>
               <div className="space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} required /></div>
               <div className="col-span-2 space-y-2">
-                <Label>Descrição Detalhada</Label>
+                <Label className="flex items-center gap-2">
+                  Descrição Detalhada
+                  <AlertTriangle size={14} className="text-orange-500" />
+                  <span className="text-[10px] text-slate-400 font-normal">Requer coluna 'description' no Supabase</span>
+                </Label>
                 <Textarea name="description" defaultValue={editingLot?.description} placeholder="Detalhes do veículo..." className="min-h-[100px] rounded-xl" />
               </div>
               <Button type="submit" className="col-span-2 bg-orange-500 mt-4" disabled={isSubmitting}>

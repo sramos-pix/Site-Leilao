@@ -21,11 +21,17 @@ const History = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Buscamos os lances onde o usuário venceu (status 'winner')
+      // Isso garante que pegamos exatamente o que o admin marcou como contemplado
       const { data, error } = await supabase
-        .from('lots')
-        .select('*')
-        .eq('winner_id', user.id)
-        .order('updated_at', { ascending: false });
+        .from('bids')
+        .select(`
+          *,
+          lots (*)
+        `)
+        .eq('user_id', user.id)
+        .eq('status', 'winner')
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       setWins(data || []);
@@ -52,21 +58,21 @@ const History = () => {
       </div>
 
       <div className="space-y-4">
-        {wins.length > 0 ? wins.map((lot) => (
-          <Card key={lot.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow bg-white">
+        {wins.length > 0 ? wins.map((bid) => (
+          <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden hover:shadow-md transition-shadow bg-white">
             <CardContent className="p-0 flex flex-col sm:flex-row">
               <div className="w-full sm:w-48 h-32 bg-slate-200">
                 <img 
-                  src={lot.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
+                  src={bid.lots?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
                   className="w-full h-full object-cover" 
-                  alt={lot.title} 
+                  alt={bid.lots?.title} 
                 />
               </div>
               <div className="flex-1 p-6 flex flex-col justify-between">
                 <div className="flex justify-between items-start">
                   <div>
-                    <h3 className="font-bold text-slate-900">{lot.title}</h3>
-                    <p className="text-xs text-slate-500">Lote {lot.id}</p>
+                    <h3 className="font-bold text-slate-900">{bid.lots?.title}</h3>
+                    <p className="text-xs text-slate-500">Lote {bid.lot_id}</p>
                   </div>
                   <Badge className="bg-green-100 text-green-600 border-none">
                     Arrematado
@@ -75,17 +81,17 @@ const History = () => {
                 <div className="flex justify-between items-end mt-4">
                   <div>
                     <p className="text-[10px] uppercase font-bold text-slate-400">Valor Final</p>
-                    <p className="font-bold text-slate-900">{formatCurrency(lot.final_price || lot.current_bid)}</p>
+                    <p className="font-bold text-slate-900">{formatCurrency(bid.amount)}</p>
                   </div>
                   <div className="flex gap-2">
                     <Button 
                       size="sm" 
                       className="bg-slate-900 hover:bg-slate-800 text-white rounded-lg"
-                      onClick={() => navigate(`/app/checkout/${lot.id}`)}
+                      onClick={() => navigate(`/app/checkout/${bid.lot_id}`)}
                     >
                       Pagar Agora
                     </Button>
-                    <Link to={`/lots/${lot.id}`}>
+                    <Link to={`/lots/${bid.lot_id}`}>
                       <Button size="sm" variant="outline" className="rounded-lg">Ver Lote</Button>
                     </Link>
                   </div>

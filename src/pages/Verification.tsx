@@ -25,6 +25,10 @@ const Verification = () => {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
+      if (selectedFile.size > 5 * 1024 * 1024) {
+        toast({ variant: "destructive", title: "Arquivo muito grande", description: "O limite é 5MB." });
+        return;
+      }
       setFile(selectedFile);
       const reader = new FileReader();
       reader.onloadend = () => {
@@ -51,14 +55,16 @@ const Verification = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // 1. Upload do arquivo para o Storage
+      // 1. Upload do arquivo para o Storage (Pasta por usuário)
       const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-      const filePath = `verification-docs/${fileName}`;
+      const fileName = `${Date.now()}.${fileExt}`;
+      const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from('documents')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          upsert: true
+        });
 
       if (uploadError) throw uploadError;
 
@@ -67,7 +73,7 @@ const Verification = () => {
         .from('documents')
         .getPublicUrl(filePath);
 
-      // 3. Salvar a URL no perfil do usuário (precisa da coluna document_url no banco)
+      // 3. Salvar a URL no perfil do usuário
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ 
@@ -81,7 +87,12 @@ const Verification = () => {
       toast({ title: "Documentos enviados!", description: "Análise em andamento." });
       setTimeout(() => navigate('/app'), 2000);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao enviar", description: error.message });
+      console.error("Erro no upload:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Erro ao enviar", 
+        description: "Verifique se as políticas de Storage (RLS) foram configuradas no Supabase." 
+      });
     } finally {
       setIsUploading(false);
     }
@@ -97,6 +108,7 @@ const Verification = () => {
         <Card className="border-none shadow-xl rounded-3xl overflow-hidden">
           <CardHeader className="bg-slate-900 text-white p-8">
             <CardTitle>Verificação de Identidade</CardTitle>
+            <CardDescription className="text-slate-400">Envie uma foto nítida do seu documento para liberar lances.</CardDescription>
           </CardHeader>
           
           <CardContent className="p-8 space-y-8">
@@ -117,21 +129,24 @@ const Verification = () => {
               <Label>2. Foto do Documento</Label>
               {!preview ? (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50">
+                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors">
                     <Camera size={32} className="text-slate-400 mb-2" />
                     <span className="text-sm font-bold">Tirar Foto</span>
                     <input type="file" accept="image/*" capture="environment" className="hidden" onChange={handleFileChange} />
                   </label>
-                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50">
+                  <label className="flex flex-col items-center justify-center h-40 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors">
                     <Upload size={32} className="text-slate-400 mb-2" />
                     <span className="text-sm font-bold">Galeria</span>
                     <input type="file" accept="image/*" className="hidden" onChange={handleFileChange} />
                   </label>
                 </div>
               ) : (
-                <div className="relative rounded-2xl overflow-hidden border-2 border-orange-100">
+                <div className="relative rounded-2xl overflow-hidden border-2 border-orange-100 shadow-inner">
                   <img src={preview} alt="Preview" className="w-full h-64 object-cover" />
-                  <button onClick={removeFile} className="absolute top-4 right-4 p-2 bg-red-500 text-white rounded-full">
+                  <button 
+                    onClick={removeFile} 
+                    className="absolute top-4 right-4 p-2 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors shadow-lg"
+                  >
                     <X size={20} />
                   </button>
                 </div>
@@ -141,7 +156,7 @@ const Verification = () => {
             <Button 
               onClick={handleUpload}
               disabled={isUploading || !file || !docType}
-              className="w-full bg-orange-500 py-8 rounded-2xl text-xl font-bold"
+              className="w-full bg-orange-500 hover:bg-orange-600 py-8 rounded-2xl text-xl font-bold shadow-lg shadow-orange-100 transition-all"
             >
               {isUploading ? <Loader2 className="animate-spin" /> : 'ENVIAR PARA ANÁLISE'}
             </Button>

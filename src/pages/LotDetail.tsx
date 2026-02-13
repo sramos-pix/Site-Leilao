@@ -36,6 +36,7 @@ const LotDetail = () => {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       setUser(currentUser);
 
+      // 1. Busca dados do lote
       const { data: lotData, error: lotError } = await supabase
         .from('lots')
         .select('*')
@@ -44,6 +45,7 @@ const LotDetail = () => {
 
       if (lotError) throw lotError;
 
+      // 2. Busca fotos
       const { data: photosData } = await supabase
         .from('lot_photos')
         .select('*')
@@ -60,15 +62,17 @@ const LotDetail = () => {
       }
 
       const currentVal = lotData.current_bid || lotData.start_bid;
-      const minIncrement = lotData.bid_increment || (currentVal < 100000 ? 1000 : 2000);
+      const minIncrement = lotData.bid_increment || 1000;
       setBidAmount(currentVal + minIncrement);
 
-      const { data: bidsData } = await supabase
+      // 3. Busca lances reais (Simplificado para evitar erros de join)
+      const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
-        .select(`id, amount, created_at, user_id, profiles ( email )`)
+        .select('*')
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
+      if (bidsError) console.error("Erro ao buscar lances:", bidsError);
       setRealBids(bidsData || []);
 
     } catch (error: any) {
@@ -115,31 +119,37 @@ const LotDetail = () => {
   const allBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Lances Reais
-    const bids = [...realBids].map(b => ({ ...b, is_fake: false }));
+    // Mapeia lances reais
+    const bids = realBids.map(b => ({
+      id: b.id,
+      amount: b.amount,
+      created_at: b.created_at,
+      user_id: b.user_id,
+      is_fake: false,
+      display_name: b.user_id === user?.id ? "Você" : "Licitante"
+    }));
 
-    // 2. Gerar Lances Fictícios baseados no valor inicial se não houver lances reais,
-    // ou abaixo do menor lance real.
+    // Gera lances fictícios para preencher o histórico
     const baseForFakes = bids.length > 0 ? bids[bids.length - 1].amount : lot.start_bid;
-    const seed = (id || "1").split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
     const names = ["Carlos M.", "Ana P.", "Roberto S.", "Juliana F.", "Marcos T.", "Fernanda L."];
+    const seed = (id || "1").length;
 
     const fakes = [];
-    for (let i = 1; i <= 4; i++) {
-      const fakeAmount = baseForFakes - (i * 1500);
+    for (let i = 1; i <= 5; i++) {
+      const fakeAmount = baseForFakes - (i * 1200);
       if (fakeAmount > 0) {
         fakes.push({
           id: `fake-${i}`,
           amount: fakeAmount,
-          created_at: new Date(Date.now() - (i * 86400000)).toISOString(),
+          created_at: new Date(Date.now() - (i * 3600000 * 2)).toISOString(),
           is_fake: true,
-          user_name: names[(seed + i) % names.length]
+          display_name: names[(seed + i) % names.length]
         });
       }
     }
 
     return [...bids, ...fakes].sort((a, b) => b.amount - a.amount);
-  }, [realBids, lot, id]);
+  }, [realBids, lot, id, user]);
 
   if (isLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="w-12 h-12 text-orange-500 animate-spin" /></div>;
   if (!lot) return <div className="text-center py-20">Lote não encontrado.</div>;
@@ -206,7 +216,7 @@ const LotDetail = () => {
                         </div>
                         <div>
                           <p className="font-bold text-slate-900 flex items-center gap-2">
-                            {bid.is_fake ? bid.user_name : (bid.profiles?.email ? maskEmail(bid.profiles.email) : 'Licitante')}
+                            {bid.display_name}
                             {isMyBid && <Badge className="bg-blue-500 text-[10px] h-4 text-white border-none">VOCÊ</Badge>}
                           </p>
                           <p className="text-xs text-slate-400">{formatDate(bid.created_at)}</p>
@@ -241,11 +251,11 @@ const LotDetail = () => {
                     <Label className="text-slate-500 font-bold text-xs uppercase ml-1">Seu Lance</Label>
                     <div className="relative">
                       <span className="absolute left-6 top-1/2 -translate-y-1/2 font-black text-slate-300 text-xl">R$</span>
-                      <Input 
+                      <input 
                         type="number" 
                         value={bidAmount} 
                         onChange={(e) => setBidAmount(Number(e.target.value))} 
-                        className="text-2xl font-black h-20 pl-16 text-center rounded-3xl border-2 border-slate-100 focus:border-orange-500" 
+                        className="w-full text-2xl font-black h-20 pl-16 text-center rounded-3xl border-2 border-slate-100 focus:border-orange-500 outline-none" 
                       />
                     </div>
                   </div>

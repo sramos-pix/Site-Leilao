@@ -66,28 +66,28 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {userProfile?.kyc_status === 'rejected' && (
-        <div className="bg-red-600 text-white py-3 px-4 flex items-center justify-center gap-3">
-          <AlertCircle size={20} />
-          <p className="text-sm font-bold">Seu documento foi rejeitado. Por favor, envie um novo documento.</p>
-          <Button variant="outline" size="sm" className="bg-white text-red-600 border-none hover:bg-slate-100 rounded-lg h-8" onClick={() => navigate('/app/verify')}>Reenviar Agora</Button>
+        <div className="bg-red-600 text-white py-2 px-4 flex items-center justify-center gap-3">
+          <AlertCircle size={16} />
+          <p className="text-xs font-bold">Seu documento foi rejeitado. Por favor, envie um novo documento.</p>
+          <Button variant="outline" size="sm" className="bg-white text-red-600 border-none hover:bg-slate-100 rounded-md h-7 text-[10px]" onClick={() => navigate('/app/verify')}>Reenviar Agora</Button>
         </div>
       )}
 
       <header className="bg-white border-b sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+        <div className="container mx-auto px-4 h-14 flex items-center justify-between">
+          <div className="flex items-center gap-4">
             <Link to="/app" className="flex items-center gap-2">
-              <div className="bg-orange-500 p-1.5 rounded-lg text-white"><Gavel size={20} /></div>
-              <span className="font-bold text-xl tracking-tight text-slate-900">AUTO BID</span>
+              <div className="bg-orange-500 p-1 rounded-md text-white"><Gavel size={16} /></div>
+              <span className="font-bold text-lg tracking-tight text-slate-900">AUTO BID</span>
             </Link>
-            <Link to="/"><Button variant="ghost" className="hidden md:flex gap-2 text-slate-600 hover:text-orange-600 font-bold rounded-xl"><Home size={18} /> Início</Button></Link>
+            <Link to="/"><Button variant="ghost" className="hidden md:flex gap-2 text-slate-600 hover:text-orange-600 font-bold rounded-lg h-9 text-xs"><Home size={16} /> Início</Button></Link>
           </div>
 
           <nav className="hidden md:flex items-center gap-1">
             {menuItems.map((item) => (
               <Link key={item.path} to={item.path}>
-                <Button variant="ghost" className={cn("gap-2 rounded-xl font-bold", location.pathname === item.path ? "bg-orange-50 text-orange-600 hover:bg-orange-100" : "text-slate-600")}>
-                  <item.icon size={18} /> {item.label}
+                <Button variant="ghost" className={cn("gap-2 rounded-lg font-bold h-9 text-xs", location.pathname === item.path ? "bg-orange-50 text-orange-600 hover:bg-orange-100" : "text-slate-600")}>
+                  <item.icon size={16} /> {item.label}
                 </Button>
               </Link>
             ))}
@@ -96,46 +96,46 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           <div className="flex items-center gap-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="rounded-full text-slate-600 relative">
-                  <Bell size={20} />
-                  {unreadCount > 0 && <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full border-2 border-white" />}
+                <Button variant="ghost" size="icon" className="rounded-full text-slate-600 relative h-9 w-9">
+                  <Bell size={18} />
+                  {unreadCount > 0 && <span className="absolute top-2 right-2 w-1.5 h-1.5 bg-orange-500 rounded-full border border-white" />}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-80 p-2 rounded-2xl shadow-xl border-none">
-                <div className="p-3 border-b border-slate-50 mb-2"><h4 className="font-bold text-slate-900">Notificações</h4></div>
+              <DropdownMenuContent align="end" className="w-72 p-1 rounded-xl shadow-lg border-none">
+                <div className="p-2 border-b border-slate-50 mb-1"><h4 className="font-bold text-sm text-slate-900">Notificações</h4></div>
                 {notifications.length > 0 ? notifications.map((n) => (
                   <DropdownMenuItem 
                     key={n.id} 
-                    className="flex flex-col items-start p-3 rounded-xl hover:bg-slate-50 cursor-pointer"
+                    className="flex flex-col items-start p-2 rounded-lg hover:bg-slate-50 cursor-pointer"
                     onClick={() => navigate('/app/history')}
                   >
-                    <span className="font-bold text-sm text-slate-900">{n.title}</span>
-                    <span className="text-xs text-slate-500 leading-relaxed">{n.message}</span>
+                    <span className="font-bold text-xs text-slate-900">{n.title}</span>
+                    <span className="text-[10px] text-slate-500 leading-tight">{n.message}</span>
                   </DropdownMenuItem>
                 )) : (
-                  <div className="p-8 text-center text-slate-400 text-sm italic">Nenhuma notificação.</div>
+                  <div className="p-6 text-center text-slate-400 text-xs italic">Nenhuma notificação.</div>
                 )}
               </DropdownMenuContent>
             </DropdownMenu>
 
-            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-slate-600 hover:text-red-500"><LogOut size={20} /></Button>
-            <Button variant="ghost" size="icon" className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <X size={24} /> : <Menu size={24} />}</Button>
+            <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-slate-600 hover:text-red-500 h-9 w-9"><LogOut size={18} /></Button>
+            <Button variant="ghost" size="icon" className="md:hidden h-9 w-9" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <X size={20} /> : <Menu size={20} />}</Button>
           </div>
         </div>
       </header>
 
       {isMenuOpen && (
-        <div className="md:hidden bg-white border-b p-4 space-y-2">
-          <Link to="/" onClick={() => setIsMenuOpen(false)}><Button variant="ghost" className="w-full justify-start gap-3 rounded-xl text-slate-600"><Home size={20} /> Início</Button></Link>
+        <div className="md:hidden bg-white border-b p-3 space-y-1">
+          <Link to="/" onClick={() => setIsMenuOpen(false)}><Button variant="ghost" className="w-full justify-start gap-3 rounded-lg text-slate-600 h-10 text-sm"><Home size={18} /> Início</Button></Link>
           {menuItems.map((item) => (
             <Link key={item.path} to={item.path} onClick={() => setIsMenuOpen(false)}>
-              <Button variant="ghost" className={cn("w-full justify-start gap-3 rounded-xl font-bold", location.pathname === item.path ? "bg-orange-50 text-orange-600" : "text-slate-600")}><item.icon size={20} /> {item.label}</Button>
+              <Button variant="ghost" className={cn("w-full justify-start gap-3 rounded-lg font-bold h-10 text-sm", location.pathname === item.path ? "bg-orange-50 text-orange-600" : "text-slate-600")}><item.icon size={18} /> {item.label}</Button>
             </Link>
           ))}
         </div>
       )}
 
-      <main className="flex-1 container mx-auto px-4 py-8">{children}</main>
+      <main className="flex-1 container mx-auto px-4 py-6">{children}</main>
     </div>
   );
 };

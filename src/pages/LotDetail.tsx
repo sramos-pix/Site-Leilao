@@ -115,7 +115,7 @@ const LotDetail = () => {
   const allBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Processar Lances Reais
+    // 1. Processar Lances Reais do Banco
     const processedRealBids = realBids.map(b => ({
       id: b.id,
       amount: b.amount,
@@ -125,32 +125,31 @@ const LotDetail = () => {
       display_name: b.user_id === user?.id ? "Você" : "Licitante"
     }));
 
-    // 2. Gerar Lances Fictícios Determinísticos
+    // 2. Gerar Lances Fictícios Determinísticos (Sempre presentes)
     const fakeEmails = [
       "ca***@gmail.com", "an***@hotmail.com", "ro***@outlook.com", 
       "ju***@yahoo.com", "ma***@gmail.com", "fe***@uol.com.br",
       "ti***@terra.com.br", "lu***@ig.com.br", "bi***@globo.com"
     ];
     
-    // Semente baseada no ID do lote para consistência
+    // Semente baseada no ID do lote para que os lances sejam consistentes para cada veículo
     const seed = id ? id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) : 0;
     const fakes = [];
     
-    // Valor base para os fakes (sempre abaixo do lance atual mais alto)
     const currentMax = processedRealBids.length > 0 ? processedRealBids[0].amount : (lot.current_bid || lot.start_bid);
     const startValue = lot.start_bid;
     const increment = lot.bid_increment || 1000;
 
-    // Gerar até 8 lances fictícios
+    // Gerar 8 lances fictícios para preencher o histórico
     for (let i = 0; i < 8; i++) {
-      const fakeAmount = startValue + (i * increment * 0.7); // Incrementos menores para os fakes
+      // O valor do fake é calculado para ser progressivo mas ficar abaixo do topo atual se houver lances reais
+      const fakeAmount = startValue + (i * increment * 0.8);
       
-      // Só adicionamos se for menor que o máximo atual e maior que zero
       if (fakeAmount < currentMax && fakeAmount >= startValue) {
         fakes.push({
           id: `fake-${i}-${id}`,
           amount: fakeAmount,
-          // Datas retroativas baseadas no índice
+          // Datas retroativas para parecer um histórico real
           created_at: new Date(Date.now() - (i + 1) * 7200000).toISOString(),
           is_fake: true,
           display_name: fakeEmails[(seed + i) % fakeEmails.length]
@@ -158,7 +157,7 @@ const LotDetail = () => {
       }
     }
 
-    // 3. Garantir que se não houver lances reais, o valor inicial apareça como um lance fictício
+    // 3. Fallback: Se não houver nada, garante o lance inicial como fictício
     if (processedRealBids.length === 0 && fakes.length === 0) {
       fakes.push({
         id: `fake-initial-${id}`,
@@ -169,7 +168,7 @@ const LotDetail = () => {
       });
     }
 
-    // Unir e ordenar
+    // Unir lances reais e fictícios e ordenar pelo maior valor
     return [...processedRealBids, ...fakes].sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id, user]);
 

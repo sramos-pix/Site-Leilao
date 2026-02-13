@@ -51,12 +51,7 @@ const CountdownTimer = ({ randomScarcity = false, endsAt }: CountdownTimerProps)
   };
 
   return (
-    <span className={`inline-flex items-center px-3 py-1 rounded-full font-mono font-bold text-sm shadow-sm transition-all duration-500 ${
-      secondsLeft < 300 
-        ? "bg-red-600 text-white animate-pulse scale-105" 
-        : "bg-slate-900 text-orange-500"
-    }`}>
-      <span className="mr-1.5 w-2 h-2 rounded-full bg-current animate-ping" />
+    <span className={secondsLeft < 300 ? "text-red-500 font-bold animate-pulse" : ""}>
       {formatTime(secondsLeft)}
     </span>
   );

@@ -76,8 +76,8 @@ const FeaturedAuctions = () => {
                       className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                     />
                     <div className="absolute top-4 left-4">
-                      <Badge className="bg-black/40 backdrop-blur-md text-white border-none px-3 py-1 rounded-full text-[10px] font-bold flex items-center gap-1.5">
-                        <Clock size={10} /> {item.ends_at}
+                      <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1">
+                        <Clock size={12} /> {item.ends_at}
                       </Badge>
                     </div>
                   </div>

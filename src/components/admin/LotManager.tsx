@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 
@@ -109,6 +109,8 @@ const LotManager = () => {
       model: formData.get('model'),
       year: parseInt(formData.get('year') as string),
       mileage_km: parseInt(formData.get('mileage_km') as string),
+      transmission: formData.get('transmission'),
+      fuel_type: formData.get('fuel_type'),
       start_bid: parseFloat(formData.get('start_bid') as string),
       bid_increment: parseFloat(formData.get('bid_increment') as string) || 500,
       description: formData.get('description'),
@@ -122,15 +124,7 @@ const LotManager = () => {
       : await supabase.from('lots').insert(lotData);
 
     if (error) {
-      if (error.message.includes('bid_increment')) {
-        toast({ 
-          variant: "destructive", 
-          title: "Erro de Banco de Dados", 
-          description: "A coluna 'bid_increment' não existe. Por favor, execute o comando SQL no painel do Supabase." 
-        });
-      } else {
-        toast({ variant: "destructive", title: "Erro", description: error.message });
-      }
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } else {
       toast({ title: "Sucesso!" });
       setIsDialogOpen(false);
@@ -156,12 +150,13 @@ const LotManager = () => {
               <div className="col-span-2 space-y-2">
                 <Label>Leilão Vinculado</Label>
                 <Select name="auction_id" defaultValue={editingLot?.auction_id} required>
-                  <SelectTrigger><SelectValue placeholder="Selecione o leilão" /></SelectTrigger>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o leilão" /></SelectTrigger>
                   <SelectContent>{auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" defaultValue={editingLot?.lot_number} required /></div>
-              <div className="space-y-2"><Label>Título</Label><Input name="title" defaultValue={editingLot?.title} required /></div>
+              
+              <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" defaultValue={editingLot?.lot_number} className="rounded-xl" required /></div>
+              <div className="space-y-2"><Label>Título</Label><Input name="title" defaultValue={editingLot?.title} className="rounded-xl" required /></div>
               
               <div className="col-span-2 grid grid-cols-2 gap-4 p-4 bg-orange-50 rounded-2xl border border-orange-100">
                 <div className="flex items-center justify-between space-x-2">
@@ -184,14 +179,43 @@ const LotManager = () => {
                 </div>
               </div>
 
-              <div className="space-y-2"><Label>Marca</Label><Input name="brand" defaultValue={editingLot?.brand} required /></div>
-              <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={editingLot?.model} required /></div>
-              <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={editingLot?.year} required /></div>
-              <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" defaultValue={editingLot?.mileage_km} required /></div>
+              <div className="space-y-2"><Label>Marca</Label><Input name="brand" defaultValue={editingLot?.brand} className="rounded-xl" required /></div>
+              <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={editingLot?.model} className="rounded-xl" required /></div>
+              <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={editingLot?.year} className="rounded-xl" required /></div>
+              <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" defaultValue={editingLot?.mileage_km} className="rounded-xl" required /></div>
               
               <div className="space-y-2">
+                <Label className="flex items-center gap-2"><Settings2 size={14} /> Câmbio</Label>
+                <Select name="transmission" defaultValue={editingLot?.transmission || "Automático"}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o câmbio" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Automático">Automático</SelectItem>
+                    <SelectItem value="Manual">Manual</SelectItem>
+                    <SelectItem value="CVT">CVT</SelectItem>
+                    <SelectItem value="Automatizado">Automatizado</SelectItem>
+                    <SelectItem value="Semi-Automático">Semi-Automático</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2"><Fuel size={14} /> Combustível</Label>
+                <Select name="fuel_type" defaultValue={editingLot?.fuel_type || "Flex"}>
+                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Flex">Flex</SelectItem>
+                    <SelectItem value="Gasolina">Gasolina</SelectItem>
+                    <SelectItem value="Diesel">Diesel</SelectItem>
+                    <SelectItem value="Etanol">Etanol</SelectItem>
+                    <SelectItem value="Híbrido">Híbrido</SelectItem>
+                    <SelectItem value="Elétrico">Elétrico</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
                 <Label>Lance Inicial</Label>
-                <Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} required />
+                <Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} className="rounded-xl" required />
               </div>
               
               <div className="space-y-2">
@@ -203,18 +227,18 @@ const LotManager = () => {
                   type="number" 
                   step="0.01" 
                   defaultValue={editingLot?.bid_increment || 500} 
-                  className="border-orange-200 focus:border-orange-500"
+                  className="border-orange-200 focus:border-orange-500 rounded-xl"
                   required 
                 />
               </div>
 
-              <div className="col-span-2 space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} required /></div>
+              <div className="col-span-2 space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} className="rounded-xl" required /></div>
               
               <div className="col-span-2 space-y-2">
                 <Label>Descrição Detalhada</Label>
                 <Textarea name="description" defaultValue={editingLot?.description} placeholder="Detalhes do veículo..." className="min-h-[100px] rounded-xl" />
               </div>
-              <Button type="submit" className="col-span-2 bg-orange-500 mt-4 py-6 rounded-2xl font-bold" disabled={isSubmitting}>
+              <Button type="submit" className="col-span-2 bg-orange-500 hover:bg-orange-600 mt-4 py-6 rounded-2xl font-bold text-white" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin" /> : editingLot ? 'Salvar Alterações' : 'Cadastrar Veículo'}
               </Button>
             </form>
@@ -257,7 +281,10 @@ const LotManager = () => {
                     <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
                       {lot.cover_image_url ? <img src={lot.cover_image_url} className="w-full h-full object-cover" /> : <Car className="w-full h-full p-2 text-slate-300" />}
                     </div>
-                    <span className="font-bold group-hover:text-orange-600 transition-colors">{lot.title}</span>
+                    <div className="flex flex-col">
+                      <span className="font-bold group-hover:text-orange-600 transition-colors">{lot.title}</span>
+                      <span className="text-[10px] text-slate-400">{lot.transmission} • {lot.fuel_type}</span>
+                    </div>
                   </Link>
                 </TableCell>
                 <TableCell>

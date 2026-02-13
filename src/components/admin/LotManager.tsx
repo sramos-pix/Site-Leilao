@@ -60,19 +60,26 @@ const LotManager = () => {
           const { storagePath, publicUrl } = await uploadLotPhoto(selectedLot.id, file);
           
           const isFirst = lotPhotos.length === 0;
-          await supabase.from('lot_photos').insert({
+          const { error: dbError } = await supabase.from('lot_photos').insert({
             lot_id: selectedLot.id,
             storage_path: storagePath,
             public_url: publicUrl,
             is_cover: isFirst
           });
 
+          if (dbError) {
+            if (dbError.message.includes('row-level security')) {
+              throw new Error("Erro de Permissão (RLS): Você precisa configurar as políticas de acesso no SQL Editor do Supabase.");
+            }
+            throw dbError;
+          }
+
           if (isFirst) {
             await supabase.from('lots').update({ cover_image_url: publicUrl }).eq('id', selectedLot.id);
           }
         } catch (uploadErr: any) {
-          if (uploadErr.message?.includes('bucket_not_found') || uploadErr.error === 'bucket_not_found') {
-            throw new Error("O bucket 'vehicle-photos' não foi encontrado. Crie-o no Storage do Supabase como 'Public'.");
+          if (uploadErr.message?.includes('bucket_not_found')) {
+            throw new Error("O bucket 'vehicle-photos' não foi encontrado no Storage.");
           }
           throw uploadErr;
         }
@@ -222,8 +229,8 @@ const LotManager = () => {
                           <div className="bg-blue-50 p-4 rounded-2xl flex gap-3 border border-blue-100">
                             <AlertCircle className="text-blue-600 shrink-0" size={20} />
                             <div className="text-xs text-blue-800 leading-tight">
-                              <p className="font-bold mb-1">Configuração Necessária:</p>
-                              <p>Certifique-se de que o bucket <strong>vehicle-photos</strong> existe no Storage do Supabase e está configurado como <strong>Public</strong>.</p>
+                              <p className="font-bold mb-1">Erro de RLS Detectado?</p>
+                              <p>Se você receber erro de "Row-level security", execute o SQL de políticas no painel do Supabase.</p>
                             </div>
                           </div>
 

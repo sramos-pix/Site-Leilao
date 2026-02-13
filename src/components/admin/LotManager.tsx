@@ -240,7 +240,7 @@ const LotManager = () => {
               <TableRow key={lot.id} className="hover:bg-slate-50/50 transition-colors">
                 <TableCell className="font-mono text-xs">
                   <Link 
-                    to={`/lot/${lot.id}`} 
+                    to={`/lots/${lot.id}`} 
                     target="_blank"
                     className="flex items-center gap-1 text-orange-600 hover:text-orange-700 font-bold"
                   >
@@ -250,7 +250,7 @@ const LotManager = () => {
                 </TableCell>
                 <TableCell>
                   <Link 
-                    to={`/lot/${lot.id}`} 
+                    to={`/lots/${lot.id}`} 
                     target="_blank"
                     className="flex items-center gap-3 group"
                   >

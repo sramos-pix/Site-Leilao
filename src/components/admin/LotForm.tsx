@@ -14,12 +14,12 @@ const lotSchema = z.object({
   title: z.string().min(5, 'Título muito curto'),
   brand: z.string().min(2, 'Marca obrigatória'),
   model: z.string().min(2, 'Modelo obrigatório'),
-  year: z.coerce.number().min(1900).max(new Date().getFullYear() + 1),
+  year: z.coerce.number().min(1900),
   mileage_km: z.coerce.number().min(0),
   start_bid: z.coerce.number().min(1),
   min_increment: z.coerce.number().min(1),
   condition_notes: z.string().optional(),
-  auction_id: z.string().uuid('Selecione um leilão válido'),
+  auction_id: z.string(),
 });
 
 type LotFormValues = z.infer<typeof lotSchema>;
@@ -34,7 +34,12 @@ const LotForm = ({ auctionId, onSuccess }: LotFormProps) => {
   const { toast } = useToast();
   const { register, handleSubmit, formState: { errors }, reset } = useForm<LotFormValues>({
     resolver: zodResolver(lotSchema),
-    defaultValues: { auction_id: auctionId, year: 2024, mileage_km: 0 }
+    defaultValues: { 
+      auction_id: auctionId, 
+      year: 2024, 
+      mileage_km: 0,
+      min_increment: 500
+    }
   });
 
   const onSubmit = async (data: LotFormValues) => {
@@ -42,17 +47,17 @@ const LotForm = ({ auctionId, onSuccess }: LotFormProps) => {
     try {
       const { error } = await supabase.from('lots').insert({
         ...data,
-        lot_number: Math.floor(Math.random() * 1000),
+        lot_number: Math.floor(Math.random() * 10000),
         ends_at: new Date(Date.now() + 86400000 * 7).toISOString(),
       });
 
       if (error) throw error;
 
-      toast({ title: "Sucesso!", description: "Veículo cadastrado com sucesso." });
+      toast({ title: "Sucesso!", description: "Veículo cadastrado." });
       reset();
       onSuccess();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao cadastrar", description: error.message });
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
       setIsLoading(false);
     }
@@ -62,41 +67,41 @@ const LotForm = ({ auctionId, onSuccess }: LotFormProps) => {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 py-4">
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-2 col-span-2">
-          <Label>Título do Anúncio</Label>
-          <Input {...register('title')} placeholder="Ex: BMW 320i M Sport 2022" />
+          <Label>Título</Label>
+          <Input {...register('title')} />
           {errors.title && <p className="text-xs text-red-500">{errors.title.message}</p>}
         </div>
         <div className="space-y-2">
           <Label>Marca</Label>
-          <Input {...register('brand')} placeholder="Ex: BMW" />
+          <Input {...register('brand')} />
         </div>
         <div className="space-y-2">
           <Label>Modelo</Label>
-          <Input {...register('model')} placeholder="Ex: 320i" />
+          <Input {...register('model')} />
         </div>
         <div className="space-y-2">
           <Label>Ano</Label>
           <Input type="number" {...register('year')} />
         </div>
         <div className="space-y-2">
-          <Label>Quilometragem (KM)</Label>
+          <Label>KM</Label>
           <Input type="number" {...register('mileage_km')} />
         </div>
         <div className="space-y-2">
-          <Label>Lance Inicial (R$)</Label>
+          <Label>Lance Inicial</Label>
           <Input type="number" {...register('start_bid')} />
         </div>
         <div className="space-y-2">
-          <Label>Incremento Mínimo (R$)</Label>
+          <Label>Incremento</Label>
           <Input type="number" {...register('min_increment')} />
         </div>
       </div>
       <div className="space-y-2">
-        <Label>Observações/Condição</Label>
-        <Textarea {...register('condition_notes')} placeholder="Detalhes sobre o estado do veículo..." />
+        <Label>Notas</Label>
+        <Textarea {...register('condition_notes')} />
       </div>
-      <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600" disabled={isLoading}>
-        {isLoading ? <Loader2 className="animate-spin" /> : 'Cadastrar Veículo'}
+      <Button type="submit" className="w-full bg-orange-500" disabled={isLoading}>
+        {isLoading ? <Loader2 className="animate-spin" /> : 'Cadastrar'}
       </Button>
     </form>
   );

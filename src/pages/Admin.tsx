@@ -18,31 +18,24 @@ const Admin = () => {
 
   const fetchData = async () => {
     setIsLoading(true);
-    console.log("Tentando conectar ao Supabase...");
     try {
       const { data: auctionsData, error: auctionError } = await supabase
         .from('auctions')
         .select('*, lots(count)')
         .order('created_at', { ascending: false });
       
-      if (auctionError) {
-        console.error("Erro detalhado do Supabase (Auctions):", auctionError);
-        throw auctionError;
-      }
-      
+      if (auctionError) throw auctionError;
       setAuctions(auctionsData || []);
       
       const { data: profilesData, error: profileError } = await supabase.from('profiles').select('*');
-      if (profileError) console.error("Erro detalhado do Supabase (Profiles):", profileError);
-      setUsers(profilesData || []);
+      if (!profileError) setUsers(profilesData || []);
       
-      console.log("Dados carregados com sucesso!");
     } catch (error: any) {
-      console.error("Falha na conexão:", error);
+      console.error("Erro ao carregar dados:", error);
       toast({ 
         variant: "destructive", 
         title: "Erro de conexão", 
-        description: error.message || "Não foi possível carregar os dados. Verifique o console (F12)." 
+        description: error.message || "Erro ao carregar dados." 
       });
     } finally {
       setIsLoading(false);
@@ -96,7 +89,7 @@ const Admin = () => {
               {auctions.length === 0 && !isLoading ? (
                 <Card className="border-dashed border-2 bg-transparent py-12 text-center">
                   <Gavel className="mx-auto text-slate-300 mb-4" size={48} />
-                  <p className="text-slate-500">Nenhum leilão encontrado. Crie um novo leilão para começar.</p>
+                  <p className="text-slate-500">Nenhum leilão encontrado.</p>
                 </Card>
               ) : (
                 auctions.map((auction) => (
@@ -104,12 +97,14 @@ const Admin = () => {
                     <CardHeader className="flex flex-row items-center justify-between bg-white border-b">
                       <div>
                         <div className="flex items-center gap-2">
-                          <CardTitle className="text-xl">{auction.title}</CardTitle>
+                          <CardTitle className="text-xl">{auction?.title || 'Sem título'}</CardTitle>
                           <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase bg-blue-100 text-blue-600">
-                            {auction.status}
+                            {auction?.status || 'N/A'}
                           </span>
                         </div>
-                        <p className="text-sm text-slate-500 mt-1">{auction.location} • {auction.lots?.[0]?.count || 0} veículos</p>
+                        <p className="text-sm text-slate-500 mt-1">
+                          {auction?.location || 'Local não informado'} • {auction?.lots?.[0]?.count || 0} veículos
+                        </p>
                       </div>
                       <div className="flex gap-2">
                         <Dialog>
@@ -120,7 +115,7 @@ const Admin = () => {
                           </DialogTrigger>
                           <DialogContent className="max-w-2xl">
                             <DialogHeader>
-                              <DialogTitle>Cadastrar Veículo em {auction.title}</DialogTitle>
+                              <DialogTitle>Cadastrar Veículo</DialogTitle>
                             </DialogHeader>
                             <LotForm auctionId={auction.id} onSuccess={fetchData} />
                           </DialogContent>
@@ -150,8 +145,8 @@ const Admin = () => {
                     <tbody>
                       {users.map(user => (
                         <tr key={user.id} className="border-b">
-                          <td className="px-4 py-4 font-medium">{user.full_name}</td>
-                          <td className="px-4 py-4">{user.email}</td>
+                          <td className="px-4 py-4 font-medium">{user?.full_name || 'N/A'}</td>
+                          <td className="px-4 py-4">{user?.email || 'N/A'}</td>
                         </tr>
                       ))}
                     </tbody>

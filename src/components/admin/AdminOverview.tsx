@@ -45,6 +45,7 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
+      // Consulta detalhada buscando nome e email da tabela profiles
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -53,7 +54,7 @@ const AdminOverview = () => {
           created_at,
           user_id,
           lot_id,
-          profiles (
+          profiles!inner (
             full_name,
             email
           ),
@@ -65,7 +66,8 @@ const AdminOverview = () => {
         .limit(10);
 
       if (bidsError) {
-        console.error("Erro ao buscar lances detalhados:", bidsError);
+        console.error("Erro ao buscar lances com perfis:", bidsError);
+        // Fallback para busca simples se a junção falhar
         const { data: simpleBids } = await supabase
           .from('bids')
           .select('*')
@@ -174,7 +176,7 @@ const AdminOverview = () => {
                           </div>
                           <div className="flex flex-col">
                             <span className="font-bold text-slate-900">
-                              {bid.profiles?.full_name || 'Usuário'}
+                              {bid.profiles?.full_name || 'Usuário Desconhecido'}
                             </span>
                             <span className="text-xs text-slate-500">
                               {bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`}

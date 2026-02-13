@@ -33,7 +33,6 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = React.useState(true);
 
   const fetchDashboardData = async () => {
-    setIsLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
@@ -46,13 +45,11 @@ const Dashboard = () => {
       
       setProfile(profileData);
 
-      // Buscando lances com informações do lote e suas imagens
       const { data: bidsData } = await supabase
         .from('bids')
         .select('*, lots(*, lot_images(*))')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .order('created_at', { ascending: false });
 
       if (bidsData) setActiveBids(bidsData);
     } catch (error) {
@@ -64,6 +61,22 @@ const Dashboard = () => {
 
   React.useEffect(() => {
     fetchDashboardData();
+
+    // Inscrição em tempo real para novos lances
+    const channel = supabase
+      .channel('dashboard-updates')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'bids' },
+        () => {
+          fetchDashboardData();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   if (isLoading) {
@@ -193,8 +206,7 @@ const Dashboard = () => {
             </div>
             
             <div className="space-y-4">
-              {activeBids.length > 0 ? activeBids.map((bid) => {
-                // Pega a primeira imagem da galeria ou usa o fallback
+              {activeBids.length > 0 ? activeBids.slice(0, 5).map((bid) => {
                 const coverImage = bid.lots?.lot_images?.[0]?.image_url || bid.lots?.image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400";
                 
                 return (

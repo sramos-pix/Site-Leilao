@@ -52,8 +52,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   const handleDeleteUser = async () => {
     setIsDeleting(true);
     try {
-      // Nota: Isso remove apenas o perfil da tabela 'profiles'. 
-      // Para remover o usuário do Auth, seria necessário uma Edge Function ou Admin API.
+      // Remove o perfil da tabela pública
       const { error } = await supabase
         .from('profiles')
         .delete()
@@ -61,7 +60,10 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
 
       if (error) throw error;
 
-      toast({ title: "Usuário Removido", description: "O perfil foi excluído com sucesso." });
+      toast({ 
+        title: "Perfil Removido", 
+        description: "O perfil foi excluído do banco. Para permitir novo cadastro com este e-mail, remova-o também no Dashboard do Supabase (Auth)." 
+      });
       onSuccess();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
@@ -159,8 +161,9 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
                 <AlertTriangle className="text-red-500" /> Confirmar Exclusão
               </AlertDialogTitle>
               <AlertDialogDescription>
-                Esta ação excluirá permanentemente o perfil de <strong>{user.full_name}</strong>. 
-                Lances e históricos vinculados a este ID podem ser afetados. Esta ação não pode ser desfeita.
+                Esta ação excluirá o perfil de <strong>{user.full_name}</strong> da base de dados. 
+                <br /><br />
+                <span className="text-red-600 font-bold">Atenção:</span> Para que o e-mail possa ser cadastrado novamente, você deve deletar a conta manualmente no painel do Supabase (Authentication {">"} Users).
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
@@ -170,7 +173,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
                 className="bg-red-500 hover:bg-red-600 text-white rounded-xl"
                 disabled={isDeleting}
               >
-                {isDeleting ? <Loader2 className="animate-spin" size={18} /> : "Sim, Excluir"}
+                {isDeleting ? <Loader2 className="animate-spin" size={18} /> : "Sim, Excluir Perfil"}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

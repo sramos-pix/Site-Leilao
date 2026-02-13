@@ -12,6 +12,7 @@ import LotDetail from "./pages/LotDetail";
 import Dashboard from "./pages/Dashboard";
 import Admin from "./pages/Admin";
 import Verification from "./pages/Verification";
+import AdminGuard from "./components/admin/AdminGuard";
 
 const queryClient = new QueryClient();
 
@@ -31,7 +32,14 @@ const App = () => (
               <Route path="/lots/:id" element={<LotDetail />} />
               <Route path="/app" element={<Dashboard />} />
               <Route path="/app/verify" element={<Verification />} />
-              <Route path="/admin" element={<Admin />} />
+              <Route 
+                path="/admin" 
+                element={
+                  <AdminGuard>
+                    <Admin />
+                  </AdminGuard>
+                } 
+              />
             </Routes>
           </main>
           <Footer />

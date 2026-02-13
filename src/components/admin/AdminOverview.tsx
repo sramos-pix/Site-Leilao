@@ -6,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { 
   Gavel, Package, Users, TrendingUp, 
-  RefreshCw, Loader2, Clock, User, ExternalLink 
+  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2 
 } from 'lucide-react';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/components/ui/use-toast';
 import {
   Table,
   TableBody,
@@ -21,6 +22,7 @@ import {
 
 const AdminOverview = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [stats, setStats] = useState({
     auctions: 0,
     lots: 0,
@@ -29,6 +31,7 @@ const AdminOverview = () => {
   });
   const [recentBids, setRecentBids] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -60,14 +63,14 @@ const AdminOverview = () => {
             email
           ),
           lots (
-            title
+            title,
+            current_bid
           )
         `)
         .order('created_at', { ascending: false })
         .limit(10);
 
       if (bidsError) {
-        console.error("Erro na consulta de lances:", bidsError);
         const { data: fallbackData } = await supabase
           .from('bids')
           .select('*')
@@ -82,6 +85,44 @@ const AdminOverview = () => {
       console.error("Erro crítico ao carregar estatísticas:", error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
+    if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}? Esta ação é irreversível.`)) return;
+    
+    setIsDeleting(bidId);
+    try {
+      // 1. Deletar o lance
+      const { error: deleteError } = await supabase
+        .from('bids')
+        .delete()
+        .eq('id', bidId);
+
+      if (deleteError) throw deleteError;
+
+      // 2. Buscar o novo lance mais alto para este lote
+      const { data: nextHighestBid } = await supabase
+        .from('bids')
+        .select('amount')
+        .eq('lot_id', lotId)
+        .order('amount', { ascending: false })
+        .limit(1)
+        .single();
+
+      // 3. Atualizar o current_bid do lote para o próximo valor mais alto (ou 0 se não houver mais lances)
+      const newCurrentBid = nextHighestBid?.amount || 0;
+      await supabase
+        .from('lots')
+        .update({ current_bid: newCurrentBid })
+        .eq('id', lotId);
+
+      toast({ title: "Lance excluído", description: "O histórico e o valor atual do lote foram atualizados." });
+      fetchStats();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
@@ -103,7 +144,6 @@ const AdminOverview = () => {
   }, []);
 
   const handleUserClick = (userId: string) => {
-    // Forçamos a navegação com o parâmetro ID
     navigate(`/admin?id=${userId}`, { replace: true });
   };
 
@@ -160,13 +200,14 @@ const AdminOverview = () => {
                   <TableHead className="pl-6">Usuário</TableHead>
                   <TableHead>Veículo / Lote</TableHead>
                   <TableHead>Valor do Lance</TableHead>
-                  <TableHead className="pr-6">Data/Hora</TableHead>
+                  <TableHead>Data/Hora</TableHead>
+                  <TableHead className="pr-6 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {isLoading && recentBids.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-10">
+                    <TableCell colSpan={5} className="text-center py-10">
                       <Loader2 className="animate-spin mx-auto text-slate-300" />
                     </TableCell>
                   </TableRow>
@@ -205,15 +246,26 @@ const AdminOverview = () => {
                         <TableCell>
                           <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>
                         </TableCell>
-                        <TableCell className="pr-6 text-slate-500 text-sm">
+                        <TableCell className="text-slate-500 text-sm">
                           {formatDate(bid.created_at)}
+                        </TableCell>
+                        <TableCell className="pr-6 text-right">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                            onClick={() => handleDeleteBid(bid.id, bid.lot_id, bid.amount)}
+                            disabled={isDeleting === bid.id}
+                          >
+                            {isDeleting === bid.id ? <Loader2 className="animate-spin h-4 w-4" /> : <Trash2 size={18} />}
+                          </Button>
                         </TableCell>
                       </TableRow>
                     );
                   })
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-10 text-slate-400 italic">
+                    <TableCell colSpan={5} className="text-center py-10 text-slate-400 italic">
                       Nenhum lance registrado recentemente.
                     </TableCell>
                   </TableRow>

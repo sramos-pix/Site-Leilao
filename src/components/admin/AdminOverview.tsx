@@ -31,7 +31,6 @@ const AdminOverview = () => {
   const fetchStats = async () => {
     setIsLoading(true);
     try {
-      // 1. Buscar contadores básicos
       const [auctions, lots, users, bids] = await Promise.all([
         supabase.from('auctions').select('*', { count: 'exact', head: true }),
         supabase.from('lots').select('*', { count: 'exact', head: true }),
@@ -46,7 +45,6 @@ const AdminOverview = () => {
         bids: bids.count || 0
       });
 
-      // 2. Buscar lances com a consulta mais simples possível para evitar erros de RLS ou Relacionamento
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -67,9 +65,6 @@ const AdminOverview = () => {
         .limit(10);
 
       if (bidsError) {
-        console.error("Erro detalhado na consulta de lances:", bidsError);
-        
-        // Tenta buscar apenas os lances se a junção falhar
         const { data: simpleBids } = await supabase
           .from('bids')
           .select('*')
@@ -155,7 +150,7 @@ const AdminOverview = () => {
             <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
-                  <TableHead className="pl-6">Usuário</TableHead>
+                  <TableHead className="pl-6">Usuário (Nome / E-mail)</TableHead>
                   <TableHead>Veículo / Lote</TableHead>
                   <TableHead>Valor do Lance</TableHead>
                   <TableHead className="pr-6">Data/Hora</TableHead>
@@ -181,7 +176,7 @@ const AdminOverview = () => {
                               {bid.profiles?.full_name || 'Usuário'}
                             </span>
                             <span className="text-xs text-slate-500">
-                              {bid.profiles?.email || bid.user_id?.substring(0, 8)}
+                              {bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`}
                             </span>
                           </div>
                         </div>

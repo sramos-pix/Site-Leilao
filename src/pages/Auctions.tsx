@@ -8,6 +8,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
+import Navbar from '@/components/Navbar';
+import Footer from '@/components/Footer';
 
 const Auctions = () => {
   const [auctions, setAuctions] = React.useState<any[]>([]);
@@ -42,8 +44,9 @@ const Auctions = () => {
   }
 
   return (
-    <div className="bg-slate-50 min-h-screen py-12">
-      <div className="container mx-auto px-4">
+    <div className="bg-slate-50 min-h-screen flex flex-col">
+      <Navbar />
+      <div className="container mx-auto px-4 py-12 flex-1">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-12 gap-6">
           <div>
             <h1 className="text-4xl font-bold text-slate-900 mb-2">Leilões Ativos</h1>
@@ -98,6 +101,7 @@ const Auctions = () => {
           ))}
         </div>
       </div>
+      <Footer />
     </div>
   );
 };

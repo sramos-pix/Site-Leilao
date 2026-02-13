@@ -4,6 +4,7 @@ import { ArrowRight, ShieldCheck, Zap, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { motion } from 'framer-motion';
 import FeaturedAuctions from '@/components/FeaturedAuctions';
+import FeaturedLots from '@/components/FeaturedLots';
 
 const Index = () => {
   return (
@@ -33,9 +34,9 @@ const Index = () => {
                     <ArrowRight className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
-                <Link to="/how-it-works">
-                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg rounded-xl border-2 w-full sm:w-auto">
-                    Como funciona
+                <Link to="/auth?mode=signup">
+                  <Button size="lg" variant="outline" className="px-8 py-6 text-lg rounded-xl border-2 w-full sm:w-auto bg-white">
+                    Cadastre-se Grátis
                   </Button>
                 </Link>
               </div>
@@ -45,11 +46,14 @@ const Index = () => {
         <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-1/2 h-full bg-orange-500/5 rounded-full blur-3xl" />
       </section>
 
-      {/* Featured Auctions Carousel */}
+      {/* Featured Lots (Veículos Individuais) */}
+      <FeaturedLots />
+
+      {/* Featured Auctions (Eventos de Leilão) */}
       <FeaturedAuctions />
 
       {/* Features Section */}
-      <section className="py-20 bg-white">
+      <section className="py-20 bg-white border-t border-slate-100">
         <div className="container mx-auto px-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
             <div className="flex flex-col items-center text-center">

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -33,12 +33,13 @@ const AdminOverview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
-  // Lista de IDs que foram excluídos nesta sessão para evitar que reapareçam via Realtime
-  const [deletedBidIds, setDeletedBidIds] = useState<Set<string>>(new Set());
-  const ignoreRealtimeRef = useRef(false);
+  // Ref para armazenar IDs deletados e evitar que reapareçam
+  const deletedIdsRef = useRef<Set<string>>(new Set());
+  const isFetchingRef = useRef(false);
 
-  const fetchStats = async (force = false) => {
-    if (!force && ignoreRealtimeRef.current) return;
+  const fetchStats = useCallback(async (force = false) => {
+    if (isFetchingRef.current && !force) return;
+    isFetchingRef.current = true;
 
     setIsLoading(true);
     try {
@@ -53,18 +54,18 @@ const AdminOverview = () => {
         .from('bids')
         .select('*')
         .order('created_at', { ascending: false })
-        .limit(20);
+        .limit(30);
 
       if (bidsError) throw bidsError;
 
-      // Filtra lances que já marcamos como excluídos nesta sessão
-      const validBids = (bids || []).filter(b => !deletedBidIds.has(b.id));
+      // FILTRAGEM CRÍTICA: Remove qualquer lance que esteja na nossa lista de deletados
+      const validBids = (bids || []).filter(b => !deletedIdsRef.current.has(b.id));
 
       setStats({
         auctions: auctions.count || 0,
         lots: lots.count || 0,
         users: users.count || 0,
-        bids: Math.max(0, (bidsCount.count || 0) - deletedBidIds.size)
+        bids: Math.max(0, (bidsCount.count || 0) - deletedIdsRef.current.size)
       });
 
       if (validBids.length > 0) {
@@ -94,24 +95,24 @@ const AdminOverview = () => {
       console.error("Erro ao carregar estatísticas:", error);
     } finally {
       setIsLoading(false);
+      isFetchingRef.current = false;
     }
-  };
+  }, []);
 
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
     if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}?`)) return;
     
     setIsDeleting(bidId);
-    ignoreRealtimeRef.current = true;
     
-    // Adiciona o ID à lista de bloqueio IMEDIATAMENTE
-    setDeletedBidIds(prev => new Set(prev).add(bidId));
+    // 1. Adiciona IMEDIATAMENTE ao Ref de bloqueio (síncrono)
+    deletedIdsRef.current.add(bidId);
     
-    // Atualização otimista da UI
+    // 2. Atualização otimista da UI (remove visualmente)
     setRecentBids(prev => prev.filter(b => b.id !== bidId));
     setStats(prev => ({ ...prev, bids: Math.max(0, prev.bids - 1) }));
 
     try {
-      // 1. Deleta o lance no banco
+      // 3. Deleta no banco
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
@@ -119,7 +120,7 @@ const AdminOverview = () => {
 
       if (deleteError) throw deleteError;
 
-      // 2. Busca o novo lance mais alto para este lote
+      // 4. Busca o novo lance mais alto
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -128,7 +129,7 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
-      // 3. Atualiza o valor atual do lote
+      // 5. Atualiza o lote
       const newCurrentBid = nextHighestBid?.amount || 0;
       await supabase
         .from('lots')
@@ -141,20 +142,14 @@ const AdminOverview = () => {
       });
       
     } catch (error: any) {
-      // Se der erro, removemos do bloqueio para que ele reapareça
-      setDeletedBidIds(prev => {
-        const next = new Set(prev);
-        next.delete(bidId);
-        return next;
-      });
+      // Se falhar, remove do bloqueio para o usuário tentar de novo
+      deletedIdsRef.current.delete(bidId);
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
       fetchStats(true);
     } finally {
       setIsDeleting(null);
-      setTimeout(() => {
-        ignoreRealtimeRef.current = false;
-        fetchStats(true);
-      }, 3000);
+      // Aguarda um pouco mais para o Realtime estabilizar
+      setTimeout(() => fetchStats(true), 1500);
     }
   };
 
@@ -162,16 +157,18 @@ const AdminOverview = () => {
     fetchStats(true);
     
     const channel = supabase
-      .channel('admin-realtime-bids-v2')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => {
-        if (!ignoreRealtimeRef.current) {
-          fetchStats();
+      .channel('admin-realtime-v3')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, (payload) => {
+        // Se for um evento de deleção que nós mesmos causamos, ignoramos
+        if (payload.eventType === 'DELETE' && deletedIdsRef.current.has(payload.old.id)) {
+          return;
         }
+        fetchStats();
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [deletedBidIds]); // Re-executa se a lista de bloqueio mudar
+  }, [fetchStats]);
 
   const handleUserClick = (userId: string) => {
     navigate(`/admin?id=${userId}`, { replace: true });

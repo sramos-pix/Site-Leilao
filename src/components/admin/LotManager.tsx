@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow 
@@ -14,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 
@@ -236,15 +237,28 @@ const LotManager = () => {
             {isLoading ? (
               <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
             ) : lots.map((lot) => (
-              <TableRow key={lot.id}>
-                <TableCell className="font-mono text-xs">#{lot.lot_number}</TableCell>
+              <TableRow key={lot.id} className="hover:bg-slate-50/50 transition-colors">
+                <TableCell className="font-mono text-xs">
+                  <Link 
+                    to={`/lot/${lot.id}`} 
+                    target="_blank"
+                    className="flex items-center gap-1 text-orange-600 hover:text-orange-700 font-bold"
+                  >
+                    #{lot.lot_number}
+                    <ExternalLink size={10} />
+                  </Link>
+                </TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden">
+                  <Link 
+                    to={`/lot/${lot.id}`} 
+                    target="_blank"
+                    className="flex items-center gap-3 group"
+                  >
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
                       {lot.cover_image_url ? <img src={lot.cover_image_url} className="w-full h-full object-cover" /> : <Car className="w-full h-full p-2 text-slate-300" />}
                     </div>
-                    <span className="font-bold">{lot.title}</span>
-                  </div>
+                    <span className="font-bold group-hover:text-orange-600 transition-colors">{lot.title}</span>
+                  </Link>
                 </TableCell>
                 <TableCell>
                   <div className="flex gap-1">

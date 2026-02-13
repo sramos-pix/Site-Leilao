@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,10 +32,13 @@ const AdminOverview = () => {
   const [recentBids, setRecentBids] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  
+  // Ref para bloquear atualizações do Realtime durante e logo após a exclusão
+  const ignoreRealtimeRef = useRef(false);
 
-  const fetchStats = async () => {
-    // Se estivermos deletando, não queremos que o fetch automático sobrescreva o estado local
-    if (isDeleting) return;
+  const fetchStats = async (force = false) => {
+    // Se não for um fetch forçado e estivermos ignorando o realtime, cancela
+    if (!force && ignoreRealtimeRef.current) return;
 
     setIsLoading(true);
     try {
@@ -95,8 +98,9 @@ const AdminOverview = () => {
     if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}?`)) return;
     
     setIsDeleting(bidId);
+    ignoreRealtimeRef.current = true; // Começa a ignorar o Realtime
     
-    // Atualização otimista da UI
+    // Atualização otimista da UI (remove da tela na hora)
     setRecentBids(prev => prev.filter(b => b.id !== bidId));
     setStats(prev => ({ ...prev, bids: Math.max(0, prev.bids - 1) }));
 
@@ -132,27 +136,32 @@ const AdminOverview = () => {
       
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
-      // Se der erro, recarrega para restaurar a UI
-      fetchStats();
+      fetchStats(true); // Se der erro, força o recarregamento
     } finally {
       setIsDeleting(null);
-      // Pequeno delay para garantir que o banco processou tudo antes do fetch final
-      setTimeout(fetchStats, 500);
+      // Mantém ignorando o Realtime por mais 2 segundos para o banco "respirar"
+      setTimeout(() => {
+        ignoreRealtimeRef.current = false;
+        fetchStats(true); // Faz um fetch final limpo
+      }, 2000);
     }
   };
 
   useEffect(() => {
-    fetchStats();
+    fetchStats(true);
+    
     const channel = supabase
       .channel('admin-realtime-bids')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => {
-        // Só atualiza via realtime se não estivermos no meio de uma deleção
-        if (!isDeleting) fetchStats();
+        // Só processa o evento se não estivermos no período de "ignore"
+        if (!ignoreRealtimeRef.current) {
+          fetchStats();
+        }
       })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
-  }, [isDeleting]); // Re-inscreve se o estado de deleção mudar
+  }, []);
 
   const handleUserClick = (userId: string) => {
     navigate(`/admin?id=${userId}`, { replace: true });
@@ -172,7 +181,7 @@ const AdminOverview = () => {
           <h2 className="text-2xl font-bold text-slate-900">Visão Geral</h2>
           <p className="text-slate-500">Métricas e atividades em tempo real.</p>
         </div>
-        <Button onClick={fetchStats} variant="outline" className="rounded-xl gap-2" disabled={isLoading}>
+        <Button onClick={() => fetchStats(true)} variant="outline" className="rounded-xl gap-2" disabled={isLoading}>
           {isLoading ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
           Atualizar
         </Button>

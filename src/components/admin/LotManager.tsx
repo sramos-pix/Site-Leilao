@@ -10,15 +10,19 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Car, Loader2, Copy } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, CheckCircle2, X } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
+import { uploadLotPhoto } from '@/lib/storage';
 
 const LotManager = () => {
   const [lots, setLots] = useState<any[]>([]);
   const [auctions, setAuctions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedLot, setSelectedLot] = useState<any>(null);
+  const [lotPhotos, setLotPhotos] = useState<any[]>([]);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -27,7 +31,6 @@ const LotManager = () => {
       supabase.from('lots').select('*').order('lot_number', { ascending: true }),
       supabase.from('auctions').select('id, title')
     ]);
-    
     setLots(lotsRes.data || []);
     setAuctions(auctionsRes.data || []);
     setIsLoading(false);
@@ -36,6 +39,62 @@ const LotManager = () => {
   useEffect(() => {
     fetchData();
   }, []);
+
+  const fetchLotPhotos = async (lotId: string) => {
+    const { data } = await supabase
+      .from('lot_photos')
+      .select('*')
+      .eq('lot_id', lotId)
+      .order('is_cover', { ascending: false });
+    setLotPhotos(data || []);
+  };
+
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!selectedLot || !e.target.files) return;
+    setIsSubmitting(true);
+    
+    try {
+      for (const file of Array.from(e.target.files)) {
+        const { storagePath, publicUrl } = await uploadLotPhoto(selectedLot.id, file);
+        
+        const isFirst = lotPhotos.length === 0;
+        await supabase.from('lot_photos').insert({
+          lot_id: selectedLot.id,
+          storage_path: storagePath,
+          public_url: publicUrl,
+          is_cover: isFirst
+        });
+
+        if (isFirst) {
+          await supabase.from('lots').update({ cover_image_url: publicUrl }).eq('id', selectedLot.id);
+        }
+      }
+      toast({ title: "Fotos enviadas!" });
+      fetchLotPhotos(selectedLot.id);
+      fetchData();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro no upload", description: error.message });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const setAsCover = async (photo: any) => {
+    await supabase.from('lot_photos').update({ is_cover: false }).eq('lot_id', selectedLot.id);
+    await supabase.from('lot_photos').update({ is_cover: true }).eq('id', photo.id);
+    await supabase.from('lots').update({ cover_image_url: photo.public_url }).eq('id', selectedLot.id);
+    fetchLotPhotos(selectedLot.id);
+    fetchData();
+  };
+
+  const deletePhoto = async (photo: any) => {
+    await supabase.from('lot_photos').delete().eq('id', photo.id);
+    if (photo.is_cover) {
+      await supabase.from('lots').update({ cover_image_url: null }).eq('id', selectedLot.id);
+    }
+    fetchLotPhotos(selectedLot.id);
+    fetchData();
+  };
 
   const handleCreate = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -52,31 +111,21 @@ const LotManager = () => {
       mileage_km: parseInt(formData.get('mileage_km') as string),
       start_bid: parseFloat(formData.get('start_bid') as string),
       ends_at: new Date(formData.get('ends_at') as string).toISOString(),
-      current_bid: null
     };
 
     const { error } = await supabase.from('lots').insert(newLot);
-
-    if (error) {
-      toast({ variant: "destructive", title: "Erro ao criar", description: error.message });
-    } else {
-      toast({ title: "Sucesso", description: "Veículo cadastrado com sucesso." });
+    if (error) toast({ variant: "destructive", title: "Erro", description: error.message });
+    else {
+      toast({ title: "Sucesso!" });
       fetchData();
     }
     setIsSubmitting(false);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Excluir este veículo?')) return;
-    const { error } = await supabase.from('lots').delete().eq('id', id);
-    if (error) toast({ variant: "destructive", title: "Erro", description: error.message });
-    else fetchData();
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-900">Gerenciar Veículos (Lotes)</h2>
+        <h2 className="text-2xl font-bold text-slate-900">Gerenciar Veículos</h2>
         <Dialog>
           <DialogTrigger asChild>
             <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
@@ -84,55 +133,23 @@ const LotManager = () => {
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl rounded-3xl">
-            <DialogHeader>
-              <DialogTitle>Cadastrar Novo Veículo</DialogTitle>
-            </DialogHeader>
+            <DialogHeader><DialogTitle>Cadastrar Novo Veículo</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="grid grid-cols-2 gap-4 py-4">
               <div className="col-span-2 space-y-2">
                 <Label>Leilão Vinculado</Label>
                 <Select name="auction_id" required>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o leilão" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {auctions.map(a => (
-                      <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>
-                    ))}
-                  </SelectContent>
+                  <SelectTrigger><SelectValue placeholder="Selecione o leilão" /></SelectTrigger>
+                  <SelectContent>{auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label>Número do Lote</Label>
-                <Input name="lot_number" type="number" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Título do Lote</Label>
-                <Input name="title" required placeholder="Ex: BMW 320i M Sport" />
-              </div>
-              <div className="space-y-2">
-                <Label>Marca</Label>
-                <Input name="brand" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Modelo</Label>
-                <Input name="model" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Ano</Label>
-                <Input name="year" type="number" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Quilometragem (KM)</Label>
-                <Input name="mileage_km" type="number" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Lance Inicial (R$)</Label>
-                <Input name="start_bid" type="number" step="0.01" required />
-              </div>
-              <div className="space-y-2">
-                <Label>Data de Encerramento</Label>
-                <Input name="ends_at" type="datetime-local" required />
-              </div>
+              <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" required /></div>
+              <div className="space-y-2"><Label>Título</Label><Input name="title" required /></div>
+              <div className="space-y-2"><Label>Marca</Label><Input name="brand" required /></div>
+              <div className="space-y-2"><Label>Modelo</Label><Input name="model" required /></div>
+              <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" required /></div>
+              <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" required /></div>
+              <div className="space-y-2"><Label>Lance Inicial</Label><Input name="start_bid" type="number" step="0.01" required /></div>
+              <div className="space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" required /></div>
               <Button type="submit" className="col-span-2 bg-orange-500 mt-4" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin" /> : 'Cadastrar Veículo'}
               </Button>
@@ -147,29 +164,64 @@ const LotManager = () => {
             <TableRow>
               <TableHead>Lote</TableHead>
               <TableHead>Veículo</TableHead>
-              <TableHead>Ano/KM</TableHead>
               <TableHead>Lance Inicial</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={4} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
             ) : lots.map((lot) => (
               <TableRow key={lot.id}>
                 <TableCell className="font-mono text-xs">#{lot.lot_number}</TableCell>
                 <TableCell>
-                  <div className="flex items-center gap-2">
-                    <Car size={16} className="text-slate-400" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden">
+                      {lot.cover_image_url ? <img src={lot.cover_image_url} className="w-full h-full object-cover" /> : <Car className="w-full h-full p-2 text-slate-300" />}
+                    </div>
                     <span className="font-bold">{lot.title}</span>
                   </div>
                 </TableCell>
-                <TableCell className="text-slate-500 text-sm">{lot.year} • {lot.mileage_km.toLocaleString()} km</TableCell>
                 <TableCell className="font-bold">{formatCurrency(lot.start_bid)}</TableCell>
                 <TableCell className="text-right">
-                  <Button variant="ghost" size="icon" onClick={() => handleDelete(lot.id)} className="text-red-500 hover:bg-red-50">
-                    <Trash2 size={18} />
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    <Dialog onOpenChange={(open) => { if(open) { setSelectedLot(lot); fetchLotPhotos(lot.id); } }}>
+                      <DialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-blue-500"><ImageIcon size={18} /></Button>
+                      </DialogTrigger>
+                      <DialogContent className="max-w-3xl rounded-3xl">
+                        <DialogHeader><DialogTitle>Fotos do Veículo: {lot.title}</DialogTitle></DialogHeader>
+                        <div className="space-y-6 py-4">
+                          <div className="flex items-center justify-center w-full">
+                            <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer hover:bg-slate-50">
+                              <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                <Plus className="w-8 h-8 text-slate-400 mb-2" />
+                                <p className="text-sm text-slate-500">Clique para subir fotos</p>
+                              </div>
+                              <input type="file" multiple className="hidden" onChange={handlePhotoUpload} accept="image/*" />
+                            </label>
+                          </div>
+                          <div className="grid grid-cols-3 gap-4">
+                            {lotPhotos.map(photo => (
+                              <div key={photo.id} className="relative group aspect-video rounded-xl overflow-hidden border">
+                                <img src={photo.public_url} className="w-full h-full object-cover" />
+                                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                                  <Button size="icon" variant="ghost" className="text-white" onClick={() => setAsCover(photo)}>
+                                    <CheckCircle2 className={photo.is_cover ? "text-green-400" : ""} />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="text-white hover:text-red-400" onClick={() => deletePhoto(photo)}>
+                                    <X />
+                                  </Button>
+                                </div>
+                                {photo.is_cover && <Badge className="absolute top-2 left-2 bg-green-500">CAPA</Badge>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+                    <Button variant="ghost" size="icon" onClick={() => { if(confirm('Excluir?')) supabase.from('lots').delete().eq('id', lot.id).then(() => fetchData()); }} className="text-red-500"><Trash2 size={18} /></Button>
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

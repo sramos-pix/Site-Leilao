@@ -14,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
+import { validateCPF } from '@/lib/validations';
 
 const authSchema = z.object({
   email: z.string().email('E-mail inválido'),
@@ -23,7 +24,14 @@ const authSchema = z.object({
   address: z.string().min(5, 'Endereço obrigatório').optional(),
   city: z.string().min(2, 'Cidade obrigatória').optional(),
   state: z.string().length(2, 'UF (2 letras)').optional(),
-  documentId: z.string().min(11, 'CPF/CNPJ inválido').optional(),
+  documentId: z.string().refine((val) => {
+    // Se estiver no modo login, não valida CPF. Se estiver no signup, valida.
+    // Como o schema é compartilhado, validamos apenas se houver valor ou se for signup
+    if (!val) return true;
+    return validateCPF(val);
+  }, {
+    message: "CPF inválido ou inexistente",
+  }).optional(),
 });
 
 type AuthFormValues = z.infer<typeof authSchema>;
@@ -45,6 +53,10 @@ const Auth = () => {
     setRateLimitError(false);
     try {
       if (mode === 'signup') {
+        if (!data.documentId || !validateCPF(data.documentId)) {
+          throw new Error("Por favor, insira um CPF válido para continuar.");
+        }
+
         const { data: authData, error: signUpError } = await supabase.auth.signUp({
           email: data.email,
           password: data.password,
@@ -59,27 +71,23 @@ const Auth = () => {
         if (signUpError) {
           if (signUpError.message.includes('rate limit')) {
             setRateLimitError(true);
-            throw new Error("Limite de envios de e-mail excedido. Por favor, tente novamente em alguns minutos ou use outro e-mail.");
+            throw new Error("Limite de envios excedido. Tente novamente em instantes.");
           }
           throw signUpError;
         }
 
         if (authData.user) {
-          const { error: profileError } = await supabase
-            .from('profiles')
-            .upsert({
-              id: authData.user.id,
-              full_name: data.fullName,
-              email: data.email,
-              phone: data.phone,
-              address: data.address,
-              city: data.city,
-              state: data.state,
-              document_id: data.documentId,
-              kyc_status: 'pending'
-            });
-          
-          if (profileError) console.error("Erro ao salvar perfil:", profileError);
+          await supabase.from('profiles').upsert({
+            id: authData.user.id,
+            full_name: data.fullName,
+            email: data.email,
+            phone: data.phone,
+            address: data.address,
+            city: data.city,
+            state: data.state,
+            document_id: data.documentId,
+            kyc_status: 'pending'
+          });
         }
 
         toast({
@@ -123,7 +131,7 @@ const Auth = () => {
             <AlertCircle className="h-4 w-4" />
             <AlertTitle>Limite de Segurança</AlertTitle>
             <AlertDescription>
-              O sistema de e-mail atingiu o limite temporário. Tente usar um e-mail diferente ou aguarde 1 hora para tentar com este mesmo endereço.
+              O sistema de e-mail atingiu o limite temporário. Tente novamente em alguns minutos.
             </AlertDescription>
           </Alert>
         )}
@@ -153,20 +161,24 @@ const Auth = () => {
                       <div className="space-y-2">
                         <Label>Nome Completo</Label>
                         <Input {...register('fullName')} placeholder="João Silva" />
+                        {errors.fullName && <p className="text-xs text-red-500">{errors.fullName.message}</p>}
                       </div>
                       <div className="space-y-2">
-                        <Label>CPF / CNPJ</Label>
+                        <Label>CPF</Label>
                         <Input {...register('documentId')} placeholder="000.000.000-00" />
+                        {errors.documentId && <p className="text-xs text-red-500">{errors.documentId.message}</p>}
                       </div>
                     </>
                   )}
                   <div className="space-y-2">
                     <Label>E-mail</Label>
                     <Input type="email" {...register('email')} placeholder="seu@email.com" />
+                    {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
                   </div>
                   <div className="space-y-2">
                     <Label>Senha</Label>
                     <Input type="password" {...register('password')} placeholder="••••••••" />
+                    {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
                   </div>
                 </div>
 
@@ -188,6 +200,10 @@ const Auth = () => {
                         <Label>Estado (UF)</Label>
                         <Input {...register('state')} placeholder="SP" maxLength={2} />
                       </div>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Telefone</Label>
+                      <Input {...register('phone')} placeholder="(11) 99999-9999" />
                     </div>
                   </div>
                 )}

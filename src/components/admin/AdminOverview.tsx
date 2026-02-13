@@ -33,8 +33,6 @@ const AdminOverview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   
-  // Ref para armazenar IDs deletados e evitar que reapareçam
-  const deletedIdsRef = useRef<Set<string>>(new Set());
   const isFetchingRef = useRef(false);
 
   const fetchStats = useCallback(async (force = false) => {
@@ -50,6 +48,7 @@ const AdminOverview = () => {
         supabase.from('bids').select('*', { count: 'exact', head: true })
       ]);
 
+      // Busca lances com join manual para evitar erros de relação se o schema estiver incompleto
       const { data: bids, error: bidsError } = await supabase
         .from('bids')
         .select('*')
@@ -58,19 +57,16 @@ const AdminOverview = () => {
 
       if (bidsError) throw bidsError;
 
-      // FILTRAGEM CRÍTICA: Remove qualquer lance que esteja na nossa lista de deletados
-      const validBids = (bids || []).filter(b => !deletedIdsRef.current.has(b.id));
-
       setStats({
         auctions: auctions.count || 0,
         lots: lots.count || 0,
         users: users.count || 0,
-        bids: Math.max(0, (bidsCount.count || 0) - deletedIdsRef.current.size)
+        bids: bidsCount.count || 0
       });
 
-      if (validBids.length > 0) {
-        const userIds = [...new Set(validBids.map(b => b.user_id))];
-        const lotIds = [...new Set(validBids.map(b => b.lot_id))];
+      if (bids && bids.length > 0) {
+        const userIds = [...new Set(bids.map(b => b.user_id))];
+        const lotIds = [...new Set(bids.map(b => b.lot_id))];
 
         const [profilesRes, lotsRes] = await Promise.all([
           supabase.from('profiles').select('id, full_name, email').in('id', userIds),
@@ -80,7 +76,7 @@ const AdminOverview = () => {
         const profilesMap = (profilesRes.data || []).reduce((acc: any, p) => ({ ...acc, [p.id]: p }), {});
         const lotsMap = (lotsRes.data || []).reduce((acc: any, l) => ({ ...acc, [l.id]: l }), {});
 
-        const enrichedBids = validBids.map(bid => ({
+        const enrichedBids = bids.map(bid => ({
           ...bid,
           profiles: profilesMap[bid.user_id],
           lots: lotsMap[bid.lot_id]
@@ -100,27 +96,23 @@ const AdminOverview = () => {
   }, []);
 
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
-    if (!confirm(`Deseja realmente excluir este lance de ${formatCurrency(amount)}?`)) return;
+    if (!confirm(`Deseja realmente EXCLUIR PERMANENTEMENTE este lance de ${formatCurrency(amount)}? Esta ação removerá o lance do painel do usuário e atualizará o valor do veículo.`)) return;
     
     setIsDeleting(bidId);
-    
-    // 1. Adiciona IMEDIATAMENTE ao Ref de bloqueio (síncrono)
-    deletedIdsRef.current.add(bidId);
-    
-    // 2. Atualização otimista da UI (remove visualmente)
-    setRecentBids(prev => prev.filter(b => b.id !== bidId));
-    setStats(prev => ({ ...prev, bids: Math.max(0, prev.bids - 1) }));
 
     try {
-      // 3. Deleta no banco
+      // 1. Tenta deletar o lance no banco de dados (Ação Real)
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
-        .eq('id', bidId);
+        .match({ id: bidId });
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error("Erro na deleção:", deleteError);
+        throw new Error(`Erro de permissão ou banco: ${deleteError.message}`);
+      }
 
-      // 4. Busca o novo lance mais alto
+      // 2. Busca o novo lance mais alto para este lote após a deleção
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -129,40 +121,42 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
-      // 5. Atualiza o lote
+      // 3. Atualiza o valor atual do lote para o lance anterior (ou 0 se não houver mais lances)
       const newCurrentBid = nextHighestBid?.amount || 0;
-      await supabase
+      const { error: updateError } = await supabase
         .from('lots')
         .update({ current_bid: newCurrentBid })
         .eq('id', lotId);
 
+      if (updateError) throw updateError;
+
       toast({ 
-        title: "Lance removido", 
-        description: `O valor do lote foi atualizado para ${formatCurrency(newCurrentBid)}.` 
+        title: "Lance excluído com sucesso", 
+        description: `O registro foi removido e o valor do lote atualizado para ${formatCurrency(newCurrentBid)}.` 
       });
       
+      // 4. Recarrega os dados para garantir sincronia
+      await fetchStats(true);
+      
     } catch (error: any) {
-      // Se falhar, remove do bloqueio para o usuário tentar de novo
-      deletedIdsRef.current.delete(bidId);
-      toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+      toast({ 
+        variant: "destructive", 
+        title: "Falha na exclusão", 
+        description: error.message || "Verifique as políticas de RLS no Supabase." 
+      });
       fetchStats(true);
     } finally {
       setIsDeleting(null);
-      // Aguarda um pouco mais para o Realtime estabilizar
-      setTimeout(() => fetchStats(true), 1500);
     }
   };
 
   useEffect(() => {
     fetchStats(true);
     
+    // Inscrição Realtime para atualizações automáticas
     const channel = supabase
-      .channel('admin-realtime-v3')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, (payload) => {
-        // Se for um evento de deleção que nós mesmos causamos, ignoramos
-        if (payload.eventType === 'DELETE' && deletedIdsRef.current.has(payload.old.id)) {
-          return;
-        }
+      .channel('admin-realtime-v4')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => {
         fetchStats();
       })
       .subscribe();

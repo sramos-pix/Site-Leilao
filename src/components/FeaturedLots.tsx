@@ -14,7 +14,6 @@ const FEATURED_LOTS = [
     id: 'l1',
     title: 'BMW 320i M Sport 2022',
     current_bid: 215000,
-    ends_at: new Date(Date.now() + 3600000 * 2).toISOString(),
     image: 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800',
     lot_number: 1
   },
@@ -22,7 +21,6 @@ const FEATURED_LOTS = [
     id: 'l2',
     title: 'Porsche 911 Carrera S 2021',
     current_bid: 850000,
-    ends_at: new Date(Date.now() + 3600000 * 5).toISOString(),
     image: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?auto=format&fit=crop&q=80&w=800',
     lot_number: 2
   },
@@ -30,7 +28,6 @@ const FEATURED_LOTS = [
     id: 'l3',
     title: 'Mercedes-Benz G63 AMG 2023',
     current_bid: 1250000,
-    ends_at: new Date(Date.now() + 3600000 * 24).toISOString(),
     image: 'https://images.unsplash.com/photo-1520031441872-265e4ff70366?auto=format&fit=crop&q=80&w=800',
     lot_number: 3
   }
@@ -69,7 +66,7 @@ const FeaturedLots = () => {
                   </Badge>
                   <Badge className="bg-orange-500 text-white border-none font-bold px-3 py-1 rounded-full shadow-sm flex items-center gap-1.5">
                     <Clock size={12} /> 
-                    <CountdownTimer endsAt={lot.ends_at} />
+                    <CountdownTimer randomScarcity={true} />
                   </Badge>
                 </div>
                 <Button 
@@ -98,7 +95,7 @@ const FeaturedLots = () => {
               </CardContent>
 
               <CardFooter className="p-8 pt-0">
-                <Link to={`/lot/${lot.id}`} className="w-full">
+                <Link to={`/lots/${lot.id}`} className="w-full">
                   <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-bold py-6 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 group/btn">
                     <Gavel size={18} className="group-hover/btn:rotate-12 transition-transform" />
                     DAR LANCE AGORA

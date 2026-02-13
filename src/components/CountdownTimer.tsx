@@ -9,10 +9,14 @@ interface CountdownTimerProps {
 }
 
 const CountdownTimer = ({ endsAt, randomScarcity, onEnd }: CountdownTimerProps) => {
+  // Gera um tempo alvo aleatório inferior a 1 hora se randomScarcity for true
   const targetDate = useMemo(() => {
     if (randomScarcity) {
-      const randomMinutes = Math.floor(Math.random() * 40) + 5;
-      return new Date(Date.now() + randomMinutes * 60000).toISOString();
+      // Gera entre 5 e 55 minutos aleatórios
+      const randomMinutes = Math.floor(Math.random() * 50) + 5;
+      const date = new Date();
+      date.setMinutes(date.getMinutes() + randomMinutes);
+      return date.toISOString();
     }
     return endsAt || new Date().toISOString();
   }, [endsAt, randomScarcity]);
@@ -59,34 +63,34 @@ const CountdownTimer = ({ endsAt, randomScarcity, onEnd }: CountdownTimerProps) 
   return (
     <div className="flex items-center justify-center gap-2">
       <div className="flex flex-col items-center">
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-2 min-w-[50px]">
-          <span className="text-2xl md:text-3xl font-black tracking-tighter text-orange-500 leading-none">
+        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-2 min-w-[45px]">
+          <span className="text-xl md:text-2xl font-black tracking-tighter text-orange-500 leading-none">
             {timeLeft.h}
           </span>
         </div>
-        <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Hrs</span>
+        <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Hrs</span>
       </div>
       
-      <span className="text-xl font-black text-white/30 mb-5">:</span>
+      <span className="text-lg font-black text-white/30 mb-4">:</span>
 
       <div className="flex flex-col items-center">
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-2 min-w-[50px]">
-          <span className="text-2xl md:text-3xl font-black tracking-tighter text-orange-500 leading-none">
+        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-2 min-w-[45px]">
+          <span className="text-xl md:text-2xl font-black tracking-tighter text-orange-500 leading-none">
             {timeLeft.m}
           </span>
         </div>
-        <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Min</span>
+        <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Min</span>
       </div>
 
-      <span className="text-xl font-black text-white/30 mb-5">:</span>
+      <span className="text-lg font-black text-white/30 mb-4">:</span>
 
       <div className="flex flex-col items-center">
-        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-2 min-w-[50px]">
-          <span className="text-2xl md:text-3xl font-black tracking-tighter text-red-500 leading-none animate-pulse">
+        <div className="bg-white/10 backdrop-blur-sm border border-white/20 rounded-xl p-2 min-w-[45px]">
+          <span className="text-xl md:text-2xl font-black tracking-tighter text-red-500 leading-none animate-pulse">
             {timeLeft.s}
           </span>
         </div>
-        <span className="text-[10px] font-bold text-slate-400 mt-1 uppercase">Seg</span>
+        <span className="text-[8px] font-bold text-slate-400 mt-1 uppercase">Seg</span>
       </div>
     </div>
   );

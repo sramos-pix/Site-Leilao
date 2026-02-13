@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Index from './pages/Index';
 import LotDetails from './pages/LotDetails';
 import Dashboard from './pages/Dashboard';
@@ -11,7 +11,7 @@ import { Toaster } from '@/components/ui/toaster';
 
 function App() {
   return (
-    <Router>
+    <>
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/lots/:id" element={<LotDetails />} />
@@ -23,7 +23,7 @@ function App() {
         <Route path="/app/history" element={<AppLayout><div>Histórico (Em breve)</div></AppLayout>} />
       </Routes>
       <Toaster />
-    </Router>
+    </>
   );
 }
 

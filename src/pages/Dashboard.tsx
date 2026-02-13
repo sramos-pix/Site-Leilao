@@ -49,9 +49,14 @@ const Dashboard = () => {
 
       setActiveBids(bidsData?.filter(b => b.lots) || []);
 
-      // Busca Vitórias Reais via RPC
-      const { data: wins } = await supabase.rpc("get_user_wins", { p_user: user.id });
-      setWinsCount(wins?.length || 0);
+      // Busca Vitórias via RPC (com fallback para 0 se a RPC falhar)
+      const { data: wins, error: winsError } = await supabase.rpc("get_user_wins", { p_user: user.id });
+      if (!winsError) {
+        setWinsCount(wins?.length || 0);
+      } else {
+        console.warn("RPC get_user_wins falhou ou não existe:", winsError);
+        setWinsCount(0);
+      }
 
       // Busca Contagem de Favoritos
       const { count } = await supabase
@@ -72,7 +77,7 @@ const Dashboard = () => {
     fetchDashboardData();
     
     const channel = supabase
-      .channel('dashboard-realtime-v2')
+      .channel('dashboard-realtime-v3')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchDashboardData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'lots' }, () => fetchDashboardData())
       .subscribe();

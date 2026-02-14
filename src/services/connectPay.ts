@@ -7,8 +7,8 @@
 
 const CONNECTPAY_API_SECRET = "sk_872e29f3517d2979f4a8af99c8b8855dbd90699a7a98b13e6df12b48c8e89f6c6676876f45bb64e5fe725ec5d56c63594da781aa2478a893885ca4c150d2149f"; 
 
-// Proxy AllOrigins para permitir requisições POST do navegador para a API da ConnectPay
-const PROXY_URL = "https://api.allorigins.win/raw?url=";
+// Corsproxy.io é excelente para manter headers customizados como o api-secret
+const PROXY_URL = "https://corsproxy.io/?";
 const TARGET_URL = "https://api.connectpay.vc/v1/payments";
 
 export const generatePixPayment = async (data: {
@@ -22,7 +22,7 @@ export const generatePixPayment = async (data: {
   }
 }) => {
   try {
-    // A API espera o valor em centavos (inteiro)
+    // Valor em centavos conforme documentação
     const amountInCents = Math.round(data.amount * 100);
 
     const payload = {
@@ -39,8 +39,10 @@ export const generatePixPayment = async (data: {
       }
     };
 
-    // Fazemos a chamada através do proxy para evitar erro de CORS
-    const response = await fetch(`${PROXY_URL}${encodeURIComponent(TARGET_URL)}`, {
+    // A URL final para o proxy deve ser codificada
+    const finalUrl = `${PROXY_URL}${encodeURIComponent(TARGET_URL)}`;
+
+    const response = await fetch(finalUrl, {
       method: 'POST',
       headers: {
         'api-secret': CONNECTPAY_API_SECRET,
@@ -51,18 +53,18 @@ export const generatePixPayment = async (data: {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Erro ConnectPay API:", errorText);
-      throw new Error(`Erro na intermediadora: ${response.status}`);
+      const errorData = await response.json().catch(() => ({ message: 'Erro na API' }));
+      throw new Error(errorData.message || `Erro HTTP: ${response.status}`);
     }
 
     const result = await response.json();
 
-    // Conforme a documentação, o código PIX (payload) vem dentro do objeto 'pix' ou 'pix_qr_code'
+    // Extração do código PIX (payload) da resposta
     const pixCode = result.pix_qr_code || (result.pix && result.pix.payload);
 
     if (!pixCode) {
-      throw new Error("Pagamento criado, mas o código PIX não foi retornado pela API.");
+      console.error("Resposta inesperada da ConnectPay:", result);
+      throw new Error("O código PIX não foi retornado pela intermediadora.");
     }
 
     return {
@@ -75,7 +77,9 @@ export const generatePixPayment = async (data: {
     console.error("Erro na integração ConnectPay:", error);
     return {
       success: false,
-      error: error.message || 'Erro ao processar pagamento PIX'
+      error: error.message === 'Failed to fetch' 
+        ? 'Erro de conexão com o servidor de pagamentos. Tente novamente.' 
+        : error.message
     };
   }
 };

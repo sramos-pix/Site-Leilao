@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft, Search } from 'lucide-react';
+import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft, Search, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -20,6 +20,7 @@ const Register = () => {
   const [fullName, setFullName] = React.useState('');
   const [email, setEmail] = React.useState('');
   const [password, setPassword] = React.useState('');
+  const [confirmPassword, setConfirmPassword] = React.useState('');
 
   // Step 2 Data
   const [cpf, setCpf] = React.useState('');
@@ -93,6 +94,25 @@ const Register = () => {
 
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (password !== confirmPassword) {
+      toast({ 
+        variant: "destructive", 
+        title: "Senhas não conferem", 
+        description: "A confirmação de senha deve ser igual à senha digitada." 
+      });
+      return;
+    }
+
+    if (password.length < 6) {
+      toast({ 
+        variant: "destructive", 
+        title: "Senha fraca", 
+        description: "A senha deve ter pelo menos 6 caracteres." 
+      });
+      return;
+    }
+
     setStep(2);
   };
 
@@ -193,6 +213,17 @@ const Register = () => {
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  required
+                />
+              </div>
+              <div className="relative">
+                <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Input 
+                  type="password" 
+                  placeholder="Confirme sua senha" 
+                  className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                 />
               </div>

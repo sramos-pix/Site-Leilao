@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatCurrency, maskEmail, formatDate } from '@/lib/utils';
+import { formatCurrency, maskEmail, formatDate, cn } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -130,6 +130,7 @@ const LotDetail = () => {
       display_name: b.user_id === user?.id ? "Você" : "Licitante"
     }));
 
+    // Lances simulados para histórico (Prova Social)
     const fakeEmails = ["ca***@gmail.com", "an***@hotmail.com", "ro***@outlook.com", "ju***@yahoo.com"];
     const seed = id ? id.split('').reduce((a, b) => a + b.charCodeAt(0), 0) : 0;
     const fakes = [];
@@ -214,6 +215,57 @@ const LotDetail = () => {
               <div className="mt-8">
                 <h3 className="text-lg font-bold text-slate-900 mb-4">Descrição do Lote</h3>
                 <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">{lot.description || "Sem descrição."}</div>
+              </div>
+            </div>
+
+            {/* HISTÓRICO DE LANCES - RESTAURADO */}
+            <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+              <div className="flex items-center justify-between mb-8">
+                <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                  <History className="text-orange-500" /> Histórico de Lances
+                </h3>
+                <Badge variant="outline" className="rounded-full border-slate-200 text-slate-400 font-bold">
+                  {allBids.length} lances realizados
+                </Badge>
+              </div>
+
+              <div className="space-y-4">
+                {allBids.length > 0 ? allBids.map((bid, idx) => (
+                  <div 
+                    key={bid.id} 
+                    className={cn(
+                      "flex items-center justify-between p-5 rounded-2xl transition-all border",
+                      idx === 0 ? "bg-orange-50 border-orange-100 shadow-sm" : "bg-white border-slate-50",
+                      bid.user_id === user?.id ? "border-l-4 border-l-orange-500" : ""
+                    )}
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "w-10 h-10 rounded-full flex items-center justify-center",
+                        idx === 0 ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-400"
+                      )}>
+                        <User size={18} />
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900 flex items-center gap-2">
+                          {bid.display_name}
+                          {idx === 0 && <Badge className="bg-orange-500 text-[8px] h-4 px-1.5">LÍDER</Badge>}
+                        </p>
+                        <p className="text-[10px] text-slate-400 font-medium">{formatDate(bid.created_at)}</p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className={cn("font-black text-lg", idx === 0 ? "text-orange-600" : "text-slate-900")}>
+                        {formatCurrency(bid.amount)}
+                      </p>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center py-10 bg-slate-50 rounded-3xl border-2 border-dashed border-slate-100">
+                    <TrendingUp className="mx-auto text-slate-300 mb-2" />
+                    <p className="text-slate-400 font-bold">Nenhum lance ainda. Seja o primeiro!</p>
+                  </div>
+                )}
               </div>
             </div>
           </div>

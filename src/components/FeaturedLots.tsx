@@ -20,21 +20,27 @@ const FeaturedLots = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Busca lotes que pertencem a leilões com status 'active'
+      // Busca os lotes mais recentes. Se houver leilões ativos, eles aparecerão primeiro.
       const { data, error } = await supabase
         .from('lots')
         .select(`
           *,
-          auctions!inner(status)
+          auctions (
+            status
+          )
         `)
-        .eq('auctions.status', 'active')
         .order('created_at', { ascending: false })
         .limit(3);
 
       if (error) throw error;
-      setLots(data || []);
 
-      // Busca favoritos do usuário se estiver logado
+      // Filtra para garantir que estamos mostrando lotes que pertencem a leilões ativos
+      // ou simplesmente mostra os últimos cadastrados se o filtro de status falhar
+      const activeLots = data?.filter(lot => lot.auctions?.status === 'active') || [];
+      
+      // Se não houver nenhum estritamente 'active', mostra os últimos 3 de qualquer forma para não deixar a home vazia
+      setLots(activeLots.length > 0 ? activeLots : (data || []));
+
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
         const { data: favs } = await supabase
@@ -44,7 +50,7 @@ const FeaturedLots = () => {
         setUserFavorites(favs?.map(f => f.lot_id) || []);
       }
     } catch (error) {
-      console.error("Erro ao buscar lotes ativos:", error);
+      console.error("Erro ao buscar lotes:", error);
     } finally {
       setIsLoading(false);
     }
@@ -87,10 +93,10 @@ const FeaturedLots = () => {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
           <div>
             <Badge className="bg-orange-100 text-orange-600 hover:bg-orange-100 border-none mb-4 px-4 py-1 rounded-full font-bold">
-              LEILÕES ATIVOS
+              LEILÕES EM DESTAQUE
             </Badge>
-            <h2 className="text-4xl font-black text-slate-900 tracking-tight">Oportunidades em Destaque</h2>
-            <p className="text-slate-500 mt-2 font-medium">Confira os lotes mais disputados do momento</p>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tight">Oportunidades Imperdíveis</h2>
+            <p className="text-slate-500 mt-2 font-medium">Os veículos mais disputados da plataforma</p>
           </div>
           <Link to="/auctions">
             <Button variant="ghost" className="text-orange-600 font-bold hover:text-orange-700 hover:bg-orange-50 group">
@@ -166,7 +172,7 @@ const FeaturedLots = () => {
           </div>
         ) : (
           <div className="text-center py-20 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
-            <p className="text-slate-400 font-bold">Nenhum leilão ativo no momento.</p>
+            <p className="text-slate-400 font-bold">Nenhum lote disponível no momento.</p>
           </div>
         )}
       </div>

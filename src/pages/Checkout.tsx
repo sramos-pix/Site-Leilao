@@ -5,7 +5,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { generatePixPayment } from '@/services/connectPay';
@@ -43,9 +43,9 @@ const Checkout = () => {
 
       const res = await generatePixPayment({
         amount: lot.final_price || lot.current_bid,
-        description: `Arremate Lote ${lot.lot_number}: ${lot.title}`,
+        description: `Lote ${lot.lot_number}: ${lot.title}`,
         customer: {
-          name: profile?.full_name || 'Cliente AutoBid',
+          name: profile?.full_name || 'Licitante AutoBid',
           document: profile?.document_id || '',
           email: profile?.email || '',
           phone: profile?.phone
@@ -54,23 +54,15 @@ const Checkout = () => {
 
       if (res.success) {
         setPaymentData(res);
-        toast({ title: "PIX Gerado com Sucesso!" });
+        toast({ title: "PIX Gerado!", description: "Aguardando pagamento." });
       } else {
         setError(res.error);
       }
     } catch (err: any) {
-      setError("Não foi possível conectar com a intermediadora.");
+      setError("Erro ao conectar com o servidor de pagamentos.");
     } finally {
       setProcessing(false);
     }
-  };
-
-  const copyPix = () => {
-    if (!paymentData?.pix_code) return;
-    navigator.clipboard.writeText(paymentData.pix_code);
-    setCopied(true);
-    toast({ title: "Código Copiado!" });
-    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
@@ -86,20 +78,25 @@ const Checkout = () => {
         <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white">
           <CardHeader className="bg-slate-900 text-white p-8">
             <CardTitle className="text-2xl font-bold flex items-center gap-3">
-              <ShieldCheck className="text-orange-500" /> Checkout ConnectPay
+              <ShieldCheck className="text-orange-500" /> Pagamento Seguro
             </CardTitle>
           </CardHeader>
 
           <CardContent className="p-8 space-y-6">
             <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Valor Total</p>
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total do Arremate</p>
               <p className="text-3xl font-black text-slate-900">{formatCurrency(lot?.final_price || lot?.current_bid)}</p>
               <p className="text-xs text-slate-500 mt-2">{lot?.title}</p>
             </div>
 
             {error && (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-center gap-3 text-red-600 text-sm font-bold">
-                <AlertCircle size={18} /> {error}
+              <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex flex-col gap-3">
+                <div className="flex items-center gap-3 text-red-600 text-sm font-bold">
+                  <AlertCircle size={18} /> {error}
+                </div>
+                <Button onClick={handleGeneratePix} variant="outline" className="w-full border-red-200 text-red-600 hover:bg-red-100 rounded-xl">
+                  <RefreshCw size={14} className="mr-2" /> Tentar Novamente
+                </Button>
               </div>
             )}
 
@@ -107,10 +104,10 @@ const Checkout = () => {
               <Button 
                 onClick={handleGeneratePix}
                 disabled={processing}
-                className="w-full h-16 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold text-lg shadow-lg"
+                className="w-full h-16 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-orange-100"
               >
                 {processing ? <Loader2 className="animate-spin mr-2" /> : <QrCode className="mr-2" />}
-                GERAR PIX REAL (CONNECTPAY)
+                GERAR PIX CONNECTPAY
               </Button>
             ) : (
               <div className="space-y-8 animate-in fade-in duration-500">
@@ -118,7 +115,7 @@ const Checkout = () => {
                   <div className="bg-white p-4 rounded-3xl shadow-inner border-2 border-slate-100">
                     <img src={paymentData.qr_code_url} alt="QR Code PIX" className="w-48 h-48" />
                   </div>
-                  <p className="text-xs font-bold text-slate-400 uppercase">Escaneie o QR Code para pagar</p>
+                  <p className="text-xs font-bold text-slate-400 uppercase">Escaneie para pagar instantaneamente</p>
                 </div>
 
                 <div className="space-y-2">
@@ -127,7 +124,10 @@ const Checkout = () => {
                     <div className="flex-1 bg-slate-50 p-4 rounded-xl text-[10px] font-mono break-all border border-slate-200 text-slate-500 max-h-24 overflow-y-auto">
                       {paymentData.pix_code}
                     </div>
-                    <Button onClick={copyPix} className="bg-slate-900 h-auto px-6 rounded-xl">
+                    <Button 
+                      onClick={() => { navigator.clipboard.writeText(paymentData.pix_code); setCopied(true); setTimeout(() => setCopied(false), 2000); toast({ title: "Copiado!" }); }} 
+                      className="bg-slate-900 h-auto px-6 rounded-xl"
+                    >
                       {copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
                     </Button>
                   </div>

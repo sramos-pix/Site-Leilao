@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * Integração ConnectPay via API de Payments com Proxy para evitar CORS
+ * Integração ConnectPay via API de Payments com Proxy Robusto
  */
 
 const CONNECTPAY_API_SECRET = "sk_872e29f3517d2979f4a8af99c8b8855dbd90699a7a98b13e6df12b48c8e89f6c6676876f45bb64e5fe725ec5d56c63594da781aa2478a893885ca4c150d2149f"; 
 
-// Usando um proxy para evitar erro de CORS no navegador
-const PROXY_URL = "https://api.allorigins.win/raw?url=";
+// Proxy robusto para contornar o bloqueio de CORS do navegador
+const PROXY_URL = "https://corsproxy.io/?";
 const TARGET_URL = "https://api.connectpay.vc/v1/payments";
 
 export const generatePixPayment = async (data: {
@@ -48,17 +48,20 @@ export const generatePixPayment = async (data: {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Erro ConnectPay: ${response.status} - ${errorText}`);
+      const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido na API' }));
+      throw new Error(errorData.message || `Erro ${response.status}`);
     }
 
     const result = await response.json();
 
-    // Mapeamento do retorno conforme documentação ConnectPay
-    const pixCode = result.pix_qr_code || result.pix?.payload || (result.data && result.data.pix_qr_code);
+    // Extração do código PIX baseada na estrutura de resposta da ConnectPay
+    const pixCode = result.pix_qr_code || 
+                    result.pix?.payload || 
+                    (result.data && (result.data.pix_qr_code || result.data.pix?.payload));
 
     if (!pixCode) {
-      throw new Error("Código PIX não retornado pela intermediadora.");
+      console.error("Resposta completa da API:", result);
+      throw new Error("Pagamento criado, mas o código PIX não foi retornado.");
     }
 
     return {
@@ -68,10 +71,12 @@ export const generatePixPayment = async (data: {
       transaction_id: result.id
     };
   } catch (error: any) {
-    console.error("Erro na geração do PIX:", error);
+    console.error("Erro detalhado:", error);
     return {
       success: false,
-      error: error.message || 'Erro de conexão com a intermediadora'
+      error: error.message === 'Failed to fetch' 
+        ? 'Bloqueio de segurança (CORS). Tente novamente em instantes.' 
+        : error.message
     };
   }
 };

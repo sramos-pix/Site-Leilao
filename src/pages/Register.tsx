@@ -138,6 +138,7 @@ const Register = () => {
 
       if (authData.user) {
         // 2. Inserir dados na tabela profiles com mapeamento exato das colunas
+        // kyc_status é definido como null para evitar erro de CHECK constraint
         const profileData = {
           id: authData.user.id,
           full_name: fullName,
@@ -151,12 +152,12 @@ const Register = () => {
           neighborhood: neighborhood,
           city: city,
           state: state,
-          kyc_status: 'waiting'
+          kyc_status: null 
         };
 
         const { error: profileError } = await supabase
           .from('profiles')
-          .upsert(profileData); // Usamos upsert para garantir que grave mesmo se a trigger já criou o registro
+          .upsert(profileData);
 
         if (profileError) throw profileError;
       }

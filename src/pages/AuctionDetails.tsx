@@ -195,7 +195,7 @@ const AuctionDetails = () => {
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Lance Atual</p>
-                    <p className="text-2xl font-black text-slate-900">{formatCurrency(lot.current_price || lot.starting_price)}</p>
+                    <p className="text-2xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.starting_price)}</p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Incremento</p>

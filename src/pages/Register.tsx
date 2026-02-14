@@ -30,7 +30,10 @@ const Register = () => {
   const [cep, setCep] = React.useState('');
   const [address, setAddress] = React.useState('');
   const [city, setCity] = React.useState('');
+  const [state, setState] = React.useState('');
   const [number, setNumber] = React.useState('');
+  const [neighborhood, setNeighborhood] = React.useState('');
+  const [complement, setComplement] = React.useState('');
 
   const maskCPF = (value: string) => {
     return value
@@ -80,8 +83,10 @@ const Register = () => {
         const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
         const data = await response.json();
         if (!data.erro) {
-          setAddress(data.logradouro);
-          setCity(`${data.localidade} - ${data.uf}`);
+          setAddress(data.logradouro || '');
+          setNeighborhood(data.bairro || '');
+          setCity(data.localidade || '');
+          setState(data.uf || '');
         } else {
           toast({ variant: "destructive", title: "CEP não encontrado" });
         }
@@ -132,41 +137,28 @@ const Register = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // 2. Inserir dados na tabela profiles
+        // 2. Inserir dados na tabela profiles com mapeamento exato das colunas
+        const profileData = {
+          id: authData.user.id,
+          full_name: fullName,
+          email: email,
+          document_id: cpf.replace(/[^\d]+/g, ''),
+          phone: phone.replace(/[^\d]+/g, ''),
+          zip_code: cep.replace(/[^\d]+/g, ''),
+          address: address,
+          number: number,
+          complement: complement,
+          neighborhood: neighborhood,
+          city: city,
+          state: state,
+          kyc_status: 'waiting'
+        };
+
         const { error: profileError } = await supabase
           .from('profiles')
-          .insert([
-            {
-              id: authData.user.id,
-              full_name: fullName,
-              email: email,
-              document_id: cpf.replace(/[^\d]+/g, ''),
-              phone: phone.replace(/[^\d]+/g, ''),
-              zip_code: cep.replace(/[^\d]+/g, ''),
-              address: address,
-              number: number,
-              city: city.split(' - ')[0],
-              state: city.split(' - ')[1] || '',
-              kyc_status: 'waiting'
-            }
-          ]);
+          .upsert(profileData); // Usamos upsert para garantir que grave mesmo se a trigger já criou o registro
 
-        if (profileError) {
-          console.error("Erro ao criar perfil:", profileError);
-          // Mesmo com erro no profile, o user foi criado no Auth. 
-          // Tentamos um upsert caso a trigger do banco já tenha criado um perfil vazio.
-          await supabase.from('profiles').update({
-            full_name: fullName,
-            document_id: cpf.replace(/[^\d]+/g, ''),
-            phone: phone.replace(/[^\d]+/g, ''),
-            zip_code: cep.replace(/[^\d]+/g, ''),
-            address: address,
-            number: number,
-            city: city.split(' - ')[0],
-            state: city.split(' - ')[1] || '',
-            kyc_status: 'waiting'
-          }).eq('id', authData.user.id);
-        }
+        if (profileError) throw profileError;
       }
 
       toast({ 
@@ -317,14 +309,36 @@ const Register = () => {
                   required
                 />
               </div>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+              <div className="grid grid-cols-2 gap-3">
                 <Input 
-                  placeholder="Cidade / UF" 
-                  className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                  placeholder="Bairro" 
+                  className="h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                  value={neighborhood}
+                  onChange={(e) => setNeighborhood(e.target.value)}
+                  required
+                />
+                <Input 
+                  placeholder="Cidade" 
+                  className="h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={city}
                   onChange={(e) => setCity(e.target.value)}
                   required
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <Input 
+                  placeholder="UF" 
+                  className="h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                  value={state}
+                  onChange={(e) => setState(e.target.value)}
+                  maxLength={2}
+                  required
+                />
+                <Input 
+                  placeholder="Complemento" 
+                  className="h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                  value={complement}
+                  onChange={(e) => setComplement(e.target.value)}
                 />
               </div>
               <div className="flex gap-3">

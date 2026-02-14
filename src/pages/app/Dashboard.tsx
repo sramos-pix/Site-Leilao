@@ -37,7 +37,12 @@ const Dashboard = () => {
         .select('*')
         .eq('id', user.id)
         .single();
-      setProfile(profileData);
+      
+      // Se o perfil não existir na tabela, usa os metadados do Auth
+      setProfile(profileData || {
+        full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
+        kyc_status: 'waiting'
+      });
 
       const { data: bidsData } = await supabase
         .from('bids')
@@ -87,12 +92,10 @@ const Dashboard = () => {
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ];
 
-  // Lógica de status KYC
   const kycStatus = profile?.kyc_status;
   const isVerified = kycStatus === 'verified';
   const isPendingAnalysis = kycStatus === 'pending';
   const isRejected = kycStatus === 'rejected';
-  // Se for nulo, vazio ou 'waiting', consideramos como aguardando envio
   const isWaiting = !kycStatus || kycStatus === 'waiting' || kycStatus === '';
 
   const getKycStatusLabel = () => {
@@ -105,7 +108,7 @@ const Dashboard = () => {
   const getCardBgColor = () => {
     if (isVerified) return "bg-emerald-600";
     if (isPendingAnalysis) return "bg-orange-500";
-    return "bg-red-600"; // Vermelho para Aguardando ou Rejeitado
+    return "bg-red-600";
   };
 
   const getBadgeColor = () => {

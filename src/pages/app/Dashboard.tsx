@@ -87,11 +87,11 @@ const Dashboard = () => {
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ];
 
-  // Lógica de status simplificada para evitar confusão
+  // Lógica de status ajustada para garantir que novos usuários vejam PENDENTE
   const getKycStatusLabel = () => {
     if (profile?.kyc_status === 'verified') return 'APROVADO';
-    if (profile?.kyc_status === 'pending') return 'EM ANÁLISE';
     if (profile?.kyc_status === 'rejected') return 'REJEITADO';
+    if (profile?.kyc_status === 'pending') return 'EM ANÁLISE';
     return 'PENDENTE';
   };
 

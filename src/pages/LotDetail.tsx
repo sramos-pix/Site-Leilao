@@ -6,14 +6,14 @@ import {
   ChevronLeft, Heart, Share2, Clock, Gavel, 
   ShieldCheck, MapPin, Calendar, Gauge, 
   Fuel, Settings2, Loader2, History, User, 
-  TrendingUp, Lock, Trophy, Info, CheckCircle2
+  Trophy, Info, CheckCircle2, Lock as LockIcon
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { formatCurrency, formatDate, cn } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -84,6 +84,7 @@ const LotDetail = () => {
     const channel = supabase
       .channel(`lot-realtime-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => fetchLotData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => fetchLotData())
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
@@ -116,11 +117,32 @@ const LotDetail = () => {
   if (!lot) return null;
 
   const isFinished = lot.status === 'finished';
+  const isWinner = user && lot.winner_id === user.id;
 
   return (
     <div className="bg-white min-h-screen flex flex-col">
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
+        {/* Banner de Vitória */}
+        {isFinished && isWinner && (
+          <div className="mb-8 bg-emerald-500 text-white p-6 rounded-[2rem] shadow-lg shadow-emerald-100 flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
+            <div className="flex items-center gap-4">
+              <div className="bg-white/20 p-3 rounded-2xl">
+                <Trophy size={32} className="text-white" />
+              </div>
+              <div>
+                <h2 className="text-2xl font-black">Você Venceu!</h2>
+                <p className="text-emerald-50 text-sm font-medium">Parabéns! Seu lance foi o vencedor. Verifique suas notificações para os próximos passos.</p>
+              </div>
+            </div>
+            <Link to={`/app/checkout/${lot.id}`}>
+              <Button className="bg-white text-emerald-600 hover:bg-emerald-50 font-black px-8 py-6 rounded-2xl shadow-sm">
+                PAGAR AGORA
+              </Button>
+            </Link>
+          </div>
+        )}
+
         <div className="flex items-center justify-between mb-6">
           <Link to="/auctions" className="inline-flex items-center text-sm font-bold text-slate-500 hover:text-orange-600 transition-colors">
             <ChevronLeft size={18} className="mr-1" /> VOLTAR PARA LEILÕES
@@ -137,7 +159,7 @@ const LotDetail = () => {
             <div className="space-y-4">
               <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative group border border-slate-100">
                 <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover" alt={lot.title} />
-                {isFinished && (
+                {isFinished && !isWinner && (
                   <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-20">
                     <Badge className="bg-white text-slate-900 px-6 py-2 text-lg font-bold rounded-full">ENCERRADO</Badge>
                   </div>
@@ -198,33 +220,45 @@ const LotDetail = () => {
 
           {/* Coluna da Direita: Painel de Lances */}
           <div className="lg:col-span-4 space-y-6">
-            <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-slate-900 text-white">
+            <Card className={cn(
+              "border-none shadow-xl rounded-3xl overflow-hidden text-white",
+              isFinished && isWinner ? "bg-emerald-600" : "bg-slate-900"
+            )}>
               <CardContent className="p-8 space-y-6">
                 <div className="flex justify-between items-center">
-                  <Badge className="bg-orange-500 text-white border-none px-3 py-1 rounded-full text-[10px] font-bold">AO VIVO</Badge>
-                  <div className="flex items-center gap-2 text-orange-500 font-bold text-sm">
-                    <Clock size={16} />
-                    <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
-                  </div>
+                  <Badge className={cn(
+                    "text-white border-none px-3 py-1 rounded-full text-[10px] font-bold",
+                    isFinished ? "bg-white/20" : "bg-orange-500"
+                  )}>
+                    {isFinished ? "ENCERRADO" : "AO VIVO"}
+                  </Badge>
+                  {!isFinished && (
+                    <div className="flex items-center gap-2 text-orange-500 font-bold text-sm">
+                      <Clock size={16} />
+                      <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
+                    </div>
+                  )}
                 </div>
 
                 <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lance Atual</p>
+                  <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
+                    {isFinished ? "Valor de Arremate" : "Lance Atual"}
+                  </p>
                   <p className="text-4xl font-black text-white">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/10">
                   <div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Inicial</p>
+                    <p className="text-[10px] font-bold text-white/60 uppercase">Inicial</p>
                     <p className="text-sm font-bold">{formatCurrency(lot.start_bid)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="text-[10px] font-bold text-slate-400 uppercase">Incremento</p>
-                    <p className="text-sm font-bold text-orange-500">+{formatCurrency(lot.bid_increment || 500)}</p>
+                    <p className="text-[10px] font-bold text-white/60 uppercase">Incremento</p>
+                    <p className="text-sm font-bold text-orange-400">+{formatCurrency(lot.bid_increment || 500)}</p>
                   </div>
                 </div>
 
-                {!isFinished && (
+                {!isFinished ? (
                   <div className="space-y-4">
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">R$</span>
@@ -243,10 +277,24 @@ const LotDetail = () => {
                       {isSubmitting ? <Loader2 className="animate-spin" /> : "DAR LANCE AGORA"}
                     </Button>
                   </div>
+                ) : (
+                  <div className="pt-2">
+                    {isWinner ? (
+                      <div className="bg-white/10 p-4 rounded-2xl border border-white/20 flex items-center gap-3">
+                        <CheckCircle2 className="text-white" size={24} />
+                        <p className="text-xs font-bold leading-tight">Você arrematou este veículo! Siga para o pagamento.</p>
+                      </div>
+                    ) : (
+                      <div className="bg-white/10 p-4 rounded-2xl border border-white/20 flex items-center gap-3">
+                        <LockIcon className="text-white/60" size={24} />
+                        <p className="text-xs font-bold text-white/60 leading-tight">Este leilão foi encerrado para novos lances.</p>
+                      </div>
+                    )}
+                  </div>
                 )}
 
-                <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
-                  <ShieldCheck size={14} className="text-emerald-500" /> Leilão Seguro & Auditado
+                <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-white/40 uppercase">
+                  <ShieldCheck size={14} className="text-emerald-400" /> Leilão Seguro & Auditado
                 </div>
               </CardContent>
             </Card>
@@ -260,13 +308,16 @@ const LotDetail = () => {
                 {realBids.slice(0, 5).map((bid, idx) => (
                   <div key={bid.id} className="flex items-center justify-between text-sm">
                     <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", idx === 0 ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
-                      <span className="font-medium text-slate-600">{bid.user_id === user?.id ? "Seu Lance" : "Licitante"}</span>
+                      <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
+                      <span className="font-medium text-slate-600">
+                        {bid.user_id === user?.id ? "Seu Lance" : "Licitante"}
+                        {isFinished && idx === 0 && <span className="ml-2 text-[10px] text-emerald-600 font-bold">(Vencedor)</span>}
+                      </span>
                     </div>
                     <span className="font-bold text-slate-900">{formatCurrency(bid.amount)}</span>
                   </div>
                 ))}
-                {realBids.length === 0 && <p className="text-xs text-slate-400 italic text-center">Nenhum lance ainda.</p>}
+                {realBids.length === 0 && <p className="text-xs text-slate-400 italic text-center">Nenhum lance registrado.</p>}
               </div>
             </div>
           </div>

@@ -46,7 +46,7 @@ const Checkout = () => {
 
       const res = await generatePixPayment({
         amount: lot.final_price || lot.current_bid,
-        description: `Lote ${lot.lot_number}: ${lot.title}`,
+        description: `Arremate Lote ${lot.lot_number}: ${lot.title}`,
         customer: {
           name: profile?.full_name || 'Licitante AutoBid',
           document: profile?.document_id || '',
@@ -65,6 +65,15 @@ const Checkout = () => {
       setError(err.message || "Erro ao conectar com o servidor de pagamentos.");
     } finally {
       setProcessing(false);
+    }
+  };
+
+  const copyToClipboard = () => {
+    if (paymentData?.pix_code) {
+      navigator.clipboard.writeText(paymentData.pix_code);
+      setCopied(true);
+      toast({ title: "Copiado!", description: "Código PIX copiado para a área de transferência." });
+      setTimeout(() => setCopied(false), 2000);
     }
   };
 
@@ -128,7 +137,7 @@ const Checkout = () => {
                       {paymentData.pix_code}
                     </div>
                     <Button 
-                      onClick={() => { navigator.clipboard.writeText(paymentData.pix_code); setCopied(true); setTimeout(() => setCopied(false), 2000); toast({ title: "Copiado!" }); }} 
+                      onClick={copyToClipboard} 
                       className="bg-slate-900 h-auto px-6 rounded-xl"
                     >
                       {copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}

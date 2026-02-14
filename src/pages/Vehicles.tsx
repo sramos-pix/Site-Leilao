@@ -73,20 +73,20 @@ const Vehicles = () => {
                         alt={lot.title} 
                         className={cn(
                           "w-full h-full object-cover transition-all duration-500",
-                          isFinished ? "blur-md grayscale brightness-[0.3] scale-105" : "group-hover:scale-110"
+                          isFinished ? "blur-[2px] grayscale-[0.5] brightness-[0.6] scale-105" : "group-hover:scale-110"
                         )}
                       />
                       
                       {isFinished ? (
-                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
-                          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-full mb-2">
-                            <Lock className="text-white" size={20} />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-900/40 backdrop-blur-[1px]">
+                          <div className="bg-white/20 backdrop-blur-md border border-white/30 p-2 rounded-full mb-2">
+                            <Lock className="text-white" size={18} />
                           </div>
-                          <span className="text-white font-black text-lg tracking-tighter uppercase drop-shadow-lg">
+                          <span className="text-white font-black text-base tracking-tighter uppercase drop-shadow-md">
                             ARREMATADO
                           </span>
-                          <span className="text-white/70 text-[10px] font-bold uppercase tracking-widest">
-                            Leilão Encerrado
+                          <span className="text-white/80 text-[9px] font-bold uppercase tracking-widest">
+                            Finalizado
                           </span>
                         </div>
                       ) : (
@@ -145,7 +145,7 @@ const Vehicles = () => {
         )}
 
         {!loading && filteredLots.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
+          <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-100">
             <Car className="mx-auto text-slate-200 mb-4" size={48} />
             <h3 className="text-xl font-bold text-slate-900">Nenhum veículo encontrado</h3>
             <p className="text-slate-500">Tente ajustar sua busca ou filtros.</p>

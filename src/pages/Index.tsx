@@ -39,7 +39,7 @@ const Index = () => {
                       <ArrowRight className="ml-2 h-5 w-5" />
                     </Button>
                   </Link>
-                  <Link to="/auth/register">
+                  <Link to="/register">
                     <Button size="lg" variant="outline" className="px-8 py-6 text-lg rounded-xl border-2 w-full sm:w-auto bg-white">
                       Cadastre-se Grátis
                     </Button>

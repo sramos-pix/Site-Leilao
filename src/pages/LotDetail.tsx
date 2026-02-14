@@ -11,7 +11,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input'; // Importação adicionada
+import { Input } from '@/components/ui/input';
 import { formatCurrency, formatDate, cn } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
@@ -103,7 +103,26 @@ const LotDetail = () => {
     }
   };
 
-  const isFinished = lot?.status === 'finished';
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-12 h-12 text-orange-500 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!lot) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
+        <h2 className="text-2xl font-bold text-slate-900 mb-4">Lote não encontrado</h2>
+        <Link to="/auctions">
+          <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">Voltar para Leilões</Button>
+        </Link>
+      </div>
+    );
+  }
+
+  const isFinished = lot.status === 'finished';
 
   return (
     <div className="bg-slate-50 min-h-screen pb-20">
@@ -116,7 +135,7 @@ const LotDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-8">
             <div className="aspect-[16/9] rounded-[3rem] overflow-hidden shadow-2xl bg-slate-200 border-8 border-white relative">
-              <img src={activePhoto} className="w-full h-full object-cover" />
+              <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover" alt={lot.title} />
               {isFinished && (
                 <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex items-center justify-center z-20">
                   <div className="bg-white p-10 rounded-[2.5rem] text-center">

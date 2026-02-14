@@ -1,150 +1,190 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { 
-  CreditCard, ShieldCheck, ArrowLeft, 
-  CheckCircle2, Loader2, Info, Copy, QrCode
-} from 'lucide-react';
+import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, CreditCard } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
+import { generatePixPayment } from '@/services/connectPay';
 
 const Checkout = () => {
-  const { id } = useParams();
+  const { lotId } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const [lot, setLot] = React.useState<any>(null);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [isProcessing, setIsProcessing] = React.useState(false);
+  
+  const [loading, setLoading] = useState(true);
+  const [processing, setProcessing] = useState(false);
+  const [lot, setLot] = useState<any>(null);
+  const [paymentData, setPaymentData] = useState<any>(null);
+  const [copied, setCopied] = useState(false);
 
-  React.useEffect(() => {
-    const fetchLot = async () => {
-      const { data } = await supabase.from('lots').select('*').eq('id', id).single();
+  useEffect(() => {
+    const fetchLotData = async () => {
+      const { data, error } = await supabase
+        .from('lots')
+        .select('*, auctions(title)')
+        .eq('id', lotId)
+        .single();
+
+      if (error || !data) {
+        toast({ variant: "destructive", title: "Erro", description: "Lote não encontrado." });
+        navigate('/app');
+        return;
+      }
       setLot(data);
-      setIsLoading(false);
+      setLoading(false);
     };
-    fetchLot();
-  }, [id]);
 
-  const copyPixCode = () => {
-    navigator.clipboard.writeText("00020126580014BR.GOV.BCB.PIX0136f2e3d4c5-b6a7-4890-9123-456789abcdef5204000053039865802BR5920AUTOBID LEILOES LTDA6009SAO PAULO62070503***6304ABCD");
-    toast({ title: "Código Copiado!", description: "Cole no seu aplicativo do banco." });
-  };
+    fetchLotData();
+  }, [lotId, navigate, toast]);
 
-  const handlePayment = async () => {
-    setIsProcessing(true);
-    // Simulação de processamento
-    setTimeout(async () => {
-      toast({
-        title: "Pagamento em Análise",
-        description: "Recebemos sua intenção de pagamento. A baixa ocorre em até 30 min.",
+  const handleGeneratePayment = async () => {
+    setProcessing(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user?.id)
+        .single();
+
+      const res = await generatePixPayment({
+        amount: lot.final_price || lot.current_bid,
+        description: `Arremate: ${lot.title}`,
+        customer: {
+          name: profile?.full_name || '',
+          document: profile?.document_id || '',
+          email: profile?.email || ''
+        }
       });
-      setIsProcessing(false);
-      navigate('/app/history');
-    }, 2000);
+
+      setPaymentData(res);
+    } catch (error) {
+      toast({ variant: "destructive", title: "Erro no Checkout", description: "Não foi possível gerar o pagamento." });
+    } finally {
+      setProcessing(false);
+    }
   };
 
-  if (isLoading) return <div className="flex items-center justify-center min-h-screen"><Loader2 className="animate-spin text-orange-500" /></div>;
+  const copyPix = () => {
+    if (!paymentData?.pix_code) return;
+    navigator.clipboard.writeText(paymentData.pix_code);
+    setCopied(true);
+    toast({ title: "Copiado!", description: "Código PIX copiado para a área de transferência." });
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="animate-spin text-orange-500" size={40} />
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-3xl mx-auto py-12 px-4">
-      <Button variant="ghost" onClick={() => navigate(-1)} className="mb-8 gap-2 text-slate-500 font-bold hover:bg-white rounded-xl">
-        <ArrowLeft size={18} /> VOLTAR AO HISTÓRICO
-      </Button>
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8">
+      <div className="max-w-2xl mx-auto">
+        <Button 
+          variant="ghost" 
+          onClick={() => navigate(-1)} 
+          className="mb-6 text-slate-500 hover:text-slate-900 rounded-xl"
+        >
+          <ArrowLeft size={20} className="mr-2" /> Voltar
+        </Button>
 
-      <div className="grid grid-cols-1 gap-8">
-        <Card className="border-none shadow-2xl rounded-[3rem] overflow-hidden bg-white">
-          <CardHeader className="bg-slate-900 text-white p-10">
+        <Card className="border-none shadow-2xl rounded-3xl overflow-hidden bg-white">
+          <CardHeader className="bg-slate-900 text-white p-8">
             <div className="flex justify-between items-start">
               <div>
-                <Badge className="bg-orange-500 text-white border-none mb-4 px-3 py-1 rounded-full font-black text-[10px] tracking-widest">PAGAMENTO PENDENTE</Badge>
-                <CardTitle className="text-3xl font-black flex items-center gap-3">
-                  Finalizar Arremate
-                </CardTitle>
-                <p className="text-slate-400 mt-2 font-medium">{lot?.title} • Lote #{lot?.lot_number}</p>
+                <CardTitle className="text-2xl font-bold">Finalizar Pagamento</CardTitle>
+                <p className="text-slate-400 mt-1">{lot.auctions?.title}</p>
               </div>
-              <div className="bg-white/10 p-4 rounded-3xl backdrop-blur-md">
-                <ShieldCheck className="text-orange-500" size={40} />
+              <div className="bg-orange-500 p-3 rounded-2xl">
+                <ShieldCheck size={24} />
               </div>
             </div>
           </CardHeader>
-          
-          <CardContent className="p-10 space-y-10">
-            <div className="flex flex-col md:flex-row justify-between items-center p-8 bg-slate-50 rounded-[2.5rem] border border-slate-100 gap-6">
-              <div className="text-center md:text-left">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Total a Pagar</p>
-                <p className="text-4xl font-black text-slate-900">{formatCurrency(lot?.final_price || lot?.current_bid)}</p>
-                <p className="text-xs text-green-600 font-bold mt-1 flex items-center justify-center md:justify-start gap-1">
-                  <CheckCircle2 size={12} /> Taxas inclusas
-                </p>
-              </div>
-              <div className="h-px w-full md:h-12 md:w-px bg-slate-200" />
-              <div className="text-center md:text-left">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Vencimento</p>
-                <p className="text-xl font-bold text-red-500">Hoje, às 18:00</p>
-              </div>
-            </div>
 
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <h4 className="font-black text-slate-900 text-lg">Pagamento via PIX</h4>
-                <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50">Processamento Instantâneo</Badge>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-center bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100">
-                <div className="flex flex-col items-center justify-center space-y-4">
-                  <div className="bg-white p-4 rounded-3xl shadow-sm border-4 border-white">
-                    <QrCode size={180} className="text-slate-900" />
-                  </div>
-                  <p className="text-xs text-slate-400 font-medium">Aponte a câmera do celular para o QR Code</p>
+          <CardContent className="p-8">
+            <div className="flex flex-col md:flex-row gap-8">
+              <div className="flex-1 space-y-6">
+                <div>
+                  <label className="text-xs font-bold text-slate-400 uppercase tracking-wider">Veículo Arrematado</label>
+                  <h3 className="text-xl font-bold text-slate-900">{lot.title}</h3>
                 </div>
-                
-                <div className="space-y-4">
-                  <p className="text-sm text-slate-600 font-medium">Ou utilize o código Copia e Cola:</p>
-                  <div className="bg-white p-4 rounded-2xl border border-slate-200 font-mono text-[10px] break-all text-slate-400 h-24 overflow-hidden relative">
-                    00020126580014BR.GOV.BCB.PIX0136f2e3d4c5-b6a7-4890-9123-456789abcdef5204000053039865802BR5920AUTOBID LEILOES LTDA6009SAO PAULO62070503***6304ABCD
-                    <div className="absolute inset-0 bg-gradient-to-t from-white to-transparent" />
+
+                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-500">Valor do Arremate</span>
+                    <span className="font-bold text-slate-900">{formatCurrency(lot.final_price || lot.current_bid)}</span>
                   </div>
+                  <div className="flex justify-between items-center pt-2 border-t border-slate-200">
+                    <span className="font-bold text-slate-900">Total a Pagar</span>
+                    <span className="text-2xl font-black text-orange-600">{formatCurrency(lot.final_price || lot.current_bid)}</span>
+                  </div>
+                </div>
+
+                {!paymentData ? (
                   <Button 
-                    variant="outline" 
-                    className="w-full h-12 rounded-xl font-bold gap-2 border-slate-200 hover:bg-slate-100"
-                    onClick={copyPixCode}
+                    onClick={handleGeneratePayment}
+                    disabled={processing}
+                    className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-orange-200"
                   >
-                    <Copy size={18} /> COPIAR CÓDIGO PIX
+                    {processing ? <Loader2 className="animate-spin mr-2" /> : <QrCode className="mr-2" />}
+                    GERAR PIX DE PAGAMENTO
                   </Button>
-                </div>
+                ) : (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+                    <div className="p-4 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-3 text-green-700">
+                      <CheckCircle2 size={20} />
+                      <span className="text-sm font-medium">PIX Gerado com sucesso!</span>
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold text-slate-400 uppercase">Código Copia e Cola</label>
+                      <div className="flex gap-2">
+                        <div className="flex-1 bg-slate-100 p-3 rounded-xl text-[10px] font-mono break-all border border-slate-200 text-slate-600">
+                          {paymentData.pix_code}
+                        </div>
+                        <Button 
+                          onClick={copyPix}
+                          className="h-auto bg-slate-900 hover:bg-slate-800 rounded-xl px-4"
+                        >
+                          {copied ? <CheckCircle2 size={18} /> : <Copy size={18} />}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
+
+              {paymentData && (
+                <div className="w-full md:w-48 flex flex-col items-center justify-center space-y-4">
+                  <div className="bg-white p-4 rounded-3xl shadow-inner border border-slate-100">
+                    <img src={paymentData.qr_code_url} alt="QR Code PIX" className="w-40 h-40" />
+                  </div>
+                  <p className="text-[10px] text-slate-400 text-center font-medium uppercase tracking-widest">
+                    Escaneie para pagar
+                  </p>
+                </div>
+              )}
             </div>
 
-            <div className="space-y-4">
-              <Button 
-                className="w-full h-16 bg-slate-900 hover:bg-orange-600 text-white rounded-2xl text-lg font-black shadow-xl transition-all active:scale-[0.98]"
-                onClick={handlePayment}
-                disabled={isProcessing}
-              >
-                {isProcessing ? <Loader2 className="animate-spin" /> : 'JÁ REALIZEI O PAGAMENTO'}
-              </Button>
-              <div className="flex items-center justify-center gap-2 text-slate-400">
-                <ShieldCheck size={16} />
-                <span className="text-[10px] font-bold uppercase tracking-widest">Pagamento 100% Seguro via Banco Central</span>
+            <div className="mt-8 pt-8 border-t border-slate-100 flex items-center justify-center gap-6 opacity-50">
+              <div className="flex items-center gap-2 grayscale">
+                <CreditCard size={16} />
+                <span className="text-xs font-bold">ConnectPay Secure</span>
               </div>
+              <div className="h-4 w-px bg-slate-300" />
+              <span className="text-xs font-bold">Ambiente Criptografado</span>
             </div>
           </CardContent>
         </Card>
-
-        <div className="bg-blue-50 p-6 rounded-3xl border border-blue-100 flex gap-4">
-          <Info className="text-blue-500 shrink-0" size={24} />
-          <div className="space-y-1">
-            <p className="text-sm font-bold text-blue-900">Informação Importante</p>
-            <p className="text-xs text-blue-700 leading-relaxed">
-              Após o pagamento, o comprovante é processado automaticamente. Você receberá um e-mail com o Termo de Arrematação e as instruções para retirada do veículo em nosso pátio.
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

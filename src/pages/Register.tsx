@@ -2,16 +2,18 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft } from 'lucide-react';
+import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
+import InputMask from 'react-input-mask';
 
 const Register = () => {
   const [step, setStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isSearchingCep, setIsSearchingCep] = React.useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -23,8 +25,47 @@ const Register = () => {
   // Step 2 Data
   const [cpf, setCpf] = React.useState('');
   const [phone, setPhone] = React.useState('');
+  const [cep, setCep] = React.useState('');
   const [address, setAddress] = React.useState('');
   const [city, setCity] = React.useState('');
+  const [number, setNumber] = React.useState('');
+
+  const validateCPF = (cpf: string) => {
+    const cleanCPF = cpf.replace(/[^\d]+/g, '');
+    if (cleanCPF.length !== 11 || !!cleanCPF.match(/(\d)\1{10}/)) return false;
+    let add = 0;
+    for (let i = 0; i < 9; i++) add += parseInt(cleanCPF.charAt(i)) * (10 - i);
+    let rev = 11 - (add % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cleanCPF.charAt(9))) return false;
+    add = 0;
+    for (let i = 0; i < 10; i++) add += parseInt(cleanCPF.charAt(i)) * (11 - i);
+    rev = 11 - (add % 11);
+    if (rev === 10 || rev === 11) rev = 0;
+    if (rev !== parseInt(cleanCPF.charAt(10))) return false;
+    return true;
+  };
+
+  const handleCepBlur = async () => {
+    const cleanCep = cep.replace(/[^\d]+/g, '');
+    if (cleanCep.length === 8) {
+      setIsSearchingCep(true);
+      try {
+        const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
+        const data = await response.json();
+        if (!data.erro) {
+          setAddress(`${data.logradouro}, ${data.bairro}`);
+          setCity(`${data.localidade} - ${data.uf}`);
+        } else {
+          toast({ variant: "destructive", title: "CEP não encontrado" });
+        }
+      } catch (error) {
+        console.error("Erro ao buscar CEP", error);
+      } finally {
+        setIsSearchingCep(false);
+      }
+    }
+  };
 
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
@@ -33,18 +74,25 @@ const Register = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!validateCPF(cpf)) {
+      toast({ variant: "destructive", title: "CPF Inválido", description: "Por favor, insira um CPF válido." });
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { 
             full_name: fullName,
-            cpf: cpf,
-            phone: phone,
-            address: address,
-            city: city
+            cpf: cpf.replace(/[^\d]+/g, ''),
+            phone: phone.replace(/[^\d]+/g, ''),
+            address: `${address}, ${number}`,
+            city: city,
+            cep: cep.replace(/[^\d]+/g, '')
           }
         }
       });
@@ -83,7 +131,6 @@ const Register = () => {
               : "Complete seu cadastro para começar a dar lances."}
           </CardDescription>
           
-          {/* Progress Indicator */}
           <div className="flex justify-center gap-2 mt-4">
             <div className={cn("h-1.5 w-8 rounded-full transition-all", step === 1 ? "bg-orange-500" : "bg-slate-200")} />
             <div className={cn("h-1.5 w-8 rounded-full transition-all", step === 2 ? "bg-orange-500" : "bg-slate-200")} />
@@ -136,28 +183,70 @@ const Register = () => {
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="relative">
                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  placeholder="CPF" 
-                  className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                <InputMask
+                  mask="999.999.999-99"
                   value={cpf}
                   onChange={(e) => setCpf(e.target.value)}
-                  required
-                />
+                >
+                  {(inputProps: any) => (
+                    <Input 
+                      {...inputProps}
+                      placeholder="CPF" 
+                      className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                      required
+                    />
+                  )}
+                </InputMask>
               </div>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  placeholder="Telefone / WhatsApp" 
-                  className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                <InputMask
+                  mask="(99) 99999-9999"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                >
+                  {(inputProps: any) => (
+                    <Input 
+                      {...inputProps}
+                      placeholder="Telefone (DDD)" 
+                      className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                      required
+                    />
+                  )}
+                </InputMask>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="relative">
+                  <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <InputMask
+                    mask="99999-999"
+                    value={cep}
+                    onChange={(e) => setCep(e.target.value)}
+                    onBlur={handleCepBlur}
+                  >
+                    {(inputProps: any) => (
+                      <Input 
+                        {...inputProps}
+                        placeholder="CEP" 
+                        className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                        required
+                      />
+                    )}
+                  </InputMask>
+                  {isSearchingCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-orange-500" size={16} />}
+                </div>
+                <Input 
+                  placeholder="Nº" 
+                  className="h-12 rounded-xl border-slate-200 focus:ring-orange-500"
+                  value={number}
+                  onChange={(e) => setNumber(e.target.value)}
                   required
                 />
               </div>
               <div className="relative">
                 <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <Input 
-                  placeholder="Endereço completo" 
+                  placeholder="Endereço" 
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={address}
                   onChange={(e) => setAddress(e.target.value)}
@@ -165,7 +254,7 @@ const Register = () => {
                 />
               </div>
               <div className="relative">
-                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                 <Input 
                   placeholder="Cidade / UF" 
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
@@ -209,7 +298,6 @@ const Register = () => {
   );
 };
 
-// Helper function for conditional classes
 function cn(...classes: any[]) {
   return classes.filter(Boolean).join(' ');
 }

@@ -158,10 +158,28 @@ const LotDetail = () => {
           <div className="lg:col-span-8 space-y-8">
             <div className="space-y-4">
               <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative group border border-slate-100">
-                <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover" alt={lot.title} />
-                {isFinished && !isWinner && (
-                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-20">
-                    <Badge className="bg-white text-slate-900 px-6 py-2 text-lg font-bold rounded-full">ENCERRADO</Badge>
+                <img 
+                  src={activePhoto || lot.cover_image_url} 
+                  className={cn(
+                    "w-full h-full object-cover transition-all duration-500",
+                    isFinished && "blur-[2px] grayscale-[0.5] brightness-[0.6]"
+                  )} 
+                  alt={lot.title} 
+                />
+                {isFinished && (
+                  <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[1px] flex items-center justify-center z-20">
+                    <Badge className="bg-white text-slate-900 px-6 py-2 text-lg font-bold rounded-full shadow-xl">
+                      {isWinner ? "ARREMATADO POR VOCÊ" : "ENCERRADO"}
+                    </Badge>
+                  </div>
+                )}
+                {!isFinished && (
+                  <div className="absolute top-6 left-6 flex gap-3">
+                    <Badge className="bg-slate-900/90 backdrop-blur-md text-white border-none px-4 py-1.5 rounded-full font-bold text-xs">LOTE #{lot.lot_number}</Badge>
+                    <Badge className="bg-orange-500 text-white border-none px-4 py-1.5 rounded-full font-black flex items-center gap-2 shadow-lg shadow-orange-500/30">
+                      <Clock size={14} className="animate-pulse" /> 
+                      <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
+                    </Badge>
                   </div>
                 )}
               </div>
@@ -174,7 +192,8 @@ const LotDetail = () => {
                     onClick={() => setActivePhoto(url)}
                     className={cn(
                       "shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2 transition-all",
-                      activePhoto === url ? 'border-orange-500' : 'border-transparent opacity-70 hover:opacity-100'
+                      activePhoto === url ? 'border-orange-500' : 'border-transparent opacity-70 hover:opacity-100',
+                      isFinished && "grayscale-[0.5] brightness-[0.7]"
                     )}
                   >
                     <img src={url} className="w-full h-full object-cover" alt={`Foto ${i}`} />

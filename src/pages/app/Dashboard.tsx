@@ -87,7 +87,6 @@ const Dashboard = () => {
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ];
 
-  // Lógica de status e cores
   const isVerified = profile?.kyc_status === 'verified';
   const isPendingAnalysis = profile?.kyc_status === 'pending';
   const isRejected = profile?.kyc_status === 'rejected';
@@ -96,7 +95,19 @@ const Dashboard = () => {
     if (isVerified) return 'APROVADO';
     if (isPendingAnalysis) return 'EM ANÁLISE';
     if (isRejected) return 'REJEITADO';
-    return 'PENDENTE';
+    return 'AGUARDANDO ENVIO';
+  };
+
+  const getCardBgColor = () => {
+    if (isVerified) return "bg-emerald-600";
+    if (isPendingAnalysis) return "bg-orange-500";
+    return "bg-red-600";
+  };
+
+  const getBadgeColor = () => {
+    if (isVerified) return "bg-white text-emerald-600";
+    if (isPendingAnalysis) return "bg-white text-orange-600";
+    return "bg-white text-red-600";
   };
 
   return (
@@ -221,8 +232,8 @@ const Dashboard = () => {
           <h2 className="text-xl font-bold text-slate-900 tracking-tight px-1">Status da Conta</h2>
           
           <Card className={cn(
-            "border-none shadow-lg rounded-2xl overflow-hidden transition-all duration-300",
-            isVerified ? "bg-emerald-600 text-white" : "bg-red-600 text-white"
+            "border-none shadow-lg rounded-2xl overflow-hidden transition-all duration-300 text-white",
+            getCardBgColor()
           )}>
             <CardContent className="p-8">
               <div className="flex items-center gap-4 mb-6">
@@ -242,7 +253,7 @@ const Dashboard = () => {
                   <span className="text-xs font-bold text-white/80">Status Atual</span>
                   <Badge className={cn(
                     "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
-                    isVerified ? "bg-white text-emerald-600" : "bg-white text-red-600"
+                    getBadgeColor()
                   )}>
                     {getKycStatusLabel()}
                   </Badge>
@@ -250,7 +261,7 @@ const Dashboard = () => {
                 
                 {!isVerified && (
                   <Link to="/app/verify" className="block">
-                    <Button className="w-full bg-white text-red-600 hover:bg-slate-100 rounded-xl font-bold h-12 text-base shadow-md">
+                    <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold h-12 text-base shadow-md">
                       {isPendingAnalysis ? 'VER DETALHES' : 'ENVIAR DOCUMENTOS'}
                     </Button>
                   </Link>

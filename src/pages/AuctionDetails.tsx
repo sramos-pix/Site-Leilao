@@ -1,21 +1,25 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { ChevronLeft, Car, Calendar, Gavel, Loader2, ArrowRight } from 'lucide-react';
+import { ChevronLeft, Car, Calendar, Gavel, Loader2, Heart, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import CountdownTimer from '@/components/CountdownTimer';
+import { useToast } from '@/components/ui/use-toast';
 
 const AuctionDetails = () => {
   const { id } = useParams();
-  const [auction, setAuction] = React.useState<any>(null);
-  const [lots, setLots] = React.useState<any[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
+  const [auction, setAuction] = useState<any>(null);
+  const [lots, setLots] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [userFavorites, setUserFavorites] = useState<string[]>([]);
+  const { toast } = useToast();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -35,6 +39,15 @@ const AuctionDetails = () => {
         .order('lot_number', { ascending: true });
       
       setLots(lotsData || []);
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { data: favs } = await supabase
+          .from('favorites')
+          .select('lot_id')
+          .eq('user_id', user.id);
+        setUserFavorites(favs?.map(f => f.lot_id) || []);
+      }
     } catch (error) {
       console.error(error);
     } finally {
@@ -42,9 +55,36 @@ const AuctionDetails = () => {
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     fetchData();
   }, [id]);
+
+  const toggleFavorite = async (e: React.MouseEvent, lotId: string) => {
+    e.preventDefault();
+    const { data: { user } } = await supabase.auth.getUser();
+    
+    if (!user) {
+      toast({
+        title: "Acesso restrito",
+        description: "Você precisa estar logado para favoritar.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const isFavorited = userFavorites.includes(lotId);
+    try {
+      if (isFavorited) {
+        await supabase.from('favorites').delete().eq('user_id', user.id).eq('lot_id', lotId);
+        setUserFavorites(prev => prev.filter(id => id !== lotId));
+      } else {
+        await supabase.from('favorites').insert({ user_id: user.id, lot_id: lotId });
+        setUserFavorites(prev => [...prev, lotId]);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -115,41 +155,63 @@ const AuctionDetails = () => {
 
         <h2 className="text-2xl font-bold text-slate-900 mb-6 tracking-tight">Veículos Disponíveis</h2>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {lots.map((lot) => (
-            <Card key={lot.id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
-              <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+            <Card key={lot.id} className="group border-none shadow-lg hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white">
+              <Link to={`/lots/${lot.id}`} className="block relative aspect-[4/3] overflow-hidden">
                 <img 
                   src={lot.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
-                  className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                  alt={lot.title}
+                  alt={lot.title} 
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                 />
-                <div className="absolute top-3 left-3">
-                  <Badge className="bg-white/90 backdrop-blur-sm text-slate-900 border-none font-bold px-3 py-0.5 rounded-full text-[10px]">
-                    LOTE {lot.lot_number}
+                <div className="absolute top-4 left-4 flex flex-col gap-2">
+                  <Badge className="bg-slate-900/90 backdrop-blur-md text-white border-none px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest w-fit">
+                    LOTE #{lot.lot_number}
+                  </Badge>
+                  <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full text-[10px] font-black shadow-lg shadow-red-500/20 w-fit">
+                    <Clock size={12} /> 
+                    <CountdownTimer randomScarcity={true} lotId={lot.id} />
                   </Badge>
                 </div>
-              </div>
-              <CardContent className="p-5">
-                <h3 className="text-lg font-bold text-slate-900 line-clamp-1 mb-4">{lot.title}</h3>
-                
-                <div className="space-y-3 mb-6">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-400 uppercase">Lance Inicial</span>
-                    <span className="text-sm font-bold text-slate-700">{formatCurrency(lot.starting_price)}</span>
+                <Button 
+                  variant="secondary" 
+                  size="icon" 
+                  className={cn(
+                    "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300",
+                    userFavorites.includes(lot.id) ? "bg-red-500 text-white" : "bg-white/90 hover:bg-orange-500 hover:text-white"
+                  )}
+                  onClick={(e) => toggleFavorite(e, lot.id)}
+                >
+                  <Heart size={18} fill={userFavorites.includes(lot.id) ? "currentColor" : "none"} />
+                </Button>
+              </Link>
+
+              <CardContent className="p-8">
+                <Link to={`/lots/${lot.id}`}>
+                  <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">
+                    {lot.title}
+                  </h3>
+                </Link>
+                <div className="flex justify-between items-center">
+                  <div>
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Lance Atual</p>
+                    <p className="text-2xl font-black text-slate-900">{formatCurrency(lot.current_price || lot.starting_price)}</p>
                   </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-bold text-slate-400 uppercase">Lance Atual</span>
-                    <span className="text-lg font-bold text-orange-600">{formatCurrency(lot.current_price || lot.starting_price)}</span>
+                  <div className="text-right">
+                    <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Incremento</p>
+                    <p className="text-sm font-bold text-slate-600">+ {formatCurrency(lot.bid_increment || 500)}</p>
                   </div>
                 </div>
+              </CardContent>
 
-                <Link to={`/lots/${lot.id}`}>
-                  <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white rounded-xl h-11 font-bold group/btn transition-all">
-                    Dar Lance <Gavel className="ml-2 h-4 w-4 group-hover/btn:rotate-12 transition-transform" />
+              <CardFooter className="p-8 pt-0">
+                <Link to={`/lots/${lot.id}`} className="w-full">
+                  <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-black py-6 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 group/btn shadow-xl shadow-slate-200">
+                    <Gavel size={18} className="group-hover/btn:rotate-12 transition-transform" />
+                    DAR LANCE AGORA
                   </Button>
                 </Link>
-              </CardContent>
+              </CardFooter>
             </Card>
           ))}
         </div>

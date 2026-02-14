@@ -16,11 +16,8 @@ import Profile from './pages/app/Profile';
 import History from './pages/app/History';
 import Verify from './pages/app/Verify';
 import Checkout from './pages/app/Checkout';
-import AdminOverview from './pages/admin/Overview';
-import AuctionManager from './pages/admin/Auctions';
-import LotManager from './pages/admin/Lots';
-import UserManager from './pages/admin/Users';
-import AdminGuard from './components/AdminGuard';
+import Admin from './pages/Admin';
+import AdminGuard from './components/admin/AdminGuard';
 import ScrollToTop from './components/ScrollToTop';
 import { Toaster } from './components/ui/toaster';
 
@@ -48,10 +45,7 @@ function App() {
         <Route path="/app/checkout/:id" element={<Checkout />} />
 
         {/* Admin Routes */}
-        <Route path="/admin" element={<AdminGuard><AdminOverview /></AdminGuard>} />
-        <Route path="/admin/auctions" element={<AdminGuard><AuctionManager /></AdminGuard>} />
-        <Route path="/admin/lots" element={<AdminGuard><LotManager /></AdminGuard>} />
-        <Route path="/admin/users" element={<AdminGuard><UserManager /></AdminGuard>} />
+        <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />
       </Routes>
       <Toaster />
     </>

@@ -1,13 +1,13 @@
 "use client";
 
 /**
- * Integração ConnectPay via API de Payments com Proxy Robusto
+ * Integração ConnectPay via API de Payments com Proxy AllOrigins
  */
 
 const CONNECTPAY_API_SECRET = "sk_872e29f3517d2979f4a8af99c8b8855dbd90699a7a98b13e6df12b48c8e89f6c6676876f45bb64e5fe725ec5d56c63594da781aa2478a893885ca4c150d2149f"; 
 
-// Proxy robusto para contornar o bloqueio de CORS do navegador
-const PROXY_URL = "https://corsproxy.io/?";
+// Proxy AllOrigins para evitar 404 e CORS
+const PROXY_URL = "https://api.allorigins.win/raw?url=";
 const TARGET_URL = "https://api.connectpay.vc/v1/payments";
 
 export const generatePixPayment = async (data: {
@@ -41,26 +41,22 @@ export const generatePixPayment = async (data: {
       method: 'POST',
       headers: {
         'api-secret': CONNECTPAY_API_SECRET,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ message: 'Erro desconhecido na API' }));
-      throw new Error(errorData.message || `Erro ${response.status}`);
+      throw new Error(`Erro na intermediadora (Status: ${response.status})`);
     }
 
     const result = await response.json();
 
-    // Extração do código PIX baseada na estrutura de resposta da ConnectPay
-    const pixCode = result.pix_qr_code || 
-                    result.pix?.payload || 
-                    (result.data && (result.data.pix_qr_code || result.data.pix?.payload));
+    // A ConnectPay retorna o código PIX no campo pix_qr_code ou dentro do objeto pix
+    const pixCode = result.pix_qr_code || (result.pix && result.pix.payload);
 
     if (!pixCode) {
-      console.error("Resposta completa da API:", result);
+      console.error("Resposta da API sem código PIX:", result);
       throw new Error("Pagamento criado, mas o código PIX não foi retornado.");
     }
 
@@ -71,12 +67,10 @@ export const generatePixPayment = async (data: {
       transaction_id: result.id
     };
   } catch (error: any) {
-    console.error("Erro detalhado:", error);
+    console.error("Erro ConnectPay:", error);
     return {
       success: false,
-      error: error.message === 'Failed to fetch' 
-        ? 'Bloqueio de segurança (CORS). Tente novamente em instantes.' 
-        : error.message
+      error: error.message || 'Erro ao gerar cobrança PIX'
     };
   }
 };

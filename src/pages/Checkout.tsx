@@ -26,6 +26,7 @@ const Checkout = () => {
 
   useEffect(() => {
     const fetchLot = async () => {
+      if (!id) return;
       const { data } = await supabase.from('lots').select('*, auctions(title)').eq('id', id).single();
       if (data) setLot(data);
       setLoading(false);
@@ -39,7 +40,9 @@ const Checkout = () => {
     
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user?.id).single();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
       const res = await generatePixPayment({
         amount: lot.final_price || lot.current_bid,
@@ -59,7 +62,7 @@ const Checkout = () => {
         setError(res.error);
       }
     } catch (err: any) {
-      setError("Erro ao conectar com o servidor de pagamentos.");
+      setError(err.message || "Erro ao conectar com o servidor de pagamentos.");
     } finally {
       setProcessing(false);
     }

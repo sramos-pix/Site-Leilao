@@ -5,13 +5,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, CreditCard, AlertCircle } from 'lucide-react';
+import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, CreditCard } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { generatePixPayment } from '@/services/connectPay';
 
 const Checkout = () => {
-  const { id } = useParams(); // Usando 'id' conforme definido no App.tsx
+  const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -76,7 +76,6 @@ const Checkout = () => {
       setPaymentData(res);
       toast({ title: "PIX Gerado!", description: "O QR Code já está disponível." });
     } catch (error: any) {
-      console.error("Erro no checkout:", error);
       toast({ 
         variant: "destructive", 
         title: "Erro no Checkout", 
@@ -190,15 +189,6 @@ const Checkout = () => {
                   </p>
                 </div>
               )}
-            </div>
-
-            <div className="mt-8 pt-8 border-t border-slate-100 flex items-center justify-center gap-6 opacity-50">
-              <div className="flex items-center gap-2 grayscale">
-                <CreditCard size={16} />
-                <span className="text-xs font-bold">ConnectPay Secure</span>
-              </div>
-              <div className="h-4 w-px bg-slate-300" />
-              <span className="text-xs font-bold">Ambiente Criptografado</span>
             </div>
           </CardContent>
         </Card>

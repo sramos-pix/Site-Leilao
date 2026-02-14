@@ -31,7 +31,6 @@ function App() {
         <Route path="/lots/:id" element={<LotDetail />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/auth" element={<Navigate to="/login" replace />} />
 
         {/* Protected App Routes */}
         <Route path="/app" element={<AppLayout><Dashboard /></AppLayout>} />

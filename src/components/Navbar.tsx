@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Gavel, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
+import { Gavel, Menu, X, LayoutDashboard, LogOut, User } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -28,9 +28,6 @@ const Navbar = () => {
   const navigation = [
     { name: 'Início', href: '/' },
     { name: 'Leilões', href: '/auctions' },
-    { name: 'Veículos', href: '/vehicles' },
-    { name: 'Como Funciona', href: '/how-it-works' },
-    { name: 'Contato', href: '/contact' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -43,13 +40,13 @@ const Navbar = () => {
   return (
     <nav className="sticky top-0 z-50 w-full border-b bg-white/80 backdrop-blur-md">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="flex h-16 justify-between items-center">
+        <div className="flex h-20 justify-between items-center">
           <div className="flex items-center">
-            <Link to="/" className="flex items-center gap-2">
-              <div className="bg-orange-500 p-1.5 rounded-lg text-white">
-                <Gavel size={20} />
+            <Link to="/" className="flex items-center gap-2 group">
+              <div className="bg-orange-500 p-2 rounded-2xl text-white shadow-lg shadow-orange-200 group-hover:scale-110 transition-transform">
+                <Gavel size={24} />
               </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">
+              <span className="text-2xl font-black tracking-tighter text-slate-900">
                 AUTO<span className="text-orange-500">BID</span>
               </span>
             </Link>
@@ -62,33 +59,33 @@ const Navbar = () => {
                 key={item.name}
                 to={item.href}
                 className={cn(
-                  "text-sm font-bold transition-colors hover:text-orange-500",
-                  isActive(item.href) ? "text-orange-500" : "text-slate-600"
+                  "text-sm font-black transition-all hover:text-orange-500 uppercase tracking-widest",
+                  isActive(item.href) ? "text-orange-500" : "text-slate-500"
                 )}
               >
                 {item.name}
               </Link>
             ))}
-            <div className="flex items-center gap-4 ml-4 border-l pl-8">
+            <div className="flex items-center gap-4 ml-4 border-l pl-8 border-slate-100">
               {user ? (
                 <div className="flex items-center gap-3">
                   <Link to="/app">
-                    <Button variant="ghost" className="text-slate-900 gap-2 font-black hover:bg-slate-50 rounded-xl">
-                      <LayoutDashboard size={18} /> Painel
+                    <Button variant="ghost" className="text-slate-900 gap-2 font-black hover:bg-slate-50 rounded-2xl h-12 px-6">
+                      <LayoutDashboard size={18} /> PAINEL
                     </Button>
                   </Link>
-                  <Button variant="ghost" size="icon" onClick={handleLogout} className="text-slate-400 hover:text-red-500 rounded-full">
+                  <Button variant="ghost" size="icon" onClick={handleLogout} className="text-slate-400 hover:text-red-500 rounded-full hover:bg-red-50">
                     <LogOut size={18} />
                   </Button>
                 </div>
               ) : (
                 <>
-                  <Link to="/auth">
-                    <Button variant="ghost" className="text-slate-900 font-black hover:bg-slate-50 rounded-xl">Entrar</Button>
+                  <Link to="/login">
+                    <Button variant="ghost" className="text-slate-900 font-black hover:bg-slate-50 rounded-2xl h-12 px-6">ENTRAR</Button>
                   </Link>
-                  <Link to="/auth?mode=signup">
-                    <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-8 font-black shadow-lg shadow-orange-100 transition-all">
-                      Cadastrar
+                  <Link to="/register">
+                    <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-full px-8 h-12 font-black shadow-xl shadow-orange-100 transition-all hover:-translate-y-0.5">
+                      CADASTRAR
                     </Button>
                   </Link>
                 </>
@@ -98,8 +95,8 @@ const Navbar = () => {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden">
-            <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} className="rounded-xl">
-              {isOpen ? <X /> : <Menu />}
+            <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} className="rounded-2xl w-12 h-12 bg-slate-50">
+              {isOpen ? <X size={24} /> : <Menu size={24} />}
             </Button>
           </div>
         </div>
@@ -107,32 +104,35 @@ const Navbar = () => {
 
       {/* Mobile Menu */}
       {isOpen && (
-        <div className="md:hidden bg-white border-b px-4 pt-2 pb-8 space-y-1 shadow-xl">
+        <div className="md:hidden bg-white border-b px-6 pt-4 pb-10 space-y-2 shadow-2xl animate-in slide-in-from-top duration-300">
           {navigation.map((item) => (
             <Link
               key={item.name}
               to={item.href}
               onClick={() => setIsOpen(false)}
               className={cn(
-                "block px-4 py-3 rounded-xl text-base font-bold",
-                isActive(item.href) ? "bg-orange-50 text-orange-600" : "text-slate-600"
+                "block px-6 py-4 rounded-2xl text-lg font-black uppercase tracking-widest",
+                isActive(item.href) ? "bg-orange-50 text-orange-600" : "text-slate-600 hover:bg-slate-50"
               )}
             >
               {item.name}
             </Link>
           ))}
-          <div className="pt-6 flex flex-col gap-3 px-2">
+          <div className="pt-6 flex flex-col gap-4">
             {user ? (
-              <Link to="/app" onClick={() => setIsOpen(false)}>
-                <Button className="w-full bg-slate-900 text-white font-black h-12 rounded-xl">Meu Painel</Button>
-              </Link>
+              <>
+                <Link to="/app" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full bg-slate-900 text-white font-black h-14 rounded-2xl shadow-xl">MEU PAINEL</Button>
+                </Link>
+                <Button onClick={handleLogout} variant="outline" className="w-full font-black h-14 rounded-2xl border-red-100 text-red-500">SAIR</Button>
+              </>
             ) : (
               <>
-                <Link to="/auth" onClick={() => setIsOpen(false)}>
-                  <Button variant="outline" className="w-full font-black h-12 rounded-xl border-slate-200">Entrar</Button>
+                <Link to="/login" onClick={() => setIsOpen(false)}>
+                  <Button variant="outline" className="w-full font-black h-14 rounded-2xl border-slate-200">ENTRAR</Button>
                 </Link>
-                <Link to="/auth?mode=signup" onClick={() => setIsOpen(false)}>
-                  <Button className="w-full bg-orange-500 text-white font-black h-12 rounded-xl shadow-lg shadow-orange-100">Cadastrar</Button>
+                <Link to="/register" onClick={() => setIsOpen(false)}>
+                  <Button className="w-full bg-orange-500 text-white font-black h-14 rounded-2xl shadow-xl shadow-orange-100">CADASTRAR</Button>
                 </Link>
               </>
             )}

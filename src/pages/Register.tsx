@@ -32,7 +32,6 @@ const Register = () => {
   const [city, setCity] = React.useState('');
   const [number, setNumber] = React.useState('');
 
-  // Máscaras Manuais
   const maskCPF = (value: string) => {
     return value
       .replace(/\D/g, '')
@@ -81,7 +80,7 @@ const Register = () => {
         const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`);
         const data = await response.json();
         if (!data.erro) {
-          setAddress(`${data.logradouro}, ${data.bairro}`);
+          setAddress(data.logradouro);
           setCity(`${data.localidade} - ${data.uf}`);
         } else {
           toast({ variant: "destructive", title: "CEP não encontrado" });
@@ -97,17 +96,14 @@ const Register = () => {
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
-    
     if (password !== confirmPassword) {
       setErrorMessage("As senhas não coincidem.");
       return;
     }
-
     if (password.length < 6) {
       setErrorMessage("A senha deve ter pelo menos 6 caracteres.");
       return;
     }
-
     setStep(2);
   };
 
@@ -122,31 +118,57 @@ const Register = () => {
 
     setIsLoading(true);
     try {
-      const { data: authData, error } = await supabase.auth.signUp({
+      // 1. Criar usuário no Auth
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
         options: {
           data: { 
             full_name: fullName,
-            cpf: cpf.replace(/[^\d]+/g, ''),
-            phone: phone.replace(/[^\d]+/g, ''),
-            address: `${address}, ${number}`,
-            city: city,
-            cep: cep.replace(/[^\d]+/g, '')
           }
         }
       });
       
-      if (error) {
-        if (error.message.includes('User already registered')) {
-          setErrorMessage("Este e-mail já está cadastrado. Tente fazer login.");
-          return;
+      if (authError) throw authError;
+
+      if (authData.user) {
+        // 2. Inserir dados na tabela profiles
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .insert([
+            {
+              id: authData.user.id,
+              full_name: fullName,
+              email: email,
+              document_id: cpf.replace(/[^\d]+/g, ''),
+              phone: phone.replace(/[^\d]+/g, ''),
+              zip_code: cep.replace(/[^\d]+/g, ''),
+              address: address,
+              number: number,
+              city: city.split(' - ')[0],
+              state: city.split(' - ')[1] || '',
+              kyc_status: 'waiting'
+            }
+          ]);
+
+        if (profileError) {
+          console.error("Erro ao criar perfil:", profileError);
+          // Mesmo com erro no profile, o user foi criado no Auth. 
+          // Tentamos um upsert caso a trigger do banco já tenha criado um perfil vazio.
+          await supabase.from('profiles').update({
+            full_name: fullName,
+            document_id: cpf.replace(/[^\d]+/g, ''),
+            phone: phone.replace(/[^\d]+/g, ''),
+            zip_code: cep.replace(/[^\d]+/g, ''),
+            address: address,
+            number: number,
+            city: city.split(' - ')[0],
+            state: city.split(' - ')[1] || '',
+            kyc_status: 'waiting'
+          }).eq('id', authData.user.id);
         }
-        throw error;
       }
 
-      // Se o cadastro foi bem sucedido e o usuário já está logado (comportamento padrão do signUp sem confirmação de email obrigatória)
-      // ou se o cadastro foi criado, levamos ele para o dashboard.
       toast({ 
         title: "Cadastro realizado!", 
         description: "Bem-vindo à plataforma AutoBid." 

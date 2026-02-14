@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Car, Calendar, Gauge, MapPin, Loader2 } from 'lucide-react';
+import { Search, Filter, Car, Calendar, Gauge, MapPin, Loader2, Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -61,44 +61,86 @@ const Vehicles = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredLots.map((lot) => (
-              <Link key={lot.id} to={`/lots/${lot.id}`} className="group">
-                <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
-                  <div className="aspect-[4/3] relative overflow-hidden">
-                    <img 
-                      src={lot.cover_image_url} 
-                      alt={lot.title} 
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                    />
-                    <div className="absolute top-3 left-3">
-                      <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none font-bold">
-                        Lote #{lot.lot_number}
-                      </Badge>
+            {filteredLots.map((lot) => {
+              const isFinished = lot.status === 'finished';
+              
+              return (
+                <Link key={lot.id} to={`/lots/${lot.id}`} className="group">
+                  <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                    <div className="aspect-[4/3] relative overflow-hidden bg-slate-200">
+                      <img 
+                        src={lot.cover_image_url} 
+                        alt={lot.title} 
+                        className={cn(
+                          "w-full h-full object-cover transition-all duration-500",
+                          isFinished ? "blur-md grayscale brightness-[0.3] scale-105" : "group-hover:scale-110"
+                        )}
+                      />
+                      
+                      {isFinished ? (
+                        <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center">
+                          <div className="bg-white/10 backdrop-blur-md border border-white/20 p-2 rounded-full mb-2">
+                            <Lock className="text-white" size={20} />
+                          </div>
+                          <span className="text-white font-black text-lg tracking-tighter uppercase drop-shadow-lg">
+                            ARREMATADO
+                          </span>
+                          <span className="text-white/70 text-[10px] font-bold uppercase tracking-widest">
+                            Leilão Encerrado
+                          </span>
+                        </div>
+                      ) : (
+                        <div className="absolute top-3 left-3">
+                          <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none font-bold">
+                            Lote #{lot.lot_number}
+                          </Badge>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                  
-                  <div className="p-5 space-y-4">
-                    <div>
-                      <h3 className="font-bold text-slate-900 text-lg line-clamp-1">{lot.title}</h3>
-                      <div className="flex items-center gap-3 mt-2 text-slate-500 text-xs font-medium">
-                        <span className="flex items-center gap-1"><Calendar size={14} /> {lot.year}</span>
-                        <span className="flex items-center gap-1"><Gauge size={14} /> {lot.mileage_km?.toLocaleString()} km</span>
-                      </div>
-                    </div>
-
-                    <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                    
+                    <div className="p-5 space-y-4">
                       <div>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lance Atual</p>
-                        <p className="text-lg font-black text-orange-500">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                        <h3 className={cn(
+                          "font-bold text-lg line-clamp-1",
+                          isFinished ? "text-slate-400" : "text-slate-900"
+                        )}>
+                          {lot.title}
+                        </h3>
+                        <div className="flex items-center gap-3 mt-2 text-slate-500 text-xs font-medium">
+                          <span className="flex items-center gap-1"><Calendar size={14} /> {lot.year}</span>
+                          <span className="flex items-center gap-1"><Gauge size={14} /> {lot.mileage_km?.toLocaleString()} km</span>
+                        </div>
                       </div>
-                      <Button size="sm" className="bg-slate-900 hover:bg-orange-500 text-white rounded-xl px-4 transition-colors">
-                        Ver Detalhes
-                      </Button>
+
+                      <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                        <div>
+                          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                            {isFinished ? "Vendido por" : "Lance Atual"}
+                          </p>
+                          <p className={cn(
+                            "text-lg font-black",
+                            isFinished ? "text-slate-500" : "text-orange-500"
+                          )}>
+                            {formatCurrency(lot.current_bid || lot.start_bid)}
+                          </p>
+                        </div>
+                        <Button 
+                          size="sm" 
+                          className={cn(
+                            "rounded-xl px-4 transition-colors font-bold",
+                            isFinished 
+                              ? "bg-slate-100 text-slate-400 hover:bg-slate-100" 
+                              : "bg-slate-900 hover:bg-orange-500 text-white"
+                          )}
+                        >
+                          {isFinished ? "Ver Resultado" : "Ver Detalhes"}
+                        </Button>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         )}
 

@@ -87,9 +87,12 @@ const Dashboard = () => {
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ];
 
-  const isVerified = profile?.kyc_status === 'verified';
-  const isPendingAnalysis = profile?.kyc_status === 'pending';
-  const isRejected = profile?.kyc_status === 'rejected';
+  // Lógica de status refinada para garantir o estado inicial correto
+  const kycStatus = profile?.kyc_status;
+  const isVerified = kycStatus === 'verified';
+  const isPendingAnalysis = kycStatus === 'pending';
+  const isRejected = kycStatus === 'rejected';
+  const isWaiting = !kycStatus || kycStatus === 'waiting' || kycStatus === '';
 
   const getKycStatusLabel = () => {
     if (isVerified) return 'APROVADO';
@@ -101,7 +104,7 @@ const Dashboard = () => {
   const getCardBgColor = () => {
     if (isVerified) return "bg-emerald-600";
     if (isPendingAnalysis) return "bg-orange-500";
-    return "bg-red-600";
+    return "bg-red-600"; // Vermelho para Aguardando ou Rejeitado
   };
 
   const getBadgeColor = () => {

@@ -171,7 +171,7 @@ const AuctionDetails = () => {
                   </Badge>
                   <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full text-[10px] font-black shadow-lg shadow-red-500/20 w-fit">
                     <Clock size={12} /> 
-                    <CountdownTimer randomScarcity={true} lotId={lot.id} />
+                    <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
                   </Badge>
                 </div>
                 <Button 
@@ -196,7 +196,9 @@ const AuctionDetails = () => {
                 <div className="flex justify-between items-center">
                   <div>
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Lance Atual</p>
-                    <p className="text-2xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.starting_price)}</p>
+                    <p className="text-2xl font-black text-slate-900">
+                      {formatCurrency(lot.current_bid || lot.start_bid || lot.starting_price || 0)}
+                    </p>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Incremento</p>

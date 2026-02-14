@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { Routes, Route } from 'react-router-dom';
 import Index from './pages/Index';
 import Auctions from './pages/Auctions';
 import AuctionDetails from './pages/AuctionDetails';
@@ -26,7 +26,7 @@ import { Toaster } from './components/ui/toaster';
 
 function App() {
   return (
-    <Router>
+    <>
       <ScrollToTop />
       <Routes>
         {/* Public Routes */}
@@ -54,7 +54,7 @@ function App() {
         <Route path="/admin/users" element={<AdminGuard><UserManager /></AdminGuard>} />
       </Routes>
       <Toaster />
-    </Router>
+    </>
   );
 }
 

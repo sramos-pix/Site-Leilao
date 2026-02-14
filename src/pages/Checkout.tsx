@@ -5,13 +5,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, CreditCard } from 'lucide-react';
+import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, CreditCard, AlertCircle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { generatePixPayment } from '@/services/connectPay';
 
 const Checkout = () => {
-  const { lotId } = useParams();
+  const { id } = useParams(); // Usando 'id' conforme definido no App.tsx
   const navigate = useNavigate();
   const { toast } = useToast();
   
@@ -23,10 +23,11 @@ const Checkout = () => {
 
   useEffect(() => {
     const fetchLotData = async () => {
+      if (!id) return;
       const { data, error } = await supabase
         .from('lots')
         .select('*, auctions(title)')
-        .eq('id', lotId)
+        .eq('id', id)
         .single();
 
       if (error || !data) {
@@ -39,7 +40,7 @@ const Checkout = () => {
     };
 
     fetchLotData();
-  }, [lotId, navigate, toast]);
+  }, [id, navigate, toast]);
 
   const handleGeneratePayment = async () => {
     setProcessing(true);
@@ -52,19 +53,35 @@ const Checkout = () => {
         .eq('id', user?.id)
         .single();
 
+      if (!profile?.document_id) {
+        toast({ 
+          variant: "destructive", 
+          title: "Perfil Incompleto", 
+          description: "Você precisa ter o CPF cadastrado para gerar o pagamento." 
+        });
+        setProcessing(false);
+        return;
+      }
+
       const res = await generatePixPayment({
         amount: lot.final_price || lot.current_bid,
         description: `Arremate: ${lot.title}`,
         customer: {
-          name: profile?.full_name || '',
-          document: profile?.document_id || '',
-          email: profile?.email || ''
+          name: profile.full_name || '',
+          document: profile.document_id,
+          email: profile.email || ''
         }
       });
 
       setPaymentData(res);
-    } catch (error) {
-      toast({ variant: "destructive", title: "Erro no Checkout", description: "Não foi possível gerar o pagamento." });
+      toast({ title: "PIX Gerado!", description: "O QR Code já está disponível." });
+    } catch (error: any) {
+      console.error("Erro no checkout:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Erro no Checkout", 
+        description: error.message || "Não foi possível gerar o pagamento." 
+      });
     } finally {
       setProcessing(false);
     }
@@ -74,7 +91,7 @@ const Checkout = () => {
     if (!paymentData?.pix_code) return;
     navigator.clipboard.writeText(paymentData.pix_code);
     setCopied(true);
-    toast({ title: "Copiado!", description: "Código PIX copiado para a área de transferência." });
+    toast({ title: "Copiado!", description: "Código PIX copiado." });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -148,7 +165,7 @@ const Checkout = () => {
                     <div className="space-y-2">
                       <label className="text-xs font-bold text-slate-400 uppercase">Código Copia e Cola</label>
                       <div className="flex gap-2">
-                        <div className="flex-1 bg-slate-100 p-3 rounded-xl text-[10px] font-mono break-all border border-slate-200 text-slate-600">
+                        <div className="flex-1 bg-slate-100 p-3 rounded-xl text-[10px] font-mono break-all border border-slate-200 text-slate-600 max-h-20 overflow-y-auto">
                           {paymentData.pix_code}
                         </div>
                         <Button 

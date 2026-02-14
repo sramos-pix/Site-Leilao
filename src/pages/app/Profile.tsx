@@ -9,8 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import AppLayout from '@/components/layout/AppLayout';
 import { cn } from '@/lib/utils';
 
 const Profile = () => {
@@ -43,12 +42,8 @@ const Profile = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Navbar />
-        <div className="flex items-center justify-center flex-1">
-          <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
-        </div>
-        <Footer />
+      <div className="flex items-center justify-center min-h-[60vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-orange-500" />
       </div>
     );
   }
@@ -68,68 +63,64 @@ const Profile = () => {
   const displayCpf = profile?.document_id || profile?.cpf || profile?.document_number;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-4xl space-y-8">
-        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="flex items-center gap-6">
-            <div className="h-20 w-20 md:h-24 md:w-24 rounded-3xl bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-200 shrink-0">
-              <User size={40} />
-            </div>
-            <div>
-              <h1 className="text-2xl md:text-3xl font-black text-slate-900">{profile?.full_name || 'Usuário'}</h1>
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <Badge className={cn(
-                  "border-none px-3 py-1 rounded-full font-bold",
-                  profile?.kyc_status === 'verified' ? "bg-green-100 text-green-600" : 
-                  profile?.kyc_status === 'pending' ? "bg-yellow-100 text-yellow-600" : "bg-slate-100 text-slate-500"
-                )}>
-                  {profile?.kyc_status === 'verified' ? 'Conta Verificada' : 
-                   profile?.kyc_status === 'pending' ? 'Verificação Pendente' : 'Aguardando Documentos'}
-                </Badge>
-                {profile?.created_at && (
-                  <span className="text-slate-400 text-sm">• Membro desde {new Date(profile.created_at).toLocaleDateString('pt-BR')}</span>
-                )}
-              </div>
+    <AppLayout>
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6 mb-8">
+        <div className="flex items-center gap-6">
+          <div className="h-20 w-20 md:h-24 md:w-24 rounded-3xl bg-orange-500 flex items-center justify-center text-white shadow-lg shadow-orange-200 shrink-0">
+            <User size={40} />
+          </div>
+          <div>
+            <h1 className="text-2xl md:text-3xl font-black text-slate-900">{profile?.full_name || 'Usuário'}</h1>
+            <div className="flex flex-wrap items-center gap-2 mt-2">
+              <Badge className={cn(
+                "border-none px-3 py-1 rounded-full font-bold",
+                profile?.kyc_status === 'verified' ? "bg-green-100 text-green-600" : 
+                profile?.kyc_status === 'pending' ? "bg-yellow-100 text-yellow-600" : "bg-slate-100 text-slate-500"
+              )}>
+                {profile?.kyc_status === 'verified' ? 'Conta Verificada' : 
+                 profile?.kyc_status === 'pending' ? 'Verificação Pendente' : 'Aguardando Documentos'}
+              </Badge>
+              {profile?.created_at && (
+                <span className="text-slate-400 text-sm">• Membro desde {new Date(profile.created_at).toLocaleDateString('pt-BR')}</span>
+              )}
             </div>
           </div>
-          <Button variant="outline" className="rounded-xl border-slate-200 font-bold w-full md:w-auto">Editar Perfil</Button>
         </div>
+        <Button variant="outline" className="rounded-xl border-slate-200 font-bold w-full md:w-auto">Editar Perfil</Button>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden">
-            <CardHeader className="bg-white border-b border-slate-50 px-8 py-6">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <User size={20} className="text-orange-500" />
-                Dados Pessoais
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <InfoRow icon={User} label="Nome Completo" value={profile?.full_name} />
-              <InfoRow icon={FileText} label="CPF" value={displayCpf} />
-              <InfoRow icon={Mail} label="E-mail" value={profile?.email} />
-              <InfoRow icon={Phone} label="Telefone" value={profile?.phone} />
-            </CardContent>
-          </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden">
+          <CardHeader className="bg-white border-b border-slate-50 px-8 py-6">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <User size={20} className="text-orange-500" />
+              Dados Pessoais
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <InfoRow icon={User} label="Nome Completo" value={profile?.full_name} />
+            <InfoRow icon={FileText} label="CPF" value={displayCpf} />
+            <InfoRow icon={Mail} label="E-mail" value={profile?.email} />
+            <InfoRow icon={Phone} label="Telefone" value={profile?.phone} />
+          </CardContent>
+        </Card>
 
-          <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden">
-            <CardHeader className="bg-white border-b border-slate-50 px-8 py-6">
-              <CardTitle className="text-lg font-bold flex items-center gap-2">
-                <MapPin size={20} className="text-orange-500" />
-                Endereço
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-4">
-              <InfoRow icon={MapPin} label="CEP" value={profile?.zip_code || profile?.cep} />
-              <InfoRow icon={MapPin} label="Cidade / UF" value={profile?.city ? `${profile.city} - ${profile.state || ''}` : null} />
-              <InfoRow icon={MapPin} label="Endereço" value={profile?.address ? `${profile.address}${profile.number ? ', ' + profile.number : ''}` : null} />
-              <InfoRow icon={MapPin} label="Bairro" value={profile?.neighborhood || profile?.district} />
-            </CardContent>
-          </Card>
-        </div>
-      </main>
-      <Footer />
-    </div>
+        <Card className="border-none shadow-sm rounded-[2rem] overflow-hidden">
+          <CardHeader className="bg-white border-b border-slate-50 px-8 py-6">
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <MapPin size={20} className="text-orange-500" />
+              Endereço
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="p-4">
+            <InfoRow icon={MapPin} label="CEP" value={profile?.zip_code || profile?.cep} />
+            <InfoRow icon={MapPin} label="Cidade / UF" value={profile?.city ? `${profile.city} - ${profile.state || ''}` : null} />
+            <InfoRow icon={MapPin} label="Endereço" value={profile?.address ? `${profile.address}${profile.number ? ', ' + profile.number : ''}` : null} />
+            <InfoRow icon={MapPin} label="Bairro" value={profile?.neighborhood || profile?.district} />
+          </CardContent>
+        </Card>
+      </div>
+    </AppLayout>
   );
 };
 

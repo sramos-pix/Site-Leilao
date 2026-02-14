@@ -18,8 +18,7 @@ import {
 } from "@/components/ui/tooltip";
 import { formatCurrency, cn } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import AppLayout from '@/components/layout/AppLayout';
 
 const Dashboard = () => {
   const [profile, setProfile] = React.useState<any>(null);
@@ -89,171 +88,167 @@ const Dashboard = () => {
   ];
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen flex flex-col">
-      <Navbar />
-      <div className="container mx-auto px-4 pt-8 flex-1 pb-16">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2">
-              <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
-                Olá, {profile?.full_name || 'Usuário'}
-              </h1>
-              {profile?.kyc_status === 'verified' && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="bg-emerald-100 p-1 rounded-full">
-                        <ShieldCheck className="text-emerald-600" size={16} />
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent className="bg-slate-900 text-white border-none rounded-lg font-bold">
-                      <p>Conta Verificada</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-            </div>
-            <p className="text-slate-500 font-medium">Bem-vindo ao seu centro de controle AutoBid.</p>
+    <AppLayout>
+      <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
+              Olá, {profile?.full_name || 'Usuário'}
+            </h1>
+            {profile?.kyc_status === 'verified' && (
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="bg-emerald-100 p-1 rounded-full">
+                      <ShieldCheck className="text-emerald-600" size={16} />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-slate-900 text-white border-none rounded-lg font-bold">
+                    <p>Conta Verificada</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            )}
           </div>
-          <div className="flex items-center gap-3 w-full lg:w-auto">
-            <Link to="/app/profile" className="flex-1 lg:flex-none">
-              <Button variant="outline" className="w-full rounded-xl border-slate-200 h-11 px-6 font-semibold text-slate-600 hover:bg-white hover:shadow-sm transition-all">
-                Meu Perfil
-              </Button>
-            </Link>
-            <Link to="/auctions" className="flex-1 lg:flex-none">
-              <Button className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 text-white h-11 px-6 font-bold shadow-md shadow-orange-100 transition-all">
-                Explorar Leilões
-              </Button>
-            </Link>
-          </div>
+          <p className="text-slate-500 font-medium">Bem-vindo ao seu centro de controle AutoBid.</p>
         </div>
-
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
-          {stats.map((stat) => (
-            <Card key={stat.label} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden group hover:shadow-md transition-all duration-300">
-              <CardContent className="p-5 lg:p-6">
-                <div className={cn("p-3 rounded-xl w-fit mb-4 transition-transform group-hover:scale-105 duration-300", stat.bg)}>
-                  <stat.icon className={stat.color} size={20} />
-                </div>
-                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
-                <p className="text-2xl font-bold text-slate-900">{stat.value.toString().padStart(2, '0')}</p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-8 space-y-5">
-            <div className="flex items-center justify-between px-1">
-              <h2 className="text-xl font-bold text-slate-900 tracking-tight">Lances em Andamento</h2>
-              <Link to="/auctions" className="text-orange-500 font-bold text-sm flex items-center gap-1 hover:underline">
-                Ver todos <ArrowUpRight size={14} />
-              </Link>
-            </div>
-            
-            <div className="grid gap-4">
-              {activeBids.length > 0 ? activeBids.map((bid) => {
-                const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
-                return (
-                  <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden bg-white hover:shadow-md transition-all group">
-                    <CardContent className="p-0 flex flex-col sm:flex-row">
-                      <div className="w-full sm:w-48 h-32 bg-slate-100 overflow-hidden">
-                        <img 
-                          src={lot?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
-                          alt={lot?.title} 
-                        />
-                      </div>
-                      <div className="flex-1 p-5 flex flex-col justify-between">
-                        <div className="flex justify-between items-start gap-4">
-                          <div>
-                            <h3 className="font-bold text-slate-900 text-base line-clamp-1 mb-1">{lot?.title}</h3>
-                            <div className="flex items-center gap-2 text-slate-400">
-                              <Clock size={12} />
-                              <span className="text-[10px] font-bold uppercase tracking-wider">Expira em {new Date(lot?.ends_at).toLocaleDateString('pt-BR')}</span>
-                            </div>
-                          </div>
-                          <Badge className="bg-blue-50 text-blue-600 border-none font-bold text-[10px] px-2 py-0.5 rounded-full">
-                            EM DISPUTA
-                          </Badge>
-                        </div>
-                        <div className="flex justify-between items-end mt-4">
-                          <div>
-                            <p className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Seu Lance Atual</p>
-                            <p className="font-bold text-slate-900 text-xl">{formatCurrency(bid.amount)}</p>
-                          </div>
-                          <Link to={`/lots/${bid.lot_id}`}>
-                            <Button className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 h-10 text-sm">
-                              Aumentar Lance
-                            </Button>
-                          </Link>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                );
-              }) : (
-                <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-slate-100">
-                  <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Gavel className="text-slate-200" size={32} />
-                  </div>
-                  <h3 className="text-base font-bold text-slate-900 mb-1">Nenhum lance ativo</h3>
-                  <p className="text-slate-400 text-sm font-medium mb-6">Você ainda não deu lances em leilões abertos.</p>
-                  <Link to="/auctions">
-                    <Button variant="outline" className="rounded-xl border-slate-200 font-bold px-6 h-10 text-sm">Começar a Lançar</Button>
-                  </Link>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="lg:col-span-4 space-y-6">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight px-1">Status da Conta</h2>
-            
-            <Card className={cn(
-              "border-none shadow-lg rounded-2xl overflow-hidden transition-all duration-300",
-              profile?.kyc_status === 'verified' ? "bg-slate-900 text-white" : "bg-orange-500 text-white"
-            )}>
-              <CardContent className="p-8">
-                <div className="flex items-center gap-4 mb-6">
-                  <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
-                    <ShieldCheck size={24} className="text-white" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-lg">Verificação</h3>
-                    <p className="text-white/70 text-[10px] font-medium">
-                      {profile?.kyc_status === 'verified' ? 'Acesso total liberado' : 'Ação necessária para lances'}
-                    </p>
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl backdrop-blur-sm">
-                    <span className="text-xs font-bold text-white/80">Status Atual</span>
-                    <Badge className={cn(
-                      "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
-                      profile?.kyc_status === 'verified' ? "bg-emerald-500 text-white" : "bg-white text-orange-600"
-                    )}>
-                      {profile?.kyc_status === 'verified' ? 'APROVADO' : profile?.kyc_status === 'pending' ? 'EM ANÁLISE' : 'PENDENTE'}
-                    </Badge>
-                  </div>
-                  
-                  {profile?.kyc_status !== 'verified' && (
-                    <Link to="/app/verify" className="block">
-                      <Button className="w-full bg-white text-orange-600 hover:bg-slate-100 rounded-xl font-bold h-12 text-base shadow-md">
-                        {profile?.kyc_status === 'pending' ? 'VER DETALHES' : 'ENVIAR DOCUMENTOS'}
-                      </Button>
-                    </Link>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
+        <div className="flex items-center gap-3 w-full lg:w-auto">
+          <Link to="/app/profile" className="flex-1 lg:flex-none">
+            <Button variant="outline" className="w-full rounded-xl border-slate-200 h-11 px-6 font-semibold text-slate-600 hover:bg-white hover:shadow-sm transition-all">
+              Meu Perfil
+            </Button>
+          </Link>
+          <Link to="/auctions" className="flex-1 lg:flex-none">
+            <Button className="w-full rounded-xl bg-orange-500 hover:bg-orange-600 text-white h-11 px-6 font-bold shadow-md shadow-orange-100 transition-all">
+              Explorar Leilões
+            </Button>
+          </Link>
         </div>
       </div>
-      <Footer />
-    </div>
+
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
+        {stats.map((stat) => (
+          <Card key={stat.label} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden group hover:shadow-md transition-all duration-300">
+            <CardContent className="p-5 lg:p-6">
+              <div className={cn("p-3 rounded-xl w-fit mb-4 transition-transform group-hover:scale-105 duration-300", stat.bg)}>
+                <stat.icon className={stat.color} size={20} />
+              </div>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1">{stat.label}</p>
+              <p className="text-2xl font-bold text-slate-900">{stat.value.toString().padStart(2, '0')}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div className="lg:col-span-8 space-y-5">
+          <div className="flex items-center justify-between px-1">
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Lances em Andamento</h2>
+            <Link to="/auctions" className="text-orange-500 font-bold text-sm flex items-center gap-1 hover:underline">
+              Ver todos <ArrowUpRight size={14} />
+            </Link>
+          </div>
+          
+          <div className="grid gap-4">
+            {activeBids.length > 0 ? activeBids.map((bid) => {
+              const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
+              return (
+                <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden bg-white hover:shadow-md transition-all group">
+                  <CardContent className="p-0 flex flex-col sm:flex-row">
+                    <div className="w-full sm:w-48 h-32 bg-slate-100 overflow-hidden">
+                      <img 
+                        src={lot?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                        alt={lot?.title} 
+                      />
+                    </div>
+                    <div className="flex-1 p-5 flex flex-col justify-between">
+                      <div className="flex justify-between items-start gap-4">
+                        <div>
+                          <h3 className="font-bold text-slate-900 text-base line-clamp-1 mb-1">{lot?.title}</h3>
+                          <div className="flex items-center gap-2 text-slate-400">
+                            <Clock size={12} />
+                            <span className="text-[10px] font-bold uppercase tracking-wider">Expira em {new Date(lot?.ends_at).toLocaleDateString('pt-BR')}</span>
+                          </div>
+                        </div>
+                        <Badge className="bg-blue-50 text-blue-600 border-none font-bold text-[10px] px-2 py-0.5 rounded-full">
+                          EM DISPUTA
+                        </Badge>
+                      </div>
+                      <div className="flex justify-between items-end mt-4">
+                        <div>
+                          <p className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Seu Lance Atual</p>
+                          <p className="font-bold text-slate-900 text-xl">{formatCurrency(bid.amount)}</p>
+                        </div>
+                        <Link to={`/lots/${bid.lot_id}`}>
+                          <Button className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 h-10 text-sm">
+                            Aumentar Lance
+                          </Button>
+                        </Link>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            }) : (
+              <div className="text-center py-16 bg-white rounded-2xl border-2 border-dashed border-slate-100">
+                <div className="bg-slate-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Gavel className="text-slate-200" size={32} />
+                </div>
+                <h3 className="text-base font-bold text-slate-900 mb-1">Nenhum lance ativo</h3>
+                <p className="text-slate-400 text-sm font-medium mb-6">Você ainda não deu lances em leilões abertos.</p>
+                <Link to="/auctions">
+                  <Button variant="outline" className="rounded-xl border-slate-200 font-bold px-6 h-10 text-sm">Começar a Lançar</Button>
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="lg:col-span-4 space-y-6">
+          <h2 className="text-xl font-bold text-slate-900 tracking-tight px-1">Status da Conta</h2>
+          
+          <Card className={cn(
+            "border-none shadow-lg rounded-2xl overflow-hidden transition-all duration-300",
+            profile?.kyc_status === 'verified' ? "bg-slate-900 text-white" : "bg-orange-500 text-white"
+          )}>
+            <CardContent className="p-8">
+              <div className="flex items-center gap-4 mb-6">
+                <div className="bg-white/20 p-3 rounded-xl backdrop-blur-sm">
+                  <ShieldCheck size={24} className="text-white" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg">Verificação</h3>
+                  <p className="text-white/70 text-[10px] font-medium">
+                    {profile?.kyc_status === 'verified' ? 'Acesso total liberado' : 'Ação necessária para lances'}
+                  </p>
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl backdrop-blur-sm">
+                  <span className="text-xs font-bold text-white/80">Status Atual</span>
+                  <Badge className={cn(
+                    "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
+                    profile?.kyc_status === 'verified' ? "bg-emerald-500 text-white" : "bg-white text-orange-600"
+                  )}>
+                    {profile?.kyc_status === 'verified' ? 'APROVADO' : profile?.kyc_status === 'pending' ? 'EM ANÁLISE' : 'PENDENTE'}
+                  </Badge>
+                </div>
+                
+                {profile?.kyc_status !== 'verified' && (
+                  <Link to="/app/verify" className="block">
+                    <Button className="w-full bg-white text-orange-600 hover:bg-slate-100 rounded-xl font-bold h-12 text-base shadow-md">
+                      {profile?.kyc_status === 'pending' ? 'VER DETALHES' : 'ENVIAR DOCUMENTOS'}
+                    </Button>
+                  </Link>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </AppLayout>
   );
 };
 

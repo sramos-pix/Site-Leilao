@@ -8,8 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Loader2, Gavel, ExternalLink } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useNavigate, Link } from 'react-router-dom';
-import Navbar from '@/components/Navbar';
-import Footer from '@/components/Footer';
+import AppLayout from '@/components/layout/AppLayout';
 
 const History = () => {
   const [wins, setWins] = React.useState<any[]>([]);
@@ -42,89 +41,81 @@ const History = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col">
-        <Navbar />
-        <div className="flex flex-col items-center justify-center flex-1 gap-4">
-          <Loader2 className="animate-spin text-orange-500" size={40} />
-          <p className="text-slate-500 font-medium">Carregando seus arremates...</p>
-        </div>
-        <Footer />
+      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 gap-4">
+        <Loader2 className="animate-spin text-orange-500" size={40} />
+        <p className="text-slate-500 font-medium">Carregando seus arremates...</p>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
-      <Navbar />
-      <main className="flex-1 container mx-auto px-4 py-8 max-w-5xl space-y-8">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900">Meus Arremates</h1>
-          <p className="text-slate-500">Veículos onde você detém o maior lance em leilões encerrados.</p>
-        </div>
+    <AppLayout>
+      <div className="mb-8">
+        <h1 className="text-3xl font-black text-slate-900">Meus Arremates</h1>
+        <p className="text-slate-500">Veículos onde você detém o maior lance em leilões encerrados.</p>
+      </div>
 
-        <div className="grid gap-6">
-          {wins.length > 0 ? wins.map((lot) => (
-            <Card key={lot.id} className="border-none shadow-sm rounded-[2rem] overflow-hidden hover:shadow-md transition-all bg-white border border-slate-100">
-              <CardContent className="p-0 flex flex-col md:flex-row">
-                <div className="w-full md:w-64 h-48 bg-slate-100 shrink-0 relative">
-                  <img 
-                    src={lot.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
-                    className="w-full h-full object-cover" 
-                    alt={lot.title} 
-                  />
-                  <Badge className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md border-none">
-                    LOTE #{lot.lot_number}
+      <div className="grid gap-6">
+        {wins.length > 0 ? wins.map((lot) => (
+          <Card key={lot.id} className="border-none shadow-sm rounded-[2rem] overflow-hidden hover:shadow-md transition-all bg-white border border-slate-100">
+            <CardContent className="p-0 flex flex-col md:flex-row">
+              <div className="w-full md:w-64 h-48 bg-slate-100 shrink-0 relative">
+                <img 
+                  src={lot.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
+                  className="w-full h-full object-cover" 
+                  alt={lot.title} 
+                />
+                <Badge className="absolute top-4 left-4 bg-slate-900/80 backdrop-blur-md border-none">
+                  LOTE #{lot.lot_number}
+                </Badge>
+              </div>
+              <div className="flex-1 p-8 flex flex-col justify-between">
+                <div className="flex justify-between items-start gap-4">
+                  <div>
+                    <h3 className="text-xl font-bold text-slate-900 mb-1">{lot.title}</h3>
+                    <p className="text-sm text-slate-400">Encerrado em {new Date(lot.ends_at).toLocaleDateString('pt-BR')}</p>
+                  </div>
+                  <Badge className="bg-green-500 text-white border-none font-black px-4 py-1 rounded-full text-[10px] tracking-widest">
+                    VENCEDOR
                   </Badge>
                 </div>
-                <div className="flex-1 p-8 flex flex-col justify-between">
-                  <div className="flex justify-between items-start gap-4">
-                    <div>
-                      <h3 className="text-xl font-bold text-slate-900 mb-1">{lot.title}</h3>
-                      <p className="text-sm text-slate-400">Encerrado em {new Date(lot.ends_at).toLocaleDateString('pt-BR')}</p>
-                    </div>
-                    <Badge className="bg-green-500 text-white border-none font-black px-4 py-1 rounded-full text-[10px] tracking-widest">
-                      VENCEDOR
-                    </Badge>
+                
+                <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center mt-6 gap-4">
+                  <div className="bg-slate-50 px-6 py-3 rounded-2xl border border-slate-100 w-full sm:w-auto">
+                    <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Valor de Arremate</p>
+                    <p className="font-black text-slate-900 text-xl">{formatCurrency(lot.final_price)}</p>
                   </div>
-                  
-                  <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center mt-6 gap-4">
-                    <div className="bg-slate-50 px-6 py-3 rounded-2xl border border-slate-100 w-full sm:w-auto">
-                      <p className="text-[10px] uppercase font-black text-slate-400 mb-1">Valor de Arremate</p>
-                      <p className="font-black text-slate-900 text-xl">{formatCurrency(lot.final_price)}</p>
-                    </div>
-                    <div className="flex gap-3 w-full sm:w-auto">
-                      <Link to={`/lots/${lot.id}`} className="flex-1 sm:flex-none">
-                        <Button variant="outline" className="w-full rounded-xl border-slate-200 font-bold gap-2">
-                          <ExternalLink size={16} /> Detalhes
-                        </Button>
-                      </Link>
-                      <Button 
-                        className="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black px-8 shadow-lg shadow-orange-100"
-                        onClick={() => navigate(`/app/checkout/${lot.id}`)}
-                      >
-                        PAGAR AGORA
+                  <div className="flex gap-3 w-full sm:w-auto">
+                    <Link to={`/lots/${lot.id}`} className="flex-1 sm:flex-none">
+                      <Button variant="outline" className="w-full rounded-xl border-slate-200 font-bold gap-2">
+                        <ExternalLink size={16} /> Detalhes
                       </Button>
-                    </div>
+                    </Link>
+                    <Button 
+                      className="flex-1 sm:flex-none bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-black px-8 shadow-lg shadow-orange-100"
+                      onClick={() => navigate(`/app/checkout/${lot.id}`)}
+                    >
+                      PAGAR AGORA
+                    </Button>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          )) : (
-            <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
-              <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
-                <Gavel className="text-slate-300" size={40} />
               </div>
-              <h3 className="text-xl font-bold text-slate-900 mb-2">Nenhum arremate ainda</h3>
-              <p className="text-slate-500 mb-8 max-w-xs mx-auto">Participe dos leilões ativos para encontrar as melhores oportunidades.</p>
-              <Link to="/auctions">
-                <Button className="bg-slate-900 text-white rounded-xl px-8 font-bold">Explorar Leilões</Button>
-              </Link>
+            </CardContent>
+          </Card>
+        )) : (
+          <div className="text-center py-20 bg-white rounded-[3rem] border-2 border-dashed border-slate-100">
+            <div className="bg-slate-50 w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Gavel className="text-slate-300" size={40} />
             </div>
-          )}
-        </div>
-      </main>
-      <Footer />
-    </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Nenhum arremate ainda</h3>
+            <p className="text-slate-500 mb-8 max-w-xs mx-auto">Participe dos leilões ativos para encontrar as melhores oportunidades.</p>
+            <Link to="/auctions">
+              <Button className="bg-slate-900 text-white rounded-xl px-8 font-bold">Explorar Leilões</Button>
+            </Link>
+          </div>
+        )}
+      </div>
+    </AppLayout>
   );
 };
 

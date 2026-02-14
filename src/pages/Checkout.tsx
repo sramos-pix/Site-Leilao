@@ -46,6 +46,8 @@ const Checkout = () => {
   const handleGeneratePayment = async () => {
     setProcessing(true);
     setError(null);
+    setPaymentData(null); // Limpa dados anteriores
+    
     try {
       const { data: { user } } = await supabase.auth.getUser();
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user?.id).single();
@@ -72,10 +74,10 @@ const Checkout = () => {
         toast({ title: "PIX Gerado!" });
       } else {
         setError(res.error);
-        console.error("Erro detalhado:", res.details);
+        console.error("Erro da API ConnectPay:", res.details);
       }
     } catch (err: any) {
-      setError("Erro inesperado ao processar pagamento.");
+      setError("Erro ao processar pagamento. Tente novamente.");
     } finally {
       setProcessing(false);
     }
@@ -85,7 +87,7 @@ const Checkout = () => {
     if (!paymentData?.pix_code) return;
     navigator.clipboard.writeText(paymentData.pix_code);
     setCopied(true);
-    toast({ title: "Copiado!", description: "Código PIX copiado para a área de transferência." });
+    toast({ title: "Copiado!", description: "Código PIX copiado." });
     setTimeout(() => setCopied(false), 2000);
   };
 
@@ -120,7 +122,7 @@ const Checkout = () => {
                 <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 text-red-700">
                   <AlertTriangle className="shrink-0 mt-0.5" size={18} />
                   <div className="text-sm">
-                    <p className="font-bold">Erro na Integração:</p>
+                    <p className="font-bold">Erro:</p>
                     <p className="opacity-80">{error}</p>
                   </div>
                 </div>

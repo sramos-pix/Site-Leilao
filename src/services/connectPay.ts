@@ -2,11 +2,10 @@
 
 /**
  * Serviço de Integração ConnectPay - Versão Transactions
- * Baseado no código funcional fornecido pelo usuário.
+ * Focado estritamente na resposta da API.
  */
 
 const CONNECTPAY_BASE_URL = "https://api.connectpay.vc";
-// Usando o token fornecido como api-secret
 const CONNECTPAY_API_SECRET = "sk_872e29f3517d2979f4a8af99c8b8855dbd90699a7a98b13e6df12b48c8e89f6c6676876f45bb64e5fe725ec5d56c63594da781aa2478a893885ca4c150d2149f"; 
 
 export const generatePixPayment = async (data: {
@@ -20,10 +19,9 @@ export const generatePixPayment = async (data: {
   }
 }) => {
   try {
-    // Payload seguindo a estrutura da rota /v1/transactions
     const txPayload = {
       external_id: crypto.randomUUID(),
-      total_amount: data.amount, // Valor cheio (ex: 1500.50) conforme o código funcional
+      total_amount: data.amount,
       payment_method: "PIX",
       items: [
         {
@@ -63,13 +61,16 @@ export const generatePixPayment = async (data: {
       };
     }
 
-    // No código funcional, o PIX vem em data.pix.payload ou direto em result.pix.payload
-    const pixCode = result.pix?.payload || result.data?.pix?.payload;
+    // Busca o código PIX (payload) em todas as localizações possíveis da resposta da API
+    const pixCode = result.pix?.payload || 
+                    result.data?.pix?.payload || 
+                    result.pix_qr_code || 
+                    result.data?.pix_qr_code;
 
     if (!pixCode) {
       return {
         success: false,
-        error: 'Código PIX não encontrado na resposta da API',
+        error: 'A API respondeu com sucesso, mas o campo pix.payload não foi encontrado.',
         details: result
       };
     }

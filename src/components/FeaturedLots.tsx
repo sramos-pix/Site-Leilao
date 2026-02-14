@@ -2,90 +2,38 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Gavel, Clock, Heart, ChevronRight, Loader2 } from 'lucide-react';
+import { Gavel, Calendar, Car, ChevronRight, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { formatCurrency, cn } from '@/lib/utils';
-import CountdownTimer from './CountdownTimer';
 import { supabase } from '@/lib/supabase';
-import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 
 const FeaturedLots = () => {
-  const [lots, setLots] = useState<any[]>([]);
+  const [auctions, setAuctions] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [userFavorites, setUserFavorites] = useState<string[]>([]);
-  const { toast } = useToast();
 
-  const fetchData = async () => {
+  const fetchAuctions = async () => {
     setIsLoading(true);
     try {
-      // Busca os lotes mais recentes. Se houver leilões ativos, eles aparecerão primeiro.
       const { data, error } = await supabase
-        .from('lots')
-        .select(`
-          *,
-          auctions (
-            status
-          )
-        `)
-        .order('created_at', { ascending: false })
+        .from('auctions')
+        .select('*, lots(id)')
+        .order('starts_at', { ascending: false })
         .limit(3);
-
-      if (error) throw error;
-
-      // Filtra para garantir que estamos mostrando lotes que pertencem a leilões ativos
-      // ou simplesmente mostra os últimos cadastrados se o filtro de status falhar
-      const activeLots = data?.filter(lot => lot.auctions?.status === 'active') || [];
       
-      // Se não houver nenhum estritamente 'active', mostra os últimos 3 de qualquer forma para não deixar a home vazia
-      setLots(activeLots.length > 0 ? activeLots : (data || []));
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        const { data: favs } = await supabase
-          .from('favorites')
-          .select('lot_id')
-          .eq('user_id', user.id);
-        setUserFavorites(favs?.map(f => f.lot_id) || []);
-      }
+      if (error) throw error;
+      setAuctions(data || []);
     } catch (error) {
-      console.error("Erro ao buscar lotes:", error);
+      console.error(error);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchData();
+    fetchAuctions();
   }, []);
-
-  const toggleFavorite = async (e: React.MouseEvent, lotId: string) => {
-    e.preventDefault();
-    const { data: { user } } = await supabase.auth.getUser();
-    
-    if (!user) {
-      toast({
-        title: "Acesso restrito",
-        description: "Você precisa estar logado para favoritar.",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const isFavorited = userFavorites.includes(lotId);
-    try {
-      if (isFavorited) {
-        await supabase.from('favorites').delete().eq('user_id', user.id).eq('lot_id', lotId);
-        setUserFavorites(prev => prev.filter(id => id !== lotId));
-      } else {
-        await supabase.from('favorites').insert({ user_id: user.id, lot_id: lotId });
-        setUserFavorites(prev => [...prev, lotId]);
-      }
-    } catch (error) {
-      console.error(error);
-    }
-  };
 
   return (
     <section className="py-20 bg-white">
@@ -96,7 +44,7 @@ const FeaturedLots = () => {
               LEILÕES EM DESTAQUE
             </Badge>
             <h2 className="text-4xl font-black text-slate-900 tracking-tight">Oportunidades Imperdíveis</h2>
-            <p className="text-slate-500 mt-2 font-medium">Os veículos mais disputados da plataforma</p>
+            <p className="text-slate-500 mt-2 font-medium">Confira os eventos de leilão mais recentes</p>
           </div>
           <Link to="/auctions">
             <Button variant="ghost" className="text-orange-600 font-bold hover:text-orange-700 hover:bg-orange-50 group">
@@ -109,61 +57,46 @@ const FeaturedLots = () => {
           <div className="flex justify-center py-20">
             <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
           </div>
-        ) : lots.length > 0 ? (
+        ) : auctions.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {lots.map((lot) => (
-              <Card key={lot.id} className="group border-none shadow-lg hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-slate-50">
-                <Link to={`/lots/${lot.id}`} className="block relative aspect-[4/3] overflow-hidden">
+            {auctions.map((auction) => (
+              <Card key={auction.id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
+                <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
                   <img 
-                    src={lot.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
-                    alt={lot.title} 
-                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                    src={auction.image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
+                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                    alt={auction.title}
                   />
-                  <div className="absolute top-4 left-4 flex flex-col gap-2">
-                    <Badge className="bg-slate-900/90 backdrop-blur-md text-white border-none px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest w-fit">
-                      LOTE #{lot.lot_number}
-                    </Badge>
-                    <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full text-[10px] font-black shadow-lg shadow-red-500/20 w-fit">
-                      <Clock size={12} /> 
-                      <CountdownTimer randomScarcity={true} lotId={lot.id} />
+                  <div className="absolute top-3 left-3">
+                    <Badge className={cn(
+                      "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
+                      auction.status === 'live' ? "bg-red-500 text-white animate-pulse" : "bg-blue-500 text-white"
+                    )}>
+                      {auction.status === 'live' ? 'AO VIVO' : 'AGENDADO'}
                     </Badge>
                   </div>
-                  <Button 
-                    variant="secondary" 
-                    size="icon" 
-                    className={cn(
-                      "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300",
-                      userFavorites.includes(lot.id) ? "bg-red-500 text-white" : "bg-white/90 hover:bg-orange-500 hover:text-white"
-                    )}
-                    onClick={(e) => toggleFavorite(e, lot.id)}
-                  >
-                    <Heart size={18} fill={userFavorites.includes(lot.id) ? "currentColor" : "none"} />
-                  </Button>
-                </Link>
-
-                <CardContent className="p-8">
-                  <Link to={`/lots/${lot.id}`}>
-                    <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">
-                      {lot.title}
-                    </h3>
-                  </Link>
-                  <div className="flex justify-between items-center">
-                    <div>
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Lance Atual</p>
-                      <p className="text-2xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                </div>
+                <CardContent className="p-6">
+                  <h3 className="text-lg font-bold text-slate-900 line-clamp-1 tracking-tight mb-4">{auction.title}</h3>
+                  <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50">
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Lotes</p>
+                      <div className="flex items-center gap-1.5 font-bold text-slate-700 text-sm">
+                        <Car size={14} className="text-orange-500" /> {auction.lots?.length || 0} veículos
+                      </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Incremento</p>
-                      <p className="text-sm font-bold text-slate-600">+ {formatCurrency(lot.bid_increment || 500)}</p>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Início</p>
+                      <div className="flex items-center gap-1.5 font-bold text-slate-700 text-sm">
+                        <Calendar size={14} className="text-orange-500" /> {new Date(auction.starts_at).toLocaleDateString('pt-BR')}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
-
-                <CardFooter className="p-8 pt-0">
-                  <Link to={`/lots/${lot.id}`} className="w-full">
-                    <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-black py-6 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 group/btn shadow-xl shadow-slate-200">
-                      <Gavel size={18} className="group-hover/btn:rotate-12 transition-transform" />
-                      DAR LANCE AGORA
+                <CardFooter className="p-6 pt-0">
+                  <Link to={`/auctions/${auction.id}`} className="w-full">
+                    <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white rounded-xl h-11 font-bold group/btn transition-all">
+                      Ver Veículos <ChevronRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
                     </Button>
                   </Link>
                 </CardFooter>
@@ -172,7 +105,7 @@ const FeaturedLots = () => {
           </div>
         ) : (
           <div className="text-center py-20 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
-            <p className="text-slate-400 font-bold">Nenhum lote disponível no momento.</p>
+            <p className="text-slate-400 font-bold">Nenhum leilão ativo no momento.</p>
           </div>
         )}
       </div>

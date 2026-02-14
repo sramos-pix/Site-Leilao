@@ -87,6 +87,14 @@ const Dashboard = () => {
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ];
 
+  // Lógica de status simplificada para evitar confusão
+  const getKycStatusLabel = () => {
+    if (profile?.kyc_status === 'verified') return 'APROVADO';
+    if (profile?.kyc_status === 'pending') return 'EM ANÁLISE';
+    if (profile?.kyc_status === 'rejected') return 'REJEITADO';
+    return 'PENDENTE';
+  };
+
   return (
     <AppLayout>
       <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-10 gap-6">
@@ -232,7 +240,7 @@ const Dashboard = () => {
                     "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
                     profile?.kyc_status === 'verified' ? "bg-emerald-500 text-white" : "bg-white text-orange-600"
                   )}>
-                    {profile?.kyc_status === 'verified' ? 'APROVADO' : profile?.kyc_status === 'pending' ? 'EM ANÁLISE' : 'PENDENTE'}
+                    {getKycStatusLabel()}
                   </Badge>
                 </div>
                 

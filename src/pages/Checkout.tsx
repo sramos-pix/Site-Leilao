@@ -62,7 +62,8 @@ const Checkout = () => {
         customer: {
           name: profile.full_name || '',
           document: profile.document_id,
-          email: profile.email || ''
+          email: profile.email || '',
+          phone: profile.phone || '11999999999'
         }
       });
 
@@ -78,6 +79,14 @@ const Checkout = () => {
     } finally {
       setProcessing(false);
     }
+  };
+
+  const copyToClipboard = () => {
+    if (!paymentData?.pix_code) return;
+    navigator.clipboard.writeText(paymentData.pix_code);
+    setCopied(true);
+    toast({ title: "Copiado!", description: "Código PIX copiado para a área de transferência." });
+    setTimeout(() => setCopied(false), 2000);
   };
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" size={40} /></div>;
@@ -111,7 +120,7 @@ const Checkout = () => {
                 <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 text-red-700">
                   <AlertTriangle className="shrink-0 mt-0.5" size={18} />
                   <div className="text-sm">
-                    <p className="font-bold">Não foi possível gerar o PIX:</p>
+                    <p className="font-bold">Erro na Integração:</p>
                     <p className="opacity-80">{error}</p>
                   </div>
                 </div>
@@ -131,7 +140,7 @@ const Checkout = () => {
                   <div className="flex-1 space-y-4 w-full">
                     <div className="p-4 bg-green-50 border border-green-100 rounded-2xl flex items-center gap-3 text-green-700">
                       <CheckCircle2 size={20} />
-                      <span className="text-sm font-bold">PIX Gerado!</span>
+                      <span className="text-sm font-bold">PIX Gerado com Sucesso!</span>
                     </div>
                     <div className="space-y-2">
                       <label className="text-[10px] font-bold text-slate-400 uppercase">Código Copia e Cola</label>
@@ -139,7 +148,7 @@ const Checkout = () => {
                         <div className="flex-1 bg-slate-100 p-3 rounded-xl text-[10px] font-mono break-all border border-slate-200 text-slate-600 max-h-24 overflow-y-auto">
                           {paymentData.pix_code}
                         </div>
-                        <Button onClick={() => { navigator.clipboard.writeText(paymentData.pix_code); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="bg-slate-900 h-auto px-4 rounded-xl">
+                        <Button onClick={copyToClipboard} className="bg-slate-900 h-auto px-4 rounded-xl">
                           {copied ? <CheckCircle2 size={18} /> : <Copy size={18} />}
                         </Button>
                       </div>

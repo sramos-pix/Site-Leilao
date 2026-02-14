@@ -95,7 +95,7 @@ const AdminOverview = () => {
   }, []);
 
   const handleContemplateBid = async (bid: any) => {
-    if (!confirm(`Deseja CONTEMPLAR este lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}"? Isso encerrará o leilão deste item e notificará o vencedor.`)) return;
+    if (!confirm(`Deseja CONTEMPLAR este lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}"? Isso encerrará o leilão deste item.`)) return;
     
     setIsProcessing(bid.id);
 
@@ -112,14 +112,7 @@ const AdminOverview = () => {
 
       if (lotError) throw lotError;
 
-      await supabase.from('notifications').insert({
-        user_id: bid.user_id,
-        title: '🎉 Parabéns! Você venceu!',
-        message: `Seu lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}" foi contemplado. Entre em contato para finalizar o pagamento.`,
-        type: 'success'
-      });
-
-      toast({ title: "Lance Contemplado!", description: "O vencedor foi definido e notificado." });
+      toast({ title: "Lance Contemplado!", description: "O veículo foi marcado como finalizado." });
       await fetchStats(true);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
@@ -129,7 +122,7 @@ const AdminOverview = () => {
   };
 
   const handleUndoContemplation = async (bid: any) => {
-    if (!confirm(`Deseja ESTORNAR a contemplação do veículo "${bid.lots?.title}"? O veículo voltará a ficar ATIVO para novos lances.`)) return;
+    if (!confirm(`Deseja ESTORNAR a contemplação do veículo "${bid.lots?.title}"? O veículo voltará a ficar ATIVO.`)) return;
     
     setIsProcessing(bid.id);
 
@@ -145,13 +138,6 @@ const AdminOverview = () => {
 
       if (lotError) throw lotError;
 
-      await supabase.from('notifications').insert({
-        user_id: bid.user_id,
-        title: '⚠️ Contemplação Cancelada',
-        message: `A contemplação do veículo "${bid.lots?.title}" foi cancelada pelo administrador.`,
-        type: 'warning'
-      });
-
       toast({ title: "Contemplação Estornada", description: "O veículo voltou ao status ativo." });
       await fetchStats(true);
     } catch (error: any) {
@@ -162,11 +148,12 @@ const AdminOverview = () => {
   };
 
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
-    if (!confirm(`Deseja realmente EXCLUIR este lance de ${formatCurrency(amount)}?`)) return;
+    if (!confirm(`Deseja realmente EXCLUIR este lance de ${formatCurrency(amount)}? Se este for o lance vencedor, o veículo será resetado para ATIVO.`)) return;
     
     setIsProcessing(bidId);
 
     try {
+      // 1. Deleta o lance
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
@@ -174,6 +161,7 @@ const AdminOverview = () => {
 
       if (deleteError) throw deleteError;
 
+      // 2. Busca o próximo maior lance
       const { data: nextHighestBid } = await supabase
         .from('bids')
         .select('amount')
@@ -183,12 +171,19 @@ const AdminOverview = () => {
         .maybeSingle();
 
       const newCurrentBid = nextHighestBid?.amount || 0;
+
+      // 3. Reseta o lote para 'active' e limpa o vencedor, atualizando o valor atual
       await supabase
         .from('lots')
-        .update({ current_bid: newCurrentBid })
+        .update({ 
+          status: 'active', 
+          winner_id: null, 
+          final_price: null,
+          current_bid: newCurrentBid 
+        })
         .eq('id', lotId);
 
-      toast({ title: "Lance excluído", description: "O registro foi removido." });
+      toast({ title: "Lance excluído", description: "O veículo foi resetado para o status ativo." });
       await fetchStats(true);
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
@@ -199,11 +194,6 @@ const AdminOverview = () => {
 
   useEffect(() => {
     fetchStats(true);
-    const channel = supabase
-      .channel('admin-realtime-final')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchStats())
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
   }, [fetchStats]);
 
   const handleUserClick = (userId: string) => {

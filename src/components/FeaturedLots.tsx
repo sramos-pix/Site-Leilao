@@ -20,10 +20,14 @@ const FeaturedLots = () => {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      // Busca os lotes marcados como destaque ou os mais recentes
+      // Busca lotes que pertencem a leilões com status 'active'
       const { data, error } = await supabase
         .from('lots')
-        .select('*')
+        .select(`
+          *,
+          auctions!inner(status)
+        `)
+        .eq('auctions.status', 'active')
         .order('created_at', { ascending: false })
         .limit(3);
 
@@ -40,7 +44,7 @@ const FeaturedLots = () => {
         setUserFavorites(favs?.map(f => f.lot_id) || []);
       }
     } catch (error) {
-      console.error("Erro ao buscar lotes em destaque:", error);
+      console.error("Erro ao buscar lotes ativos:", error);
     } finally {
       setIsLoading(false);
     }
@@ -80,16 +84,17 @@ const FeaturedLots = () => {
   return (
     <section className="py-20 bg-white">
       <div className="container mx-auto px-4">
-        <div className="flex justify-between items-end mb-12">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-12 gap-6">
           <div>
             <Badge className="bg-orange-100 text-orange-600 hover:bg-orange-100 border-none mb-4 px-4 py-1 rounded-full font-bold">
-              OPORTUNIDADES ÚNICAS
+              LEILÕES ATIVOS
             </Badge>
-            <h2 className="text-4xl font-black text-slate-900">Lotes em Destaque</h2>
+            <h2 className="text-4xl font-black text-slate-900 tracking-tight">Oportunidades em Destaque</h2>
+            <p className="text-slate-500 mt-2 font-medium">Confira os lotes mais disputados do momento</p>
           </div>
           <Link to="/auctions">
-            <Button variant="ghost" className="text-orange-600 font-bold hover:text-orange-700 hover:bg-orange-50">
-              Ver todos os lotes <ChevronRight size={20} className="ml-1" />
+            <Button variant="ghost" className="text-orange-600 font-bold hover:text-orange-700 hover:bg-orange-50 group">
+              Ver todos os leilões <ChevronRight size={20} className="ml-1 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
         </div>
@@ -98,7 +103,7 @@ const FeaturedLots = () => {
           <div className="flex justify-center py-20">
             <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
           </div>
-        ) : (
+        ) : lots.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {lots.map((lot) => (
               <Card key={lot.id} className="group border-none shadow-lg hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-slate-50">
@@ -108,11 +113,11 @@ const FeaturedLots = () => {
                     alt={lot.title} 
                     className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
-                  <div className="absolute top-4 left-4 flex gap-2">
-                    <Badge className="bg-slate-900 text-white border-none px-3 py-1 flex items-center gap-1 rounded-none text-[11px] font-bold uppercase tracking-tight">
+                  <div className="absolute top-4 left-4 flex flex-col gap-2">
+                    <Badge className="bg-slate-900/90 backdrop-blur-md text-white border-none px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest w-fit">
                       LOTE #{lot.lot_number}
                     </Badge>
-                    <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full text-[11px] font-bold">
+                    <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full text-[10px] font-black shadow-lg shadow-red-500/20 w-fit">
                       <Clock size={12} /> 
                       <CountdownTimer randomScarcity={true} lotId={lot.id} />
                     </Badge>
@@ -121,7 +126,7 @@ const FeaturedLots = () => {
                     variant="secondary" 
                     size="icon" 
                     className={cn(
-                      "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-colors",
+                      "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300",
                       userFavorites.includes(lot.id) ? "bg-red-500 text-white" : "bg-white/90 hover:bg-orange-500 hover:text-white"
                     )}
                     onClick={(e) => toggleFavorite(e, lot.id)}
@@ -138,11 +143,11 @@ const FeaturedLots = () => {
                   </Link>
                   <div className="flex justify-between items-center">
                     <div>
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Lance Atual</p>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Lance Atual</p>
                       <p className="text-2xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Incremento</p>
+                      <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest mb-1">Incremento</p>
                       <p className="text-sm font-bold text-slate-600">+ {formatCurrency(lot.bid_increment || 500)}</p>
                     </div>
                   </div>
@@ -150,7 +155,7 @@ const FeaturedLots = () => {
 
                 <CardFooter className="p-8 pt-0">
                   <Link to={`/lots/${lot.id}`} className="w-full">
-                    <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-bold py-6 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 group/btn">
+                    <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-black py-6 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 group/btn shadow-xl shadow-slate-200">
                       <Gavel size={18} className="group-hover/btn:rotate-12 transition-transform" />
                       DAR LANCE AGORA
                     </Button>
@@ -158,6 +163,10 @@ const FeaturedLots = () => {
                 </CardFooter>
               </Card>
             ))}
+          </div>
+        ) : (
+          <div className="text-center py-20 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">
+            <p className="text-slate-400 font-bold">Nenhum leilão ativo no momento.</p>
           </div>
         )}
       </div>

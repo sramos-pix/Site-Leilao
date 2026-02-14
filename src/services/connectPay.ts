@@ -1,10 +1,5 @@
 "use client";
 
-/**
- * Serviço de Integração ConnectPay - Versão Transactions
- * Focado estritamente na resposta da API.
- */
-
 const CONNECTPAY_BASE_URL = "https://api.connectpay.vc";
 const CONNECTPAY_API_SECRET = "sk_872e29f3517d2979f4a8af99c8b8855dbd90699a7a98b13e6df12b48c8e89f6c6676876f45bb64e5fe725ec5d56c63594da781aa2478a893885ca4c150d2149f"; 
 
@@ -19,16 +14,20 @@ export const generatePixPayment = async (data: {
   }
 }) => {
   try {
+    // Algumas APIs da ConnectPay exigem valor em centavos (inteiro)
+    // Vamos enviar o valor multiplicado por 100 para garantir
+    const amountInCents = Math.round(data.amount * 100);
+
     const txPayload = {
       external_id: crypto.randomUUID(),
-      total_amount: data.amount,
+      total_amount: amountInCents, // Tentando formato em centavos
       payment_method: "PIX",
       items: [
         {
           id: "item_001",
           title: data.description,
           description: data.description,
-          price: data.amount,
+          price: amountInCents,
           quantity: 1,
           is_physical: false,
         },
@@ -47,31 +46,33 @@ export const generatePixPayment = async (data: {
       headers: {
         'api-secret': CONNECTPAY_API_SECRET,
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
       body: JSON.stringify(txPayload)
     });
 
     const result = await response.json();
 
-    if (!response.ok || result.hasError) {
+    if (!response.ok || result.hasError || result.error) {
       return {
         success: false,
-        error: result.message || result.error || 'Falha ao criar transação',
-        details: result
+        error: result.message || result.error || 'Erro na API ConnectPay',
+        raw: JSON.stringify(result)
       };
     }
 
-    // Busca o código PIX (payload) em todas as localizações possíveis da resposta da API
+    // Mapeamento profundo para encontrar o payload do PIX
     const pixCode = result.pix?.payload || 
                     result.data?.pix?.payload || 
                     result.pix_qr_code || 
-                    result.data?.pix_qr_code;
+                    result.data?.pix_qr_code ||
+                    result.qrcode;
 
     if (!pixCode) {
       return {
         success: false,
-        error: 'A API respondeu com sucesso, mas o campo pix.payload não foi encontrado.',
-        details: result
+        error: 'Transação criada, mas código PIX não veio na resposta.',
+        raw: JSON.stringify(result)
       };
     }
 
@@ -84,8 +85,8 @@ export const generatePixPayment = async (data: {
   } catch (error: any) {
     return {
       success: false,
-      error: error.message || 'Erro de conexão com a ConnectPay',
-      details: error
+      error: 'Falha de conexão ou CORS',
+      raw: error.message
     };
   }
 };

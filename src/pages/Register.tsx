@@ -2,17 +2,19 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft, Search, ShieldCheck } from 'lucide-react';
+import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft, Search, ShieldCheck, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const Register = () => {
   const [step, setStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
   const [isSearchingCep, setIsSearchingCep] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -94,22 +96,15 @@ const Register = () => {
 
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     
     if (password !== confirmPassword) {
-      toast({ 
-        variant: "destructive", 
-        title: "Senhas não conferem", 
-        description: "A confirmação de senha deve ser igual à senha digitada." 
-      });
+      setErrorMessage("As senhas não coincidem.");
       return;
     }
 
     if (password.length < 6) {
-      toast({ 
-        variant: "destructive", 
-        title: "Senha fraca", 
-        description: "A senha deve ter pelo menos 6 caracteres." 
-      });
+      setErrorMessage("A senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
@@ -118,9 +113,10 @@ const Register = () => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setErrorMessage(null);
     
     if (!validateCPF(cpf)) {
-      toast({ variant: "destructive", title: "CPF Inválido", description: "Por favor, insira um CPF válido." });
+      setErrorMessage("O CPF informado é inválido.");
       return;
     }
 
@@ -141,7 +137,13 @@ const Register = () => {
         }
       });
       
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('User already registered')) {
+          setErrorMessage("Este e-mail já está cadastrado. Tente fazer login.");
+          return;
+        }
+        throw error;
+      }
       
       toast({ 
         title: "Conta criada!", 
@@ -149,11 +151,7 @@ const Register = () => {
       });
       navigate('/login');
     } catch (error: any) {
-      toast({ 
-        variant: "destructive", 
-        title: "Erro no cadastro", 
-        description: error.message || "Tente novamente mais tarde." 
-      });
+      setErrorMessage(error.message || "Erro ao realizar cadastro.");
     } finally {
       setIsLoading(false);
     }
@@ -182,6 +180,13 @@ const Register = () => {
         </CardHeader>
 
         <CardContent className="p-8 pt-4">
+          {errorMessage && (
+            <Alert variant="destructive" className="mb-6 rounded-xl bg-red-50 border-red-100 text-red-800">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription className="text-xs font-medium">{errorMessage}</AlertDescription>
+            </Alert>
+          )}
+
           {step === 1 ? (
             <form onSubmit={handleNextStep} className="space-y-4">
               <div className="relative">

@@ -9,9 +9,14 @@ import Dashboard from './pages/app/Dashboard';
 import History from './pages/app/History';
 import Profile from './pages/app/Profile';
 import Verify from './pages/app/Verify';
-import Checkout from './pages/app/Checkout';
+import Checkout from './pages/Checkout';
 import Admin from './pages/Admin';
 import LotDetail from './pages/LotDetail';
+import Vehicles from './pages/Vehicles';
+import Auctions from './pages/Auctions';
+import AuctionDetails from './pages/AuctionDetails';
+import HowItWorks from './pages/HowItWorks';
+import Contact from './pages/Contact';
 import { Toaster } from '@/components/ui/toaster';
 
 function App() {
@@ -22,7 +27,12 @@ function App() {
         <Route path="/" element={<Index />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/vehicles" element={<Vehicles />} />
+        <Route path="/auctions" element={<Auctions />} />
+        <Route path="/auctions/:id" element={<AuctionDetails />} />
         <Route path="/lots/:id" element={<LotDetail />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/contact" element={<Contact />} />
         
         {/* Rotas do Aplicativo (Usuário Logado) */}
         <Route path="/app" element={<Dashboard />} />

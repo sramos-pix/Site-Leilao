@@ -28,14 +28,12 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const fetchProfileAndNotifications = async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
-      // Busca o perfil na tabela profiles
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
       
-      // Se não encontrar no profile, tenta pegar do user_metadata (dados do cadastro)
       setUserProfile(profile || { 
         full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
         kyc_status: 'waiting'

@@ -87,11 +87,12 @@ const Dashboard = () => {
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
   ];
 
-  // Lógica de status refinada para garantir o estado inicial correto
+  // Lógica de status KYC
   const kycStatus = profile?.kyc_status;
   const isVerified = kycStatus === 'verified';
   const isPendingAnalysis = kycStatus === 'pending';
   const isRejected = kycStatus === 'rejected';
+  // Se for nulo, vazio ou 'waiting', consideramos como aguardando envio
   const isWaiting = !kycStatus || kycStatus === 'waiting' || kycStatus === '';
 
   const getKycStatusLabel = () => {

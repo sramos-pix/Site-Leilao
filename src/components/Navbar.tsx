@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Gavel, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
+import { Gavel, Menu, X, LayoutDashboard, LogOut, Car } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -27,6 +27,7 @@ const Navbar = () => {
 
   const navigation = [
     { name: 'Início', href: '/' },
+    { name: 'Veículos', href: '/vehicles' },
     { name: 'Leilões', href: '/auctions' },
     { name: 'Como Funciona', href: '/how-it-works' },
     { name: 'Contato', href: '/contact' },

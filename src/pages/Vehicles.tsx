@@ -1,184 +1,116 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Gavel, Clock, Heart, Loader2 } from 'lucide-react';
+import { Search, Filter, Car, Calendar, Gauge, MapPin, Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
+import { formatCurrency } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { formatCurrency } from '@/lib/utils';
-import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
-import CountdownTimer from '@/components/CountdownTimer';
-import { toast } from 'react-hot-toast';
 
 const Vehicles = () => {
-  const [lots, setLots] = React.useState<any[]>([]);
-  const [favorites, setFavorites] = React.useState<string[]>([]);
-  const [isLoading, setIsLoading] = React.useState(true);
-  const [searchTerm, setSearchTerm] = React.useState('');
-  const [user, setUser] = React.useState<any>(null);
+  const [lots, setLots] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
 
-  const fetchLots = async () => {
-    setIsLoading(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
-
-      const { data: lotsData } = await supabase
+  useEffect(() => {
+    const fetchLots = async () => {
+      const { data, error } = await supabase
         .from('lots')
         .select('*')
         .order('created_at', { ascending: false });
       
-      setLots(lotsData || []);
-
-      if (session?.user) {
-        const { data: favsData } = await supabase
-          .from('favorites')
-          .select('lot_id')
-          .eq('user_id', session.user.id);
-        
-        setFavorites(favsData?.map(f => f.lot_id) || []);
-      }
-    } catch (error) {
-      console.error(error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const toggleFavorite = async (lotId: string) => {
-    if (!user) {
-      toast.error('Você precisa estar logado para favoritar!');
-      return;
-    }
-
-    const isFavorite = favorites.includes(lotId);
-    
-    try {
-      if (isFavorite) {
-        await supabase
-          .from('favorites')
-          .delete()
-          .eq('user_id', user.id)
-          .eq('lot_id', lotId);
-        setFavorites(prev => prev.filter(id => id !== lotId));
-        toast.success('Removido dos favoritos');
-      } else {
-        await supabase
-          .from('favorites')
-          .insert([{ user_id: user.id, lot_id: lotId }]);
-        setFavorites(prev => [...prev, lotId]);
-        toast.success('Adicionado aos favoritos!');
-      }
-    } catch (error) {
-      toast.error('Erro ao atualizar favoritos');
-    }
-  };
-
-  React.useEffect(() => {
+      if (!error) setLots(data || []);
+      setLoading(false);
+    };
     fetchLots();
   }, []);
 
   const filteredLots = lots.filter(lot => 
-    lot.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    lot.brand?.toLowerCase().includes(searchTerm.toLowerCase())
+    lot.title.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar />
-      <main className="flex-1 py-12">
-        <div className="container mx-auto px-4">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-12 gap-6">
-            <div>
-              <h1 className="text-4xl font-black text-slate-900 mb-2">Todos os Veículos</h1>
-              <p className="text-slate-500">Encontre a melhor oportunidade entre centenas de lotes ativos.</p>
-            </div>
-            <div className="flex w-full md:w-auto gap-3">
-              <div className="relative flex-1 md:w-80">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  placeholder="Marca, modelo ou lote..." 
-                  className="pl-10 h-12 bg-white border-none shadow-sm rounded-xl"
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <Button variant="outline" className="h-12 bg-white border-none shadow-sm rounded-xl px-6">
-                <Filter size={18} className="mr-2" /> Filtros
-              </Button>
-            </div>
+      
+      <main className="flex-1 container mx-auto px-4 py-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+          <div>
+            <h1 className="text-3xl font-bold text-slate-900">Todos os Veículos</h1>
+            <p className="text-slate-500">Explore nossa frota completa disponível para leilão.</p>
           </div>
+          
+          <div className="relative w-full md:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+            <Input 
+              placeholder="Buscar por marca ou modelo..." 
+              className="pl-10 h-12 rounded-xl border-slate-200 bg-white shadow-sm"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+        </div>
 
-          {isLoading ? (
-            <div className="flex justify-center py-20"><Loader2 className="animate-spin text-orange-500" size={48} /></div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredLots.map((lot) => (
-                <Card key={lot.id} className="group border-none shadow-lg hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white">
-                  <Link to={`/lots/${lot.id}`} className="block relative aspect-[4/3] overflow-hidden">
+        {loading ? (
+          <div className="flex justify-center py-20">
+            <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+            {filteredLots.map((lot) => (
+              <Link key={lot.id} to={`/lots/${lot.id}`} className="group">
+                <div className="bg-white rounded-3xl overflow-hidden border border-slate-100 shadow-sm hover:shadow-xl transition-all duration-300 hover:-translate-y-1">
+                  <div className="aspect-[4/3] relative overflow-hidden">
                     <img 
-                      src={lot.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
+                      src={lot.cover_image_url} 
                       alt={lot.title} 
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
-                    <div className="absolute top-4 left-4 flex gap-2">
-                      <Badge className="bg-slate-900 text-white border-none px-3 py-1 rounded-none text-[11px] font-bold uppercase">LOTE #{lot.lot_number}</Badge>
-                      <Badge className="bg-orange-500 text-white border-none px-4 py-1.5 rounded-full text-[11px] font-black flex items-center gap-2 shadow-lg shadow-orange-500/30">
-                        <Clock size={14} className="animate-pulse" /> 
-                        <CountdownTimer randomScarcity={true} lotId={lot.id} />
+                    <div className="absolute top-3 left-3">
+                      <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none font-bold">
+                        Lote #{lot.lot_number}
                       </Badge>
                     </div>
-                    <Button 
-                      variant="secondary" 
-                      size="icon" 
-                      onClick={(e) => {
-                        e.preventDefault();
-                        toggleFavorite(lot.id);
-                      }}
-                      className={`absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300 ${
-                        favorites.includes(lot.id) 
-                          ? 'bg-orange-500 text-white scale-110' 
-                          : 'bg-white/90 text-slate-600 hover:bg-orange-500 hover:text-white'
-                      }`}
-                    >
-                      <Heart size={18} fill={favorites.includes(lot.id) ? "currentColor" : "none"} />
-                    </Button>
-                  </Link>
-                  <CardContent className="p-8">
-                    <Link to={`/lots/${lot.id}`}>
-                      <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-1">{lot.title}</h3>
-                    </Link>
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Lance Atual</p>
-                        <p className="text-2xl font-black text-slate-900">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Incremento</p>
-                        <p className="text-sm font-bold text-slate-600">
-                          + {formatCurrency(lot.bid_increment || 500)}
-                        </p>
+                  </div>
+                  
+                  <div className="p-5 space-y-4">
+                    <div>
+                      <h3 className="font-bold text-slate-900 text-lg line-clamp-1">{lot.title}</h3>
+                      <div className="flex items-center gap-3 mt-2 text-slate-500 text-xs font-medium">
+                        <span className="flex items-center gap-1"><Calendar size={14} /> {lot.year}</span>
+                        <span className="flex items-center gap-1"><Gauge size={14} /> {lot.mileage_km?.toLocaleString()} km</span>
                       </div>
                     </div>
-                  </CardContent>
-                  <CardFooter className="p-8 pt-0">
-                    <Link to={`/lots/${lot.id}`} className="w-full">
-                      <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-bold py-6 rounded-2xl transition-all flex items-center justify-center gap-2 group/btn">
-                        <Gavel size={18} className="group-hover/btn:rotate-12 transition-transform" />
-                        DAR LANCE AGORA
+
+                    <div className="pt-4 border-t border-slate-50 flex items-center justify-between">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lance Atual</p>
+                        <p className="text-lg font-black text-orange-500">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                      </div>
+                      <Button size="sm" className="bg-slate-900 hover:bg-orange-500 text-white rounded-xl px-4 transition-colors">
+                        Ver Detalhes
                       </Button>
-                    </Link>
-                  </CardFooter>
-                </Card>
-              ))}
-            </div>
-          )}
-        </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        {!loading && filteredLots.length === 0 && (
+          <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-200">
+            <Car className="mx-auto text-slate-200 mb-4" size={48} />
+            <h3 className="text-xl font-bold text-slate-900">Nenhum veículo encontrado</h3>
+            <p className="text-slate-500">Tente ajustar sua busca ou filtros.</p>
+          </div>
+        )}
       </main>
+
       <Footer />
     </div>
   );

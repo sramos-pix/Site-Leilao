@@ -6,7 +6,7 @@ import {
   ChevronLeft, Heart, Share2, Clock, Gavel, 
   ShieldCheck, MapPin, Calendar, Gauge, 
   Fuel, Settings2, Loader2, History, User, 
-  TrendingUp, Lock, Trophy, Info
+  TrendingUp, Lock, Trophy, Info, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -113,193 +113,162 @@ const LotDetail = () => {
     );
   }
 
-  if (!lot) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-4">
-        <h2 className="text-xl font-bold text-slate-900 mb-4">Lote não encontrado</h2>
-        <Link to="/auctions">
-          <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">Voltar para Leilões</Button>
-        </Link>
-      </div>
-    );
-  }
+  if (!lot) return null;
 
   const isFinished = lot.status === 'finished';
 
   return (
-    <div className="bg-slate-50 min-h-screen flex flex-col">
+    <div className="bg-white min-h-screen flex flex-col">
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
-        <Link to="/auctions" className="inline-flex items-center text-xs text-slate-500 hover:text-orange-600 mb-4 font-bold uppercase tracking-wider">
-          <ChevronLeft size={14} className="mr-1" /> Voltar para Leilões
-        </Link>
+        <div className="flex items-center justify-between mb-6">
+          <Link to="/auctions" className="inline-flex items-center text-sm font-bold text-slate-500 hover:text-orange-600 transition-colors">
+            <ChevronLeft size={18} className="mr-1" /> VOLTAR PARA LEILÕES
+          </Link>
+          <div className="flex gap-2">
+            <Button variant="outline" size="icon" className="rounded-full border-slate-200"><Share2 size={18} /></Button>
+            <Button variant="outline" size="icon" className="rounded-full border-slate-200"><Heart size={18} /></Button>
+          </div>
+        </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Galeria e Info Técnica */}
-          <div className="lg:col-span-8 space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Coluna da Esquerda: Galeria e Info */}
+          <div className="lg:col-span-8 space-y-8">
             <div className="space-y-4">
-              <div className="aspect-[16/9] rounded-2xl overflow-hidden shadow-sm bg-slate-200 border border-white relative group">
-                <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" alt={lot.title} />
+              <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative group border border-slate-100">
+                <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover" alt={lot.title} />
                 {isFinished && (
-                  <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex items-center justify-center z-20">
-                    <div className="bg-white p-6 rounded-2xl text-center shadow-xl">
-                      <Trophy className="mx-auto text-orange-500 mb-2" size={40} />
-                      <h2 className="text-2xl font-bold text-slate-900">Lote Encerrado</h2>
-                    </div>
+                  <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-20">
+                    <Badge className="bg-white text-slate-900 px-6 py-2 text-lg font-bold rounded-full">ENCERRADO</Badge>
                   </div>
                 )}
-                <div className="absolute top-4 left-4 flex gap-2">
-                  <Badge className="bg-slate-900/80 backdrop-blur-md text-white border-none px-3 py-1 rounded-lg font-bold text-[10px]">LOTE #{lot.lot_number}</Badge>
-                  <Badge className="bg-orange-500 text-white border-none px-3 py-1 rounded-full font-bold flex items-center gap-1.5 text-[10px] shadow-lg shadow-orange-500/20">
-                    <Clock size={12} className="animate-pulse" /> 
-                    <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
-                  </Badge>
-                </div>
               </div>
               
               {/* Miniaturas */}
-              {(photos.length > 0 || lot.cover_image_url) && (
-                <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-                  {lot.cover_image_url && (
-                    <button 
-                      onClick={() => setActivePhoto(lot.cover_image_url)}
-                      className={cn(
-                        "shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all",
-                        activePhoto === lot.cover_image_url ? 'border-orange-500' : 'border-white opacity-70'
-                      )}
-                    >
-                      <img src={lot.cover_image_url} className="w-full h-full object-cover" alt="Capa" />
-                    </button>
-                  )}
-                  {photos.map((photo) => (
-                    <button 
-                      key={photo.id} 
-                      onClick={() => setActivePhoto(photo.public_url)}
-                      className={cn(
-                        "shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all",
-                        activePhoto === photo.public_url ? 'border-orange-500' : 'border-white opacity-70'
-                      )}
-                    >
-                      <img src={photo.public_url} className="w-full h-full object-cover" alt="Galeria" />
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
-              <h1 className="text-2xl md:text-3xl font-bold text-slate-900 mb-6 tracking-tight">{lot.title}</h1>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 border-y border-slate-50">
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Quilometragem</p>
-                  <p className="text-base font-bold text-slate-800">{lot.mileage_km?.toLocaleString() || '0'} km</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ano Modelo</p>
-                  <p className="text-base font-bold text-slate-800">{lot.year || 'N/I'}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Câmbio</p>
-                  <p className="text-base font-bold text-slate-800">{lot.transmission || 'Automático'}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Combustível</p>
-                  <p className="text-base font-bold text-slate-800">{lot.fuel_type || 'Flex'}</p>
-                </div>
-              </div>
-
-              <div className="mt-8 space-y-4">
-                <h3 className="text-base font-bold text-slate-900 flex items-center gap-2">
-                  <Info size={18} className="text-orange-500" /> Detalhes do Veículo
-                </h3>
-                <div className="text-sm text-slate-600 leading-relaxed whitespace-pre-wrap">
-                  {lot.description || "Veículo em excelente estado de conservação, periciado e com documentação garantida pela AutoBid."}
-                </div>
+              <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+                {[lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean).map((url, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => setActivePhoto(url)}
+                    className={cn(
+                      "shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2 transition-all",
+                      activePhoto === url ? 'border-orange-500' : 'border-transparent opacity-70 hover:opacity-100'
+                    )}
+                  >
+                    <img src={url} className="w-full h-full object-cover" alt={`Foto ${i}`} />
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Histórico de Lances */}
-            <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-100">
-              <h3 className="text-lg font-bold text-slate-900 mb-6 flex items-center gap-2">
-                <History className="text-orange-500" size={20} /> Histórico de Lances
-              </h3>
-              <div className="space-y-3">
-                {realBids.length > 0 ? realBids.map((bid, idx) => (
-                  <div key={bid.id} className={cn(
-                    "flex items-center justify-between p-4 rounded-xl border",
-                    idx === 0 ? "bg-orange-50/50 border-orange-100" : "bg-white border-slate-50"
-                  )}>
-                    <div className="flex items-center gap-3">
-                      <div className={cn(
-                        "w-10 h-10 rounded-lg flex items-center justify-center",
-                        idx === 0 ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-400"
-                      )}>
-                        <User size={18} />
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-slate-900">{bid.user_id === user?.id ? "Seu Lance" : "Licitante"}</p>
-                        <p className="text-[10px] text-slate-400 font-medium">{formatDate(bid.created_at)}</p>
-                      </div>
-                    </div>
-                    <p className={cn("font-bold text-base", idx === 0 ? "text-orange-600" : "text-slate-900")}>
-                      {formatCurrency(bid.amount)}
-                    </p>
+            <div className="space-y-6">
+              <div>
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">{lot.title}</h1>
+                <div className="flex items-center gap-4 text-slate-500 text-sm font-medium">
+                  <span className="flex items-center gap-1"><MapPin size={14} /> Pátio: São Paulo, SP</span>
+                  <span className="flex items-center gap-1"><Calendar size={14} /> Lote: #{lot.lot_number}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[
+                  { icon: Gauge, label: 'KM', value: `${lot.mileage_km?.toLocaleString()} km` },
+                  { icon: Calendar, label: 'Ano', value: lot.year },
+                  { icon: Settings2, label: 'Câmbio', value: lot.transmission || 'Automático' },
+                  { icon: Fuel, label: 'Motor', value: lot.fuel_type || 'Flex' }
+                ].map((item, i) => (
+                  <div key={i} className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                    <item.icon size={18} className="text-orange-500 mb-2" />
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{item.label}</p>
+                    <p className="text-sm font-bold text-slate-900">{item.value}</p>
                   </div>
-                )) : (
-                  <div className="text-center py-8 text-slate-400 text-sm font-medium italic">Nenhum lance registrado ainda.</div>
-                )}
+                ))}
+              </div>
+
+              <div className="space-y-4 pt-4">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <Info size={20} className="text-orange-500" /> Descrição do Lote
+                </h3>
+                <p className="text-slate-600 leading-relaxed text-sm">
+                  {lot.description || "Veículo em excelente estado de conservação, periciado e com documentação garantida pela AutoBid. Ideal para quem busca qualidade e procedência em leilões online."}
+                </p>
               </div>
             </div>
           </div>
 
-          {/* Painel de Lances Lateral */}
-          <div className="lg:col-span-4">
-            <Card className="border-none shadow-sm rounded-2xl overflow-hidden sticky top-24 bg-white border border-slate-100">
-              <div className="bg-slate-900 p-6 text-white text-center">
-                <p className="text-[10px] font-bold text-orange-500 uppercase tracking-widest mb-1">Lance Atual</p>
-                <p className="text-3xl font-bold tracking-tight">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
-              </div>
-              <CardContent className="p-6 space-y-6">
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="text-center bg-slate-50 py-3 rounded-xl border border-slate-100">
-                    <p className="text-[10px] text-slate-400 uppercase font-bold mb-0.5">Inicial</p>
-                    <p className="text-sm font-bold text-slate-700">{formatCurrency(lot.start_bid)}</p>
+          {/* Coluna da Direita: Painel de Lances */}
+          <div className="lg:col-span-4 space-y-6">
+            <Card className="border-none shadow-xl rounded-3xl overflow-hidden bg-slate-900 text-white">
+              <CardContent className="p-8 space-y-6">
+                <div className="flex justify-between items-center">
+                  <Badge className="bg-orange-500 text-white border-none px-3 py-1 rounded-full text-[10px] font-bold">AO VIVO</Badge>
+                  <div className="flex items-center gap-2 text-orange-500 font-bold text-sm">
+                    <Clock size={16} />
+                    <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
                   </div>
-                  <div className="text-center bg-orange-50/50 py-3 rounded-xl border border-orange-100">
-                    <p className="text-[10px] text-orange-400 uppercase font-bold mb-0.5">Incremento</p>
-                    <p className="text-sm font-bold text-orange-600">+{formatCurrency(lot.bid_increment || 500)}</p>
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Lance Atual</p>
+                  <p className="text-4xl font-black text-white">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/10">
+                  <div>
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Inicial</p>
+                    <p className="text-sm font-bold">{formatCurrency(lot.start_bid)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase">Incremento</p>
+                    <p className="text-sm font-bold text-orange-500">+{formatCurrency(lot.bid_increment || 500)}</p>
                   </div>
                 </div>
 
                 {!isFinished && (
                   <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-[10px] font-bold text-slate-400 uppercase tracking-wider ml-1">Seu Lance</Label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-300 text-lg">R$</span>
-                        <Input 
-                          type="number" 
-                          value={bidAmount} 
-                          onChange={(e) => setBidAmount(Number(e.target.value))}
-                          className="w-full text-xl font-bold h-12 pl-11 text-center rounded-xl border-slate-200 focus:ring-orange-500" 
-                        />
-                      </div>
+                    <div className="relative">
+                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">R$</span>
+                      <Input 
+                        type="number" 
+                        value={bidAmount} 
+                        onChange={(e) => setBidAmount(Number(e.target.value))}
+                        className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl focus:ring-orange-500" 
+                      />
                     </div>
                     <Button 
                       onClick={handleBid} 
                       disabled={isSubmitting}
-                      className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-base font-bold shadow-md shadow-orange-100 transition-all active:scale-[0.98]"
+                      className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl text-lg font-bold shadow-lg shadow-orange-500/20 transition-all active:scale-95"
                     >
-                      {isSubmitting ? <Loader2 className="animate-spin h-5 w-5" /> : <><Gavel size={18} className="mr-2" /> DAR LANCE</>}
+                      {isSubmitting ? <Loader2 className="animate-spin" /> : "DAR LANCE AGORA"}
                     </Button>
-                    <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400 uppercase tracking-tight">
-                      <ShieldCheck size={14} className="text-emerald-500" /> Ambiente Seguro & Auditado
-                    </div>
                   </div>
                 )}
+
+                <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-slate-400 uppercase">
+                  <ShieldCheck size={14} className="text-emerald-500" /> Leilão Seguro & Auditado
+                </div>
               </CardContent>
             </Card>
+
+            {/* Histórico Simplificado */}
+            <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
+              <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
+                <History size={16} className="text-orange-500" /> Últimos Lances
+              </h3>
+              <div className="space-y-3">
+                {realBids.slice(0, 5).map((bid, idx) => (
+                  <div key={bid.id} className="flex items-center justify-between text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2 h-2 rounded-full", idx === 0 ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
+                      <span className="font-medium text-slate-600">{bid.user_id === user?.id ? "Seu Lance" : "Licitante"}</span>
+                    </div>
+                    <span className="font-bold text-slate-900">{formatCurrency(bid.amount)}</span>
+                  </div>
+                ))}
+                {realBids.length === 0 && <p className="text-xs text-slate-400 italic text-center">Nenhum lance ainda.</p>}
+              </div>
+            </div>
           </div>
         </div>
       </div>

@@ -16,6 +16,8 @@ import Checkout from './pages/Checkout';
 import Admin from './pages/Admin';
 import AdminGuard from './components/admin/AdminGuard';
 import AppLayout from './components/layout/AppLayout';
+import HowItWorks from './pages/HowItWorks';
+import Contact from './pages/Contact';
 import { Toaster } from '@/components/ui/toaster';
 import ScrollToTop from './components/ScrollToTop';
 
@@ -31,6 +33,8 @@ function App() {
         <Route path="/lots/:id" element={<LotDetail />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/contact" element={<Contact />} />
 
         {/* Protected App Routes */}
         <Route path="/app" element={<AppLayout><Dashboard /></AppLayout>} />

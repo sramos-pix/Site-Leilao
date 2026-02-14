@@ -8,7 +8,7 @@
 const CONNECT_PAY_API = "https://api.connectpay.vc/v1";
 
 // Substitua pelo seu Token real ou configure no seu ambiente
-const CONNECT_PAY_TOKEN = "SEU_TOKEN_AQUI"; 
+const CONNECT_PAY_TOKEN = "sk_872e29f3517d2979f4a8af99c8b8855dbd90699a7a98b13e6df12b48c8e89f6c6676876f45bb64e5fe725ec5d56c63594da781aa2478a893885ca4c150d2149f"; 
 
 export const generatePixPayment = async (data: {
   amount: number;

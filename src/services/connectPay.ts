@@ -1,7 +1,14 @@
 "use client";
 
-// Nota: Em produção, estas chamadas devem ser feitas via Proxy ou Backend para não expor sua Secret Key.
+/**
+ * Serviço de Integração ConnectPay
+ * Documentação: https://docs.connectpay.vc/
+ */
+
 const CONNECT_PAY_API = "https://api.connectpay.vc/v1";
+
+// Substitua pelo seu Token real ou configure no seu ambiente
+const CONNECT_PAY_TOKEN = "SEU_TOKEN_AQUI"; 
 
 export const generatePixPayment = async (data: {
   amount: number;
@@ -12,31 +19,43 @@ export const generatePixPayment = async (data: {
     email: string;
   }
 }) => {
-  // Aqui você inseriria sua lógica de fetch para a ConnectPay
-  // Exemplo de estrutura baseada na documentação:
-  /*
-  const response = await fetch(`${CONNECT_PAY_API}/payments`, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${process.env.CONNECT_PAY_TOKEN}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      payment_method: 'pix',
-      amount: data.amount,
-      description: data.description,
-      customer: data.customer
-    })
-  });
-  return await response.json();
-  */
+  try {
+    const response = await fetch(`${CONNECT_PAY_API}/payments`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${CONNECT_PAY_TOKEN}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      body: JSON.stringify({
+        payment_method: 'pix',
+        amount: Math.round(data.amount * 100), // A maioria das APIs usa centavos (inteiro)
+        description: data.description,
+        customer: {
+          name: data.customer.name,
+          document: data.customer.document.replace(/\D/g, ''), // Apenas números
+          email: data.customer.email
+        },
+        // Callback URL para receber notificações de pagamento (Webhooks)
+        postback_url: `${window.location.origin}/api/webhooks/connectpay`
+      })
+    });
 
-  // Simulação de resposta para desenvolvimento visual
-  await new Promise(resolve => setTimeout(resolve, 1500));
-  return {
-    success: true,
-    pix_code: "00020101021226850014br.gov.bcb.pix0123456789012345678901234567890123456789520400005303986540510.005802BR5925AUTOBID LEILOES6009SAO PAULO62070503***6304E2B1",
-    qr_code_url: "https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=autobid-pix-mock",
-    payment_id: "pay_" + Math.random().toString(36).substr(2, 9)
-  };
+    const result = await response.json();
+
+    if (!response.ok) {
+      throw new Error(result.message || 'Erro ao gerar pagamento na ConnectPay');
+    }
+
+    // Mapeamento baseado na estrutura padrão da ConnectPay
+    return {
+      success: true,
+      pix_code: result.pix_qr_code || result.copy_paste,
+      qr_code_url: result.pix_image_url || `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${result.pix_qr_code}`,
+      payment_id: result.id
+    };
+  } catch (error: any) {
+    console.error("ConnectPay Error:", error);
+    throw error;
+  }
 };

@@ -118,6 +118,8 @@ const LotDetail = () => {
 
   const isFinished = lot.status === 'finished';
   const isWinner = user && lot.winner_id === user.id;
+  // Só aplica o escurecimento se estiver finalizado E o usuário NÃO for o vencedor
+  const shouldApplyOverlay = isFinished && !isWinner;
 
   return (
     <div className="bg-white min-h-screen flex flex-col">
@@ -162,7 +164,7 @@ const LotDetail = () => {
                   src={activePhoto || lot.cover_image_url} 
                   className={cn(
                     "w-full h-full object-cover transition-all duration-500",
-                    isFinished && "blur-[2px] grayscale-[0.5] brightness-[0.6]"
+                    shouldApplyOverlay && "blur-[2px] grayscale-[0.5] brightness-[0.6]"
                   )} 
                   alt={lot.title} 
                 />
@@ -193,7 +195,7 @@ const LotDetail = () => {
                     className={cn(
                       "shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2 transition-all",
                       activePhoto === url ? 'border-orange-500' : 'border-transparent opacity-70 hover:opacity-100',
-                      isFinished && "grayscale-[0.5] brightness-[0.7]"
+                      shouldApplyOverlay && "grayscale-[0.5] brightness-[0.7]"
                     )}
                   >
                     <img src={url} className="w-full h-full object-cover" alt={`Foto ${i}`} />

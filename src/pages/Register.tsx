@@ -8,7 +8,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
-import InputMask from 'react-input-mask';
 
 const Register = () => {
   const [step, setStep] = React.useState(1);
@@ -29,6 +28,31 @@ const Register = () => {
   const [address, setAddress] = React.useState('');
   const [city, setCity] = React.useState('');
   const [number, setNumber] = React.useState('');
+
+  // Máscaras Manuais
+  const maskCPF = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d)/, '$1.$2')
+      .replace(/(\d{3})(\d{1,2})/, '$1-$2')
+      .replace(/(-\d{2})\d+?$/, '$1');
+  };
+
+  const maskPhone = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{2})(\d)/, '($1) $2')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .replace(/(-\d{4})\d+?$/, '$1');
+  };
+
+  const maskCEP = (value: string) => {
+    return value
+      .replace(/\D/g, '')
+      .replace(/(\d{5})(\d)/, '$1-$2')
+      .replace(/(-\d{3})\d+?$/, '$1');
+  };
 
   const validateCPF = (cpf: string) => {
     const cleanCPF = cpf.replace(/[^\d]+/g, '');
@@ -183,56 +207,35 @@ const Register = () => {
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="relative">
                 <CreditCard className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <InputMask
-                  mask="999.999.999-99"
+                <Input 
+                  placeholder="CPF" 
+                  className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={cpf}
-                  onChange={(e) => setCpf(e.target.value)}
-                >
-                  {(inputProps: any) => (
-                    <Input 
-                      {...inputProps}
-                      placeholder="CPF" 
-                      className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
-                      required
-                    />
-                  )}
-                </InputMask>
+                  onChange={(e) => setCpf(maskCPF(e.target.value))}
+                  required
+                />
               </div>
               <div className="relative">
                 <Phone className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <InputMask
-                  mask="(99) 99999-9999"
+                <Input 
+                  placeholder="Telefone (DDD)" 
+                  className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                >
-                  {(inputProps: any) => (
-                    <Input 
-                      {...inputProps}
-                      placeholder="Telefone (DDD)" 
-                      className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
-                      required
-                    />
-                  )}
-                </InputMask>
+                  onChange={(e) => setPhone(maskPhone(e.target.value))}
+                  required
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="relative">
                   <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                  <InputMask
-                    mask="99999-999"
+                  <Input 
+                    placeholder="CEP" 
+                    className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                     value={cep}
-                    onChange={(e) => setCep(e.target.value)}
+                    onChange={(e) => setCep(maskCEP(e.target.value))}
                     onBlur={handleCepBlur}
-                  >
-                    {(inputProps: any) => (
-                      <Input 
-                        {...inputProps}
-                        placeholder="CEP" 
-                        className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
-                        required
-                      />
-                    )}
-                  </InputMask>
+                    required
+                  />
                   {isSearchingCep && <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-orange-500" size={16} />}
                 </div>
                 <Input 

@@ -61,6 +61,7 @@ const AuctionDetails = () => {
 
   const toggleFavorite = async (e: React.MouseEvent, lotId: string) => {
     e.preventDefault();
+    e.stopPropagation();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user) {
@@ -158,7 +159,7 @@ const AuctionDetails = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {lots.map((lot) => (
             <Card key={lot.id} className="group border-none shadow-lg hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white">
-              <Link to={`/lots/${lot.id}`} className="block relative aspect-[4/3] overflow-hidden">
+              <Link to={`/lots/${lot.id}`} className="block relative aspect-[4/3] overflow-hidden cursor-pointer">
                 <img 
                   src={lot.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
                   alt={lot.title} 
@@ -177,7 +178,7 @@ const AuctionDetails = () => {
                   variant="secondary" 
                   size="icon" 
                   className={cn(
-                    "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300",
+                    "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300 z-10",
                     userFavorites.includes(lot.id) ? "bg-red-500 text-white" : "bg-white/90 hover:bg-orange-500 hover:text-white"
                   )}
                   onClick={(e) => toggleFavorite(e, lot.id)}

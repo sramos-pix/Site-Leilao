@@ -40,7 +40,7 @@ const LotDetail = () => {
 
       const { data: lotData, error: lotError } = await supabase
         .from('lots')
-        .select('*')
+        .select('*, auctions(title, starts_at)')
         .eq('id', id)
         .single();
 
@@ -115,7 +115,6 @@ const LotDetail = () => {
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
-      setIsLoading(false);
       setIsSubmitting(false);
     }
   };

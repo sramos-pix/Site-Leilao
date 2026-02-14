@@ -211,7 +211,7 @@ const LotDetail = () => {
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <Info size={20} className="text-orange-500" /> Descrição do Lote
                 </h3>
-                <p className="text-slate-600 leading-relaxed text-sm">
+                <p className="text-slate-600 leading-relaxed text-sm whitespace-pre-wrap">
                   {lot.description || "Veículo em excelente estado de conservação, periciado e com documentação garantida pela AutoBid. Ideal para quem busca qualidade e procedência em leilões online."}
                 </p>
               </div>

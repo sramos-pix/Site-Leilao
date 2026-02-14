@@ -122,7 +122,7 @@ const Register = () => {
 
     setIsLoading(true);
     try {
-      const { error } = await supabase.auth.signUp({
+      const { data: authData, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -144,12 +144,15 @@ const Register = () => {
         }
         throw error;
       }
-      
+
+      // Se o cadastro foi bem sucedido e o usuário já está logado (comportamento padrão do signUp sem confirmação de email obrigatória)
+      // ou se o cadastro foi criado, levamos ele para o dashboard.
       toast({ 
-        title: "Conta criada!", 
-        description: "Verifique seu e-mail para confirmar o cadastro." 
+        title: "Cadastro realizado!", 
+        description: "Bem-vindo à plataforma AutoBid." 
       });
-      navigate('/login');
+      
+      navigate('/app');
     } catch (error: any) {
       setErrorMessage(error.message || "Erro ao realizar cadastro.");
     } finally {

@@ -1,7 +1,4 @@
-declare const Deno: {
-  env: { get: (key: string) => string | undefined };
-  serve: (handler: (req: Request) => Promise<Response> | Response) => void;
-};
+import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -9,9 +6,9 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-Deno.serve(async (req) => {
+serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders });
   }
 
   if (req.method !== "POST") {
@@ -23,10 +20,13 @@ Deno.serve(async (req) => {
 
   const apiSecret = Deno.env.get("CONNECTPAY_API_SECRET");
   if (!apiSecret) {
-    return new Response(JSON.stringify({ error: "CONNECTPAY_API_SECRET não configurado." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: "CONNECTPAY_API_SECRET não configurado." }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   const body = await req.json();
@@ -58,7 +58,7 @@ Deno.serve(async (req) => {
     headers: {
       "api-secret": apiSecret,
       "Content-Type": "application/json",
-      "Accept": "application/json",
+      Accept: "application/json",
     },
     body: JSON.stringify(payload),
   });

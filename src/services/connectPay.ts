@@ -17,11 +17,15 @@ export const generatePixPayment = async (data: {
   });
 
   if (error) {
-    return { success: false, error: error.message };
+    const message =
+      (typeof error?.context?.body === "string" && error.context.body) ||
+      error.message;
+
+    return { success: false, error: message };
   }
 
   if (!response?.pix_code) {
-    return { success: false, error: "Código PIX não retornado pela ConnectPay." };
+    return { success: false, error: response?.error || "Código PIX não retornado pela ConnectPay." };
   }
 
   return {

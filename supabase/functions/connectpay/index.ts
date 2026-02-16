@@ -1,3 +1,5 @@
+/// <reference path="./deno-shim.d.ts" />
+
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 
 const corsHeaders = {
@@ -77,7 +79,8 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      return new Response(resultText || JSON.stringify({ error: "Erro na ConnectPay." }), {
+      const message = resultText || "Erro na ConnectPay.";
+      return new Response(JSON.stringify({ error: message }), {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

@@ -10,10 +10,12 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
   const [userProfile, setUserProfile] = React.useState<any>(null);
+  const [unreadCount, setUnreadCount] = React.useState(0);
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -31,11 +33,30 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
         full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
         kyc_status: 'waiting'
       });
+
+      // Buscar notificações não lidas
+      const { count } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_id', user.id)
+        .eq('read', false);
+      
+      setUnreadCount(count || 0);
     }
   };
 
   React.useEffect(() => {
     fetchProfile();
+
+    // Realtime para novas notificações
+    const channel = supabase
+      .channel('notifications-badge')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, () => {
+        fetchProfile();
+      })
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, []);
 
   const handleLogout = async () => {
@@ -74,6 +95,16 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
           </nav>
 
           <div className="flex items-center gap-2">
+            <Link to="/app/notifications">
+              <Button variant="ghost" size="icon" className="relative rounded-full text-slate-600 h-9 w-9">
+                <Bell size={18} />
+                {unreadCount > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-4 w-4 p-0 flex items-center justify-center bg-orange-500 text-[10px] border-2 border-white">
+                    {unreadCount}
+                  </Badge>
+                )}
+              </Button>
+            </Link>
             <Button variant="ghost" size="icon" onClick={handleLogout} className="rounded-full text-slate-600 hover:text-red-500 h-9 w-9"><LogOut size={18} /></Button>
             <Button variant="ghost" size="icon" className="md:hidden h-9 w-9" onClick={() => setIsMenuOpen(!isMenuOpen)}>{isMenuOpen ? <X size={20} /> : <Menu size={20} />}</Button>
           </div>

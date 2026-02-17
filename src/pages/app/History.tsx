@@ -117,6 +117,7 @@ const History = () => {
                       <Badge className="bg-green-500 text-white border-none font-black px-4 py-1 rounded-full text-[10px] tracking-widest">
                         VENCEDOR
                       </Badge>
+
                       {paid ? (
                         <Badge className="bg-emerald-600 text-white border-none font-black px-4 py-1 rounded-full text-[10px] tracking-widest flex items-center gap-1">
                           <CheckCircle2 size={12} /> PAGO

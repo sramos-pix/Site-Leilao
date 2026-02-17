@@ -3,14 +3,15 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Loader2, Search, Edit, ShieldCheck, Mail, Phone } from 'lucide-react';
+import { Loader2, Search, Edit, Mail, Phone, Trash2 } from 'lucide-react';
 import UserManager from '@/components/admin/UserManager';
+import { useToast } from '@/components/ui/use-toast';
 
 const AdminUsers = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -19,6 +20,8 @@ const AdminUsers = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -30,7 +33,6 @@ const AdminUsers = () => {
       if (error) throw error;
       setUsers(data || []);
 
-      // Se houver um ID na URL, abre o editor para esse usuário
       const userId = searchParams.get('id');
       if (userId && data) {
         const user = data.find(u => u.id === userId);
@@ -49,6 +51,33 @@ const AdminUsers = () => {
   useEffect(() => {
     fetchUsers();
   }, [searchParams]);
+
+  const handleDeleteUser = async (userId: string, userName: string) => {
+    if (!confirm(`Tem certeza que deseja excluir o usuário "${userName}"? Esta ação não pode ser desfeita e removerá o perfil do banco de dados.`)) {
+      return;
+    }
+
+    setIsDeleting(userId);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
+      if (error) throw error;
+
+      toast({ title: "Usuário excluído", description: "O perfil foi removido com sucesso." });
+      setUsers(prev => prev.filter(u => u.id !== userId));
+    } catch (error: any) {
+      toast({ 
+        variant: "destructive", 
+        title: "Erro ao excluir", 
+        description: error.message 
+      });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
 
   const filteredUsers = users.filter(u => 
     (u.full_name?.toLowerCase().includes(searchTerm.toLowerCase())) ||
@@ -117,14 +146,25 @@ const AdminUsers = () => {
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right pr-6">
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="text-orange-500 hover:bg-orange-50 rounded-full"
-                        onClick={() => handleEdit(u)}
-                      >
-                        <Edit size={18} />
-                      </Button>
+                      <div className="flex justify-end gap-2">
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-orange-500 hover:bg-orange-50 rounded-full"
+                          onClick={() => handleEdit(u)}
+                        >
+                          <Edit size={18} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-red-400 hover:bg-red-50 hover:text-red-600 rounded-full"
+                          onClick={() => handleDeleteUser(u.id, u.full_name)}
+                          disabled={isDeleting === u.id}
+                        >
+                          {isDeleting === u.id ? <Loader2 className="animate-spin h-4 w-4" /> : <Trash2 size={18} />}
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -138,7 +178,7 @@ const AdminUsers = () => {
         setIsDialogOpen(open);
         if (!open) {
           setSelectedUser(null);
-          setSearchParams({}); // Limpa o ID da URL ao fechar
+          setSearchParams({});
         }
       }}>
         <DialogContent className="max-w-3xl rounded-3xl">

@@ -6,6 +6,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { supabase } from '@/lib/supabase';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminGuardProps {
   children: React.ReactNode;
@@ -17,17 +19,41 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const auth = localStorage.getItem('admin_auth');
-    if (auth === 'true') {
-      setIsAuthenticated(true);
-    }
-    setIsLoading(false);
-  }, []);
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminAuth = localStorage.getItem('admin_auth');
+      
+      // Só permite acesso se estiver logado no Supabase E tiver passado pela senha do admin
+      if (session && adminAuth === 'true') {
+        setIsAuthenticated(true);
+      } else if (!session) {
+        // Se não houver sessão no Supabase, limpa o auth do admin e manda pro login
+        localStorage.removeItem('admin_auth');
+        setIsAuthenticated(false);
+      }
+      setIsLoading(false);
+    };
+
+    checkSession();
+
+    // Escuta mudanças na autenticação (como o logout)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_OUT') {
+        localStorage.removeItem('admin_auth');
+        setIsAuthenticated(false);
+        navigate('/login');
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    // Aqui você pode manter sua senha simples ou validar contra o banco
     if (username === 'admin' && password === 'admin') {
       localStorage.setItem('admin_auth', 'true');
       setIsAuthenticated(true);

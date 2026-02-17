@@ -7,7 +7,6 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
-import { useNavigate } from 'react-router-dom';
 
 interface AdminGuardProps {
   children: React.ReactNode;
@@ -19,31 +18,26 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const navigate = useNavigate();
-
-  const checkSession = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    const adminAuth = localStorage.getItem('admin_auth');
-    
-    if (session && adminAuth === 'true') {
-      setIsAuthenticated(true);
-    } else {
-      setIsAuthenticated(false);
-      if (!session) localStorage.removeItem('admin_auth');
-    }
-    setIsLoading(false);
-  };
 
   useEffect(() => {
-    checkSession();
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      const adminAuth = localStorage.getItem('admin_auth');
+      
+      if (session && adminAuth === 'true') {
+        setIsAuthenticated(true);
+      } else {
+        setIsAuthenticated(false);
+      }
+      setIsLoading(false);
+    };
 
-    // Escuta mudanças na autenticação globalmente
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
+    checkAuth();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
         localStorage.removeItem('admin_auth');
         setIsAuthenticated(false);
-      } else if (event === 'SIGNED_IN' && localStorage.getItem('admin_auth') === 'true') {
-        setIsAuthenticated(true);
       }
     });
 
@@ -52,7 +46,6 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Validação simples conforme solicitado
     if (username === 'admin' && password === 'admin') {
       localStorage.setItem('admin_auth', 'true');
       setIsAuthenticated(true);

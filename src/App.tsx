@@ -18,6 +18,7 @@ import AuctionDetails from './pages/AuctionDetails';
 import HowItWorks from './pages/HowItWorks';
 import Contact from './pages/Contact';
 import { Toaster } from '@/components/ui/toaster';
+import AdminGuard from './components/admin/AdminGuard';
 
 function App() {
   return (
@@ -41,8 +42,15 @@ function App() {
         <Route path="/app/verify" element={<Verify />} />
         <Route path="/app/checkout/:id" element={<Checkout />} />
         
-        {/* Rotas Administrativas */}
-        <Route path="/admin" element={<Admin />} />
+        {/* Rotas Administrativas - Protegidas pelo AdminGuard */}
+        <Route 
+          path="/admin" 
+          element={
+            <AdminGuard>
+              <Admin />
+            </AdminGuard>
+          } 
+        />
       </Routes>
       <Toaster />
     </>

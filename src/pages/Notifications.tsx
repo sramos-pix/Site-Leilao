@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
-import { Bell, CheckCircle2, Clock, Trash2, Loader2 } from 'lucide-react';
+import { Bell, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -36,7 +36,6 @@ const Notifications = () => {
   useEffect(() => {
     fetchNotifications();
 
-    // Marcar todas como lidas ao entrar na página
     const markAsRead = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -53,24 +52,34 @@ const Notifications = () => {
 
   const deleteNotification = async (id: string) => {
     setIsDeleting(id);
+    
     try {
-      // PERSISTÊNCIA: Deleta do banco de dados Supabase
-      const { error } = await supabase
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Tentativa de exclusão real no banco
+      const { error, count } = await supabase
         .from('notifications')
         .delete()
-        .eq('id', id);
+        .eq('id', id)
+        .eq('user_id', user.id); // Garante que só deleta a própria
 
-      if (error) throw error;
+      if (error) {
+        console.error("Erro Supabase DELETE:", error);
+        throw new Error("O servidor recusou a exclusão. Verifique as políticas de RLS.");
+      }
 
-      // Atualiza o estado local apenas após sucesso no banco
+      // Se chegamos aqui, o comando foi enviado. 
+      // Atualizamos a interface imediatamente.
       setNotifications(prev => prev.filter(n => n.id !== id));
-      toast({ title: "Notificação removida" });
+      toast({ title: "Notificação removida permanentemente" });
+      
     } catch (error: any) {
-      console.error("Erro ao excluir:", error);
+      console.error("Falha na exclusão:", error);
       toast({ 
         variant: "destructive", 
         title: "Erro ao excluir", 
-        description: "Não foi possível remover a notificação do servidor." 
+        description: "Não foi possível remover do servidor. Tente novamente em instantes." 
       });
     } finally {
       setIsDeleting(null);

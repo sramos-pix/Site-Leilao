@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Plus, Trash2, MapPin, Calendar, Loader2, Edit } from 'lucide-react';
 
 const AuctionManager = () => {
@@ -59,7 +60,7 @@ const AuctionManager = () => {
     } else {
       const { error: insertError } = await supabase
         .from('auctions')
-        .insert({ ...auctionData, status: 'scheduled' });
+        .insert(auctionData);
       error = insertError;
     }
 
@@ -80,11 +81,19 @@ const AuctionManager = () => {
     else fetchAuctions();
   };
 
-  // Formata data para o input datetime-local (YYYY-MM-DDThh:mm)
   const formatForInput = (dateString: string) => {
     if (!dateString) return "";
     const date = new Date(dateString);
     return date.toISOString().slice(0, 16);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active': return <Badge className="bg-emerald-500 hover:bg-emerald-600">Ativo</Badge>;
+      case 'finished': return <Badge variant="secondary">Finalizado</Badge>;
+      case 'scheduled': return <Badge variant="outline" className="text-blue-500 border-blue-200">Agendado</Badge>;
+      default: return <Badge variant="outline">{status}</Badge>;
+    }
   };
 
   return (
@@ -97,7 +106,7 @@ const AuctionManager = () => {
               <Plus size={18} className="mr-2" /> Novo Leilão
             </Button>
           </DialogTrigger>
-          <DialogContent className="rounded-3xl">
+          <DialogContent className="rounded-3xl max-w-md">
             <DialogHeader>
               <DialogTitle>{editingAuction ? 'Editar Leilão' : 'Criar Novo Leilão'}</DialogTitle>
             </DialogHeader>
@@ -120,7 +129,22 @@ const AuctionManager = () => {
                   <Input name="ends_at" type="datetime-local" required defaultValue={formatForInput(editingAuction?.ends_at)} />
                 </div>
               </div>
-              <Button type="submit" className="w-full bg-orange-500" disabled={isSubmitting}>
+              
+              <div className="space-y-2">
+                <Label>Status do Leilão</Label>
+                <Select name="status" defaultValue={editingAuction?.status || 'scheduled'}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scheduled">Agendado (Aguardando início)</SelectItem>
+                    <SelectItem value="active">Ativo (Recebendo lances)</SelectItem>
+                    <SelectItem value="finished">Finalizado (Encerrado)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-12 font-bold" disabled={isSubmitting}>
                 {isSubmitting ? <Loader2 className="animate-spin" /> : editingAuction ? 'Salvar Alterações' : 'Criar Leilão'}
               </Button>
             </form>
@@ -132,64 +156,44 @@ const AuctionManager = () => {
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
-              <TableHead>Título</TableHead>
+              <TableHead className="pl-6">Título</TableHead>
               <TableHead>Localização</TableHead>
               <TableHead>Datas</TableHead>
               <TableHead>Status</TableHead>
-              <TableHead className="text-right">Ações</TableHead>
+              <TableHead className="text-right pr-6">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto text-orange-500" /></TableCell></TableRow>
             ) : auctions.map((auction) => (
-              <TableRow key={auction.id}>
-                <TableCell className="font-bold">{auction.title}</TableCell>
-                <TableCell className="text-slate-500 flex items-center gap-1"><MapPin size={14} /> {auction.location}</TableCell>
-                <TableCell className="text-xs text-slate-500">
+              <TableRow key={auction.id} className="hover:bg-slate-50/50 transition-colors">
+                <TableCell className="font-bold pl-6">{auction.title}</TableCell>
+                <TableCell className="text-slate-500">
+                  <div className="flex items-center gap-1 text-xs"><MapPin size={14} className="text-orange-500" /> {auction.location}</div>
+                </TableCell>
+                <TableCell className="text-[10px] text-slate-500">
                   <div className="flex items-center gap-1"><Calendar size={12} /> {new Date(auction.starts_at).toLocaleDateString()}</div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant="outline" className="capitalize">{auction.status}</Badge>
+                  {getStatusBadge(auction.status)}
                 </TableCell>
-                <TableCell className="text-right">
+                <TableCell className="text-right pr-6">
                   <div className="flex justify-end gap-2">
-                    <Dialog onOpenChange={(open) => open && setEditingAuction(auction)}>
-                      <DialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-blue-500 hover:bg-blue-50">
-                          <Edit size={18} />
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent className="rounded-3xl">
-                        <DialogHeader>
-                          <DialogTitle>Editar Leilão</DialogTitle>
-                        </DialogHeader>
-                        <form onSubmit={handleSubmit} className="space-y-4 py-4">
-                          <div className="space-y-2">
-                            <Label>Título</Label>
-                            <Input name="title" required defaultValue={auction.title} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Localização</Label>
-                            <Input name="location" required defaultValue={auction.location} />
-                          </div>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-2">
-                              <Label>Início</Label>
-                              <Input name="starts_at" type="datetime-local" required defaultValue={formatForInput(auction.starts_at)} />
-                            </div>
-                            <div className="space-y-2">
-                              <Label>Término</Label>
-                              <Input name="ends_at" type="datetime-local" required defaultValue={formatForInput(auction.ends_at)} />
-                            </div>
-                          </div>
-                          <Button type="submit" className="w-full bg-orange-500" disabled={isSubmitting}>
-                            {isSubmitting ? <Loader2 className="animate-spin" /> : 'Salvar Alterações'}
-                          </Button>
-                        </form>
-                      </DialogContent>
-                    </Dialog>
-                    <Button variant="ghost" size="icon" onClick={() => handleDelete(auction.id)} className="text-red-500 hover:bg-red-50">
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      className="text-blue-500 hover:bg-blue-50 rounded-full"
+                      onClick={() => setEditingAuction(auction)}
+                    >
+                      <Edit size={18} />
+                    </Button>
+                    <Button 
+                      variant="ghost" 
+                      size="icon" 
+                      onClick={() => handleDelete(auction.id)} 
+                      className="text-red-500 hover:bg-red-50 rounded-full"
+                    >
                       <Trash2 size={18} />
                     </Button>
                   </div>
@@ -199,6 +203,55 @@ const AuctionManager = () => {
           </TableBody>
         </Table>
       </div>
+
+      {/* Modal de Edição Separado para garantir que o estado seja limpo corretamente */}
+      {editingAuction && (
+        <Dialog open={!!editingAuction} onOpenChange={() => setEditingAuction(null)}>
+          <DialogContent className="rounded-3xl max-w-md">
+            <DialogHeader>
+              <DialogTitle>Editar Leilão</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleSubmit} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Título</Label>
+                <Input name="title" required defaultValue={editingAuction.title} />
+              </div>
+              <div className="space-y-2">
+                <Label>Localização</Label>
+                <Input name="location" required defaultValue={editingAuction.location} />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Início</Label>
+                  <Input name="starts_at" type="datetime-local" required defaultValue={formatForInput(editingAuction.starts_at)} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Término</Label>
+                  <Input name="ends_at" type="datetime-local" required defaultValue={formatForInput(editingAuction.ends_at)} />
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <Label>Status do Leilão</Label>
+                <Select name="status" defaultValue={editingAuction.status}>
+                  <SelectTrigger className="rounded-xl">
+                    <SelectValue placeholder="Selecione o status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="scheduled">Agendado (Aguardando início)</SelectItem>
+                    <SelectItem value="active">Ativo (Recebendo lances)</SelectItem>
+                    <SelectItem value="finished">Finalizado (Encerrado)</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-12 font-bold" disabled={isSubmitting}>
+                {isSubmitting ? <Loader2 className="animate-spin" /> : 'Salvar Alterações'}
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   );
 };

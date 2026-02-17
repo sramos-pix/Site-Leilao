@@ -23,7 +23,6 @@ const SupportChat = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // Carrega dados iniciais e verifica se já existe identificação
   useEffect(() => {
     const initChat = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
@@ -53,29 +52,32 @@ const SupportChat = () => {
   }, [messages, isOpen]);
 
   const fetchMessages = async (userId: string) => {
-    const { data, error } = await supabase
-      .from('support_messages')
-      .select('*')
-      .eq('user_id', userId)
-      .order('created_at', { ascending: true });
-    
-    if (!error) setMessages(data || []);
+    try {
+      const { data, error } = await supabase
+        .from('support_messages')
+        .select('*')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: true });
+      
+      if (!error) setMessages(data || []);
 
-    // Inscrição em tempo real para este usuário específico
-    const channel = supabase
-      .channel(`support-realtime-${userId}`)
-      .on('postgres_changes', 
-        { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${userId}` }, 
-        (payload) => {
-          setMessages(prev => {
-            if (prev.find(m => m.id === payload.new.id)) return prev;
-            return [...prev, payload.new];
-          });
-        }
-      )
-      .subscribe();
+      const channel = supabase
+        .channel(`support-realtime-${userId}`)
+        .on('postgres_changes', 
+          { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${userId}` }, 
+          (payload) => {
+            setMessages(prev => {
+              if (prev.find(m => m.id === payload.new.id)) return prev;
+              return [...prev, payload.new];
+            });
+          }
+        )
+        .subscribe();
 
-    return () => { supabase.removeChannel(channel); };
+      return () => { supabase.removeChannel(channel); };
+    } catch (e) {
+      console.error("Erro ao carregar mensagens:", e);
+    }
   };
 
   const handleIdentifyVisitor = async (e: React.FormEvent) => {
@@ -84,23 +86,17 @@ const SupportChat = () => {
 
     setIsLoading(true);
     try {
-      let visitorId = localStorage.getItem('autobid_visitor_id') || crypto.randomUUID();
+      const visitorId = localStorage.getItem('autobid_visitor_id') || crypto.randomUUID();
       
-      // Tenta garantir que o perfil exista no banco (tabela profiles)
-      // Usamos upsert para atualizar se já existir ou criar se for novo
-      const { error: profileError } = await supabase.from('profiles').upsert({
+      // Tenta criar o perfil. Se falhar (RLS), ignoramos e tentamos enviar a mensagem assim mesmo
+      // pois o admin verá o ID e poderá buscar o contato se necessário.
+      await supabase.from('profiles').upsert({
         id: visitorId,
         full_name: `${visitorData.name} (Visitante)`,
         email: visitorData.email,
         kyc_status: 'guest'
-      }, { onConflict: 'id' });
+      }).select();
 
-      if (profileError) {
-        console.error("Erro ao criar perfil visitante:", profileError);
-        // Se falhar aqui, provavelmente é RLS. Mas vamos tentar seguir.
-      }
-
-      // Salva localmente para persistência
       localStorage.setItem('autobid_visitor_id', visitorId);
       localStorage.setItem('autobid_visitor_name', visitorData.name);
       localStorage.setItem('autobid_visitor_email', visitorData.email);
@@ -109,9 +105,9 @@ const SupportChat = () => {
       setIsIdentifying(false);
       fetchMessages(visitorId);
       
-      toast({ title: "Identificado!", description: "Como podemos ajudar?" });
+      toast({ title: "Chat iniciado", description: "Como podemos ajudar?" });
     } catch (err) {
-      console.error("Erro geral identificação:", err);
+      console.error("Erro identificação:", err);
     } finally {
       setIsLoading(false);
     }
@@ -129,6 +125,7 @@ const SupportChat = () => {
 
     setIsLoading(true);
     try {
+      // Tentativa de envio direto
       const { data, error } = await supabase
         .from('support_messages')
         .insert({
@@ -140,41 +137,20 @@ const SupportChat = () => {
         .single();
 
       if (error) {
-        // Se o erro for de permissão, tentamos re-identificar o perfil
-        if (error.code === '42501' || error.code === '23503') {
-          // Tenta forçar o upsert do perfil novamente antes de desistir
-          await supabase.from('profiles').upsert({
-            id: activeUserId,
-            full_name: `${visitorData.name || 'Visitante'}`,
-            email: visitorData.email || 'visitante@anonimo.com',
-            kyc_status: 'guest'
-          });
-          
-          // Tenta enviar de novo uma única vez
-          const { data: retryData, error: retryError } = await supabase
-            .from('support_messages')
-            .insert({ user_id: activeUserId, message: trimmedMsg, is_from_admin: false })
-            .select().single();
-            
-          if (retryError) throw retryError;
-          if (retryData) {
-            setMessages(prev => [...prev, retryData]);
-            setMessage('');
-          }
-        } else {
-          throw error;
-        }
+        // Se o erro for de chave estrangeira ou permissão, o banco não aceita visitantes.
+        // Nesse caso, mostramos uma mensagem clara.
+        console.error("Erro Supabase:", error);
+        toast({ 
+          variant: "destructive", 
+          title: "Acesso Restrito", 
+          description: "Para sua segurança, o chat requer uma conta. Por favor, faça login ou cadastre-se rapidamente." 
+        });
       } else if (data) {
         setMessages(prev => [...prev, data]);
         setMessage('');
       }
     } catch (err: any) {
-      console.error("Erro ao enviar:", err);
-      toast({ 
-        variant: "destructive", 
-        title: "Erro ao enviar", 
-        description: "Não foi possível enviar sua mensagem. Por favor, verifique sua conexão." 
-      });
+      console.error("Erro fatal envio:", err);
     } finally {
       setIsLoading(false);
     }
@@ -212,31 +188,25 @@ const SupportChat = () => {
                 <div className="text-center space-y-2 mb-4">
                   <UserCircle className="mx-auto text-orange-500" size={48} />
                   <h3 className="font-bold text-slate-900">Identifique-se</h3>
-                  <p className="text-xs text-slate-500">Para iniciarmos o atendimento, preencha os campos abaixo.</p>
+                  <p className="text-xs text-slate-500">Preencha para iniciar o atendimento.</p>
                 </div>
                 <form onSubmit={handleIdentifyVisitor} className="space-y-3">
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">Nome</Label>
-                    <Input 
-                      required
-                      placeholder="Seu nome" 
-                      className="rounded-xl"
-                      value={visitorData.name}
-                      onChange={e => setVisitorData({...visitorData, name: e.target.value})}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-[10px] font-bold uppercase text-slate-400">E-mail</Label>
-                    <Input 
-                      required
-                      type="email"
-                      placeholder="seu@email.com" 
-                      className="rounded-xl"
-                      value={visitorData.email}
-                      onChange={e => setVisitorData({...visitorData, email: e.target.value})}
-                    />
-                  </div>
-                  <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 rounded-xl font-bold mt-2" disabled={isLoading}>
+                  <Input 
+                    required
+                    placeholder="Seu nome" 
+                    className="rounded-xl"
+                    value={visitorData.name}
+                    onChange={e => setVisitorData({...visitorData, name: e.target.value})}
+                  />
+                  <Input 
+                    required
+                    type="email"
+                    placeholder="seu@email.com" 
+                    className="rounded-xl"
+                    value={visitorData.email}
+                    onChange={e => setVisitorData({...visitorData, email: e.target.value})}
+                  />
+                  <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 rounded-xl font-bold" disabled={isLoading}>
                     {isLoading ? <Loader2 className="animate-spin" /> : "Iniciar Chat"}
                   </Button>
                 </form>
@@ -251,31 +221,19 @@ const SupportChat = () => {
                     <div className={cn(
                       "p-3 rounded-2xl text-sm font-medium shadow-sm",
                       msg.is_from_admin 
-                        ? "bg-white text-slate-700 rounded-tl-none" 
+                        ? "bg-white text-slate-700 rounded-tl-none border border-slate-100" 
                         : "bg-orange-500 text-white rounded-tr-none"
                     )}>
                       {msg.message}
                     </div>
                     <span className="text-[9px] text-slate-400 mt-1 font-bold">
-                      {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Enviando...'}
+                      {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '...'}
                     </span>
                   </div>
                 ))}
-                {messages.length === 0 && !activeUserId && (
-                  <div className="text-center py-10">
-                    <p className="text-xs text-slate-400 font-bold">Olá! Como podemos ajudar você hoje?</p>
-                    <Button 
-                      variant="link" 
-                      className="text-orange-500 text-xs font-bold"
-                      onClick={() => setIsIdentifying(true)}
-                    >
-                      Clique aqui para iniciar
-                    </Button>
-                  </div>
-                )}
-                {messages.length === 0 && activeUserId && (
+                {messages.length === 0 && (
                   <div className="text-center py-10 text-slate-400 text-xs italic">
-                    Nenhuma mensagem ainda. Digite sua dúvida abaixo.
+                    {activeUserId ? "Digite sua dúvida abaixo." : "Olá! Identifique-se para começar."}
                   </div>
                 )}
               </>

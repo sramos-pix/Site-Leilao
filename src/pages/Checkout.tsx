@@ -44,14 +44,40 @@ const Checkout = () => {
 
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
+      const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || "";
+      const email = profile?.email || user.email || "";
+      const document = String(profile?.document_id || "").replace(/\D/g, "");
+      const phone = String(profile?.phone || "").replace(/\D/g, "");
+
+      if (!name || !email) {
+        setError("Seu nome e e-mail são obrigatórios para gerar o PIX.");
+        toast({ variant: "destructive", title: "Dados incompletos", description: "Atualize seu perfil e tente novamente." });
+        setProcessing(false);
+        return;
+      }
+
+      if (!document || document.length !== 11) {
+        setError("CPF inválido ou ausente. Atualize seu perfil.");
+        toast({ variant: "destructive", title: "CPF inválido", description: "Informe um CPF válido no seu perfil." });
+        setProcessing(false);
+        return;
+      }
+
+      if (!phone || phone.length < 10) {
+        setError("Telefone inválido ou ausente. Atualize seu perfil.");
+        toast({ variant: "destructive", title: "Telefone inválido", description: "Informe um telefone válido no seu perfil." });
+        setProcessing(false);
+        return;
+      }
+
       const res = await generatePixPayment({
         amount: lot.final_price || lot.current_bid,
         description: `Arremate Lote ${lot.lot_number}: ${lot.title}`,
         customer: {
-          name: profile?.full_name || 'Licitante AutoBid',
-          document: profile?.document_id || '',
-          email: profile?.email || '',
-          phone: profile?.phone
+          name,
+          document,
+          email,
+          phone
         }
       });
 
@@ -60,9 +86,11 @@ const Checkout = () => {
         toast({ title: "PIX Gerado!", description: "Aguardando pagamento." });
       } else {
         setError(res.error);
+        toast({ variant: "destructive", title: "Erro ao gerar PIX", description: res.error });
       }
     } catch (err: any) {
       setError(err.message || "Erro ao conectar com o servidor de pagamentos.");
+      toast({ variant: "destructive", title: "Erro", description: err.message });
     } finally {
       setProcessing(false);
     }

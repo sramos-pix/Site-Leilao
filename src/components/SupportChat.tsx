@@ -17,10 +17,12 @@ const SupportChat = () => {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data: { user } }) => {
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
       if (user) fetchMessages(user.id);
-    });
+    };
+    checkUser();
   }, []);
 
   useEffect(() => {
@@ -30,20 +32,27 @@ const SupportChat = () => {
   }, [messages, isOpen]);
 
   const fetchMessages = async (userId: string) => {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from('support_messages')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
-    setMessages(data || []);
+    
+    if (!error) setMessages(data || []);
 
-    // Realtime
+    // Realtime subscription
     const channel = supabase
-      .channel(`support-${userId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${userId}` }, 
-      (payload) => {
-        setMessages(prev => [...prev, payload.new]);
-      })
+      .channel(`support-client-${userId}`)
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${userId}` }, 
+        (payload) => {
+          setMessages(prev => {
+            // Evita duplicatas se o insert local já adicionou
+            if (prev.find(m => m.id === payload.new.id)) return prev;
+            return [...prev, payload.new];
+          });
+        }
+      )
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -51,17 +60,33 @@ const SupportChat = () => {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!message.trim() || !user) return;
+    const trimmedMsg = message.trim();
+    if (!trimmedMsg || !user) return;
 
     setIsLoading(true);
-    const { error } = await supabase.from('support_messages').insert({
-      user_id: user.id,
-      message: message.trim(),
-      is_from_admin: false
-    });
+    try {
+      const { data, error } = await supabase
+        .from('support_messages')
+        .insert({
+          user_id: user.id,
+          message: trimmedMsg,
+          is_from_admin: false
+        })
+        .select()
+        .single();
 
-    if (!error) setMessage('');
-    setIsLoading(false);
+      if (error) throw error;
+      
+      // Atualiza localmente para feedback instantâneo
+      if (data) {
+        setMessages(prev => [...prev, data]);
+        setMessage('');
+      }
+    } catch (err) {
+      console.error("Erro ao enviar mensagem:", err);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   if (!user) return null;
@@ -94,7 +119,7 @@ const SupportChat = () => {
           
           <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50" ref={scrollRef}>
             {messages.map((msg) => (
-              <div key={msg.id} className={cn(
+              <div key={msg.id || Math.random()} className={cn(
                 "flex flex-col max-w-[80%]",
                 msg.is_from_admin ? "mr-auto" : "ml-auto items-end"
               )}>
@@ -107,7 +132,7 @@ const SupportChat = () => {
                   {msg.message}
                 </div>
                 <span className="text-[9px] text-slate-400 mt-1 font-bold">
-                  {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Enviando...'}
                 </span>
               </div>
             ))}
@@ -124,8 +149,9 @@ const SupportChat = () => {
               onChange={(e) => setMessage(e.target.value)}
               placeholder="Digite sua dúvida..."
               className="rounded-xl border-slate-100 bg-slate-50"
+              disabled={isLoading}
             />
-            <Button type="submit" disabled={isLoading} className="bg-slate-900 rounded-xl">
+            <Button type="submit" disabled={isLoading || !message.trim()} className="bg-slate-900 rounded-xl">
               {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
             </Button>
           </form>

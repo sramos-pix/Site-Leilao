@@ -61,7 +61,8 @@ const SupportChat = () => {
         { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${userId}` }, 
         (payload) => {
           setMessages(prev => {
-            if (prev.find(m => m.id === payload.new.id)) return prev;
+            const exists = prev.find(m => m.id === payload.new.id);
+            if (exists) return prev;
             return [...prev, payload.new];
           });
         }
@@ -77,31 +78,31 @@ const SupportChat = () => {
 
     setIsLoading(true);
     try {
+      // Geramos um ID fixo para este navegador se não existir
       let visitorId = localStorage.getItem('autobid_visitor_id');
       if (!visitorId) {
         visitorId = crypto.randomUUID();
         localStorage.setItem('autobid_visitor_id', visitorId);
       }
 
-      // Tenta criar um perfil temporário para o visitante para evitar erro de FK
-      // Se a tabela profiles permitir inserção manual de IDs
-      await supabase.from('profiles').upsert({
+      // CRIAMOS O PERFIL NA TABELA PROFILES (Isso permite que a FK da support_messages funcione)
+      const { error: upsertError } = await supabase.from('profiles').upsert({
         id: visitorId,
-        full_name: visitorData.name + " (Visitante)",
+        full_name: `${visitorData.name} (Visitante)`,
         email: visitorData.email,
         kyc_status: 'guest'
       }, { onConflict: 'id' });
+
+      if (upsertError) throw upsertError;
 
       setActiveUserId(visitorId);
       setIsIdentifying(false);
       fetchMessages(visitorId);
       
       toast({ title: "Identificado!", description: "Agora você pode falar com nosso suporte." });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao identificar:", err);
-      // Mesmo com erro no upsert, permitimos tentar enviar a mensagem
-      setActiveUserId(localStorage.getItem('autobid_visitor_id') || crypto.randomUUID());
-      setIsIdentifying(false);
+      toast({ variant: "destructive", title: "Erro de identificação", description: "Não foi possível iniciar o chat. Tente novamente." });
     } finally {
       setIsLoading(false);
     }
@@ -129,18 +130,7 @@ const SupportChat = () => {
         .select()
         .single();
 
-      if (error) {
-        // Se der erro de FK, mostramos uma mensagem amigável
-        if (error.code === '23503') {
-          toast({ 
-            variant: "destructive", 
-            title: "Erro de Conexão", 
-            description: "Não foi possível registrar sua mensagem como visitante. Por favor, crie uma conta gratuita." 
-          });
-        } else {
-          throw error;
-        }
-      }
+      if (error) throw error;
       
       if (data) {
         setMessages(prev => [...prev, data]);
@@ -148,7 +138,11 @@ const SupportChat = () => {
       }
     } catch (err: any) {
       console.error("Erro ao enviar mensagem:", err);
-      toast({ variant: "destructive", title: "Erro ao enviar", description: "Tente novamente em instantes." });
+      toast({ 
+        variant: "destructive", 
+        title: "Erro ao enviar", 
+        description: "Sua sessão pode ter expirado. Tente recarregar a página." 
+      });
     } finally {
       setIsLoading(false);
     }

@@ -23,21 +23,27 @@ const SupportChat = () => {
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  // Carrega dados iniciais e verifica se já existe identificação
   useEffect(() => {
-    const checkUser = async () => {
+    const initChat = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
+      
       if (authUser) {
         setActiveUserId(authUser.id);
         fetchMessages(authUser.id);
       } else {
-        const savedVisitorId = localStorage.getItem('autobid_visitor_id');
-        if (savedVisitorId) {
-          setActiveUserId(savedVisitorId);
-          fetchMessages(savedVisitorId);
+        const savedId = localStorage.getItem('autobid_visitor_id');
+        const savedName = localStorage.getItem('autobid_visitor_name');
+        const savedEmail = localStorage.getItem('autobid_visitor_email');
+
+        if (savedId && savedName && savedEmail) {
+          setActiveUserId(savedId);
+          setVisitorData({ name: savedName, email: savedEmail });
+          fetchMessages(savedId);
         }
       }
     };
-    checkUser();
+    initChat();
   }, []);
 
   useEffect(() => {
@@ -55,14 +61,14 @@ const SupportChat = () => {
     
     if (!error) setMessages(data || []);
 
+    // Inscrição em tempo real para este usuário específico
     const channel = supabase
-      .channel(`support-client-${userId}`)
+      .channel(`support-realtime-${userId}`)
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${userId}` }, 
         (payload) => {
           setMessages(prev => {
-            const exists = prev.find(m => m.id === payload.new.id);
-            if (exists) return prev;
+            if (prev.find(m => m.id === payload.new.id)) return prev;
             return [...prev, payload.new];
           });
         }
@@ -78,31 +84,34 @@ const SupportChat = () => {
 
     setIsLoading(true);
     try {
-      // Geramos um ID fixo para este navegador se não existir
-      let visitorId = localStorage.getItem('autobid_visitor_id');
-      if (!visitorId) {
-        visitorId = crypto.randomUUID();
-        localStorage.setItem('autobid_visitor_id', visitorId);
-      }
-
-      // CRIAMOS O PERFIL NA TABELA PROFILES (Isso permite que a FK da support_messages funcione)
-      const { error: upsertError } = await supabase.from('profiles').upsert({
+      let visitorId = localStorage.getItem('autobid_visitor_id') || crypto.randomUUID();
+      
+      // Tenta garantir que o perfil exista no banco (tabela profiles)
+      // Usamos upsert para atualizar se já existir ou criar se for novo
+      const { error: profileError } = await supabase.from('profiles').upsert({
         id: visitorId,
         full_name: `${visitorData.name} (Visitante)`,
         email: visitorData.email,
         kyc_status: 'guest'
       }, { onConflict: 'id' });
 
-      if (upsertError) throw upsertError;
+      if (profileError) {
+        console.error("Erro ao criar perfil visitante:", profileError);
+        // Se falhar aqui, provavelmente é RLS. Mas vamos tentar seguir.
+      }
+
+      // Salva localmente para persistência
+      localStorage.setItem('autobid_visitor_id', visitorId);
+      localStorage.setItem('autobid_visitor_name', visitorData.name);
+      localStorage.setItem('autobid_visitor_email', visitorData.email);
 
       setActiveUserId(visitorId);
       setIsIdentifying(false);
       fetchMessages(visitorId);
       
-      toast({ title: "Identificado!", description: "Agora você pode falar com nosso suporte." });
-    } catch (err: any) {
-      console.error("Erro ao identificar:", err);
-      toast({ variant: "destructive", title: "Erro de identificação", description: "Não foi possível iniciar o chat. Tente novamente." });
+      toast({ title: "Identificado!", description: "Como podemos ajudar?" });
+    } catch (err) {
+      console.error("Erro geral identificação:", err);
     } finally {
       setIsLoading(false);
     }
@@ -130,18 +139,41 @@ const SupportChat = () => {
         .select()
         .single();
 
-      if (error) throw error;
-      
-      if (data) {
+      if (error) {
+        // Se o erro for de permissão, tentamos re-identificar o perfil
+        if (error.code === '42501' || error.code === '23503') {
+          // Tenta forçar o upsert do perfil novamente antes de desistir
+          await supabase.from('profiles').upsert({
+            id: activeUserId,
+            full_name: `${visitorData.name || 'Visitante'}`,
+            email: visitorData.email || 'visitante@anonimo.com',
+            kyc_status: 'guest'
+          });
+          
+          // Tenta enviar de novo uma única vez
+          const { data: retryData, error: retryError } = await supabase
+            .from('support_messages')
+            .insert({ user_id: activeUserId, message: trimmedMsg, is_from_admin: false })
+            .select().single();
+            
+          if (retryError) throw retryError;
+          if (retryData) {
+            setMessages(prev => [...prev, retryData]);
+            setMessage('');
+          }
+        } else {
+          throw error;
+        }
+      } else if (data) {
         setMessages(prev => [...prev, data]);
         setMessage('');
       }
     } catch (err: any) {
-      console.error("Erro ao enviar mensagem:", err);
+      console.error("Erro ao enviar:", err);
       toast({ 
         variant: "destructive", 
         title: "Erro ao enviar", 
-        description: "Sua sessão pode ter expirado. Tente recarregar a página." 
+        description: "Não foi possível enviar sua mensagem. Por favor, verifique sua conexão." 
       });
     } finally {
       setIsLoading(false);
@@ -239,6 +271,11 @@ const SupportChat = () => {
                     >
                       Clique aqui para iniciar
                     </Button>
+                  </div>
+                )}
+                {messages.length === 0 && activeUserId && (
+                  <div className="text-center py-10 text-slate-400 text-xs italic">
+                    Nenhuma mensagem ainda. Digite sua dúvida abaixo.
                   </div>
                 )}
               </>

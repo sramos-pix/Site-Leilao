@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
-import { Bell, CheckCircle2, Clock, Trash2 } from 'lucide-react';
+import { Bell, CheckCircle2, Clock, Trash2, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/components/ui/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,6 +12,7 @@ import { ptBR } from 'date-fns/locale';
 const Notifications = () => {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const { toast } = useToast();
 
   const fetchNotifications = async () => {
@@ -51,20 +52,38 @@ const Notifications = () => {
   }, []);
 
   const deleteNotification = async (id: string) => {
-    const { error } = await supabase
-      .from('notifications')
-      .delete()
-      .eq('id', id);
+    setIsDeleting(id);
+    try {
+      // PERSISTÊNCIA: Deleta do banco de dados Supabase
+      const { error } = await supabase
+        .from('notifications')
+        .delete()
+        .eq('id', id);
 
-    if (error) {
-      toast({ variant: "destructive", title: "Erro", description: "Não foi possível excluir." });
-    } else {
-      setNotifications(notifications.filter(n => n.id !== id));
+      if (error) throw error;
+
+      // Atualiza o estado local apenas após sucesso no banco
+      setNotifications(prev => prev.filter(n => n.id !== id));
+      toast({ title: "Notificação removida" });
+    } catch (error: any) {
+      console.error("Erro ao excluir:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Erro ao excluir", 
+        description: "Não foi possível remover a notificação do servidor." 
+      });
+    } finally {
+      setIsDeleting(null);
     }
   };
 
   if (isLoading) {
-    return <div className="flex justify-center py-20"><Clock className="animate-spin text-orange-500" /></div>;
+    return (
+      <div className="flex flex-col items-center justify-center py-20 gap-4">
+        <Loader2 className="animate-spin text-orange-500" size={32} />
+        <p className="text-slate-400 font-medium">Carregando notificações...</p>
+      </div>
+    );
   }
 
   return (
@@ -79,7 +98,7 @@ const Notifications = () => {
         <Card className="border-dashed border-2 bg-transparent">
           <CardContent className="flex flex-col items-center justify-center py-12 text-slate-400">
             <Bell size={48} className="mb-4 opacity-20" />
-            <p>Você não tem nenhuma notificação no momento.</p>
+            <p className="font-bold">Você não tem nenhuma notificação no momento.</p>
           </CardContent>
         </Card>
       ) : (
@@ -95,7 +114,7 @@ const Notifications = () => {
                     <h3 className={`font-bold text-sm ${notification.read ? 'text-slate-700' : 'text-slate-900'}`}>
                       {notification.title}
                     </h3>
-                    <span className="text-[10px] text-slate-400 font-medium">
+                    <span className="text-[10px] text-slate-400 font-bold">
                       {formatDistanceToNow(new Date(notification.created_at), { addSuffix: true, locale: ptBR })}
                     </span>
                   </div>
@@ -106,10 +125,15 @@ const Notifications = () => {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="h-8 w-8 text-slate-300 hover:text-red-500"
+                  className="h-8 w-8 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors"
                   onClick={() => deleteNotification(notification.id)}
+                  disabled={isDeleting === notification.id}
                 >
-                  <Trash2 size={14} />
+                  {isDeleting === notification.id ? (
+                    <Loader2 className="animate-spin h-3 w-3" />
+                  ) : (
+                    <Trash2 size={14} />
+                  )}
                 </Button>
               </CardContent>
             </Card>

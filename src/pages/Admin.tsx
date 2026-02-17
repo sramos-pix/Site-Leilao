@@ -5,7 +5,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { 
   Users, Gavel, Package, Settings, 
-  Search, LayoutDashboard, LogOut, Loader2, Download, Edit, Trash2
+  Search, LayoutDashboard, LogOut, Loader2, Download, Edit, Trash2, CreditCard
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -30,6 +30,7 @@ import UserManager from '@/components/admin/UserManager';
 import AdminOverview from '@/components/admin/AdminOverview';
 import AuctionManager from '@/components/admin/AuctionManager';
 import LotManager from '@/components/admin/LotManager';
+import AdminPayments from '@/components/admin/AdminPayments';
 
 const Admin = () => {
   const [users, setUsers] = React.useState<any[]>([]);
@@ -128,6 +129,7 @@ const Admin = () => {
         <nav className="space-y-2 flex-1">
           {[
             { id: 'dashboard', icon: LayoutDashboard, label: 'Dashboard' },
+            { id: 'payments', icon: CreditCard, label: 'Pagamentos' },
             { id: 'auctions', icon: Gavel, label: 'Leilões' },
             { id: 'lots', icon: Package, label: 'Lotes/Veículos' },
             { id: 'users', icon: Users, label: 'Usuários' },
@@ -157,6 +159,7 @@ const Admin = () => {
 
       <div className="flex-1 p-8 overflow-y-auto">
         {activeTab === 'dashboard' && <AdminOverview />}
+        {activeTab === 'payments' && <AdminPayments />}
         {activeTab === 'auctions' && <AuctionManager />}
         {activeTab === 'lots' && <LotManager />}
         {activeTab === 'users' && (

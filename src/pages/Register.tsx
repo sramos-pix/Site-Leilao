@@ -123,7 +123,6 @@ const Register = () => {
 
     setIsLoading(true);
     try {
-      // 1. Criar usuário no Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -137,8 +136,6 @@ const Register = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // 2. Inserir dados na tabela profiles com mapeamento exato das colunas
-        // kyc_status é definido como null para evitar erro de CHECK constraint
         const profileData = {
           id: authData.user.id,
           full_name: fullName,
@@ -167,7 +164,7 @@ const Register = () => {
         description: "Bem-vindo à plataforma AutoBid." 
       });
       
-      navigate('/app');
+      navigate('/app/dashboard');
     } catch (error: any) {
       setErrorMessage(error.message || "Erro ao realizar cadastro.");
     } finally {

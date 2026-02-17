@@ -24,7 +24,7 @@ const Login = () => {
       if (error) throw error;
       
       toast({ title: "Bem-vindo de volta!", description: "Login realizado com sucesso." });
-      navigate('/app');
+      navigate('/app/dashboard');
     } catch (error: any) {
       toast({ 
         variant: "destructive", 

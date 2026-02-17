@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { 
   User, Mail, Phone, MapPin, 
-  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, Eye, EyeOff
+  CheckCircle2, XCircle, ShieldCheck, Save, Loader2, Eye, EyeOff, FileText, ExternalLink, Download
 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { validateCPF } from '@/lib/validations';
@@ -24,7 +24,6 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   const [isSearchingCep, setIsSearchingCep] = React.useState(false);
   const [showPassword, setShowPassword] = React.useState(false);
 
-  // Mapeamento robusto para garantir que campos com nomes diferentes no banco sejam carregados
   const { register, handleSubmit, setValue, formState: { isDirty } } = useForm({
     defaultValues: {
       full_name: user.full_name || '',
@@ -163,6 +162,58 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         </div>
       </div>
 
+      {/* SEÇÃO DE DOCUMENTO ANEXADO */}
+      <div className="bg-orange-50 border border-orange-100 p-6 rounded-2xl space-y-4">
+        <div className="flex items-center gap-2 text-orange-900 font-bold">
+          <FileText size={18} />
+          <h3>Documento de Identidade Anexado</h3>
+        </div>
+        
+        {user.document_url ? (
+          <div className="flex flex-col sm:flex-row items-center gap-4">
+            <div className="w-full sm:w-32 h-20 bg-white rounded-xl border border-orange-200 overflow-hidden flex items-center justify-center">
+              {user.document_url.match(/\.(jpeg|jpg|gif|png)$/) ? (
+                <img src={user.document_url} alt="Documento" className="w-full h-full object-cover" />
+              ) : (
+                <FileText size={32} className="text-orange-300" />
+              )}
+            </div>
+            <div className="flex-1 space-y-2 w-full">
+              <p className="text-xs text-orange-700 font-medium">O cliente anexou um arquivo para verificação.</p>
+              <div className="flex gap-2">
+                <Button 
+                  type="button"
+                  variant="outline" 
+                  className="flex-1 bg-white border-orange-200 text-orange-600 hover:bg-orange-500 hover:text-white rounded-xl h-10 text-xs font-bold"
+                  onClick={() => window.open(user.document_url, '_blank')}
+                >
+                  <ExternalLink size={14} className="mr-2" /> Visualizar
+                </Button>
+                <a 
+                  href={user.document_url} 
+                  download 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex-1"
+                >
+                  <Button 
+                    type="button"
+                    variant="outline" 
+                    className="w-full bg-white border-orange-200 text-orange-600 hover:bg-orange-500 hover:text-white rounded-xl h-10 text-xs font-bold"
+                  >
+                    <Download size={14} className="mr-2" /> Baixar
+                  </Button>
+                </a>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="text-center py-4 bg-white/50 rounded-xl border border-dashed border-orange-200">
+            <p className="text-xs text-orange-400 font-medium italic">Nenhum documento anexado por este usuário ainda.</p>
+          </div>
+        )}
+      </div>
+
       <div className="space-y-4">
         <div className="flex items-center gap-2 text-slate-900 font-bold border-b pb-2">
           <User size={18} className="text-orange-500" />
@@ -171,27 +222,27 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Nome Completo</Label>
-            <Input {...register('full_name')} className="rounded-xl" />
+            <input {...register('full_name')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
           </div>
           <div className="space-y-2">
             <Label>E-mail</Label>
-            <Input {...register('email')} className="rounded-xl" />
+            <input {...register('email')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
           </div>
           <div className="space-y-2">
             <Label>CPF / CNPJ</Label>
-            <Input {...register('document_id')} className="rounded-xl" placeholder="000.000.000-00" />
+            <input {...register('document_id')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" placeholder="000.000.000-00" />
           </div>
           <div className="space-y-2">
             <Label>Telefone</Label>
-            <Input {...register('phone')} className="rounded-xl" placeholder="(00) 00000-0000" />
+            <input {...register('phone')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" placeholder="(00) 00000-0000" />
           </div>
           <div className="space-y-2">
             <Label>Senha de Acesso</Label>
             <div className="relative">
-              <Input 
+              <input 
                 {...register('password')} 
                 type={showPassword ? "text" : "password"}
-                className="rounded-xl pr-10" 
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pr-10" 
               />
               <button
                 type="button"
@@ -214,9 +265,9 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
           <div className="space-y-2">
             <Label>CEP</Label>
             <div className="relative">
-              <Input 
+              <input 
                 {...register('zip_code')} 
-                className="rounded-xl pr-10" 
+                className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 pr-10" 
                 placeholder="00000-000"
                 onBlur={handleCepBlur}
               />
@@ -225,30 +276,30 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
           </div>
           <div className="space-y-2">
             <Label>Rua / Logradouro</Label>
-            <Input {...register('address')} className="rounded-xl" />
+            <input {...register('address')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-2">
               <Label>Número</Label>
-              <Input {...register('number')} className="rounded-xl" />
+              <input {...register('number')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
             </div>
             <div className="space-y-2">
               <Label>Complemento</Label>
-              <Input {...register('complement')} className="rounded-xl" />
+              <input {...register('complement')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Bairro</Label>
-            <Input {...register('neighborhood')} className="rounded-xl" />
+            <input {...register('neighborhood')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-2">
               <Label>Cidade</Label>
-              <Input {...register('city')} className="rounded-xl" />
+              <input {...register('city')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" />
             </div>
             <div className="space-y-2">
               <Label>Estado (UF)</Label>
-              <Input {...register('state')} className="rounded-xl" maxLength={2} />
+              <input {...register('state')} className="flex h-10 w-full rounded-xl border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50" maxLength={2} />
             </div>
           </div>
         </div>

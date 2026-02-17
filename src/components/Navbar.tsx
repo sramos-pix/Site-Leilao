@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Gavel, Menu, X, LayoutDashboard, LogOut, Car } from 'lucide-react';
+import { Gavel, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -27,7 +27,6 @@ const Navbar = () => {
 
   const navigation = [
     { name: 'Início', href: '/' },
-    { name: 'Veículos', href: '/vehicles' },
     { name: 'Leilões', href: '/auctions' },
     { name: 'Como Funciona', href: '/how-it-works' },
     { name: 'Contato', href: '/contact' },
@@ -75,7 +74,7 @@ const Navbar = () => {
             <div className="flex items-center gap-3 ml-4 border-l pl-6 border-slate-200">
               {user ? (
                 <div className="flex items-center gap-2">
-                  <Link to="/app">
+                  <Link to="/app/dashboard">
                     <Button variant="ghost" size="sm" className="text-slate-700 gap-2 font-semibold hover:bg-slate-100 rounded-xl">
                       <LayoutDashboard size={16} /> Painel
                     </Button>
@@ -127,7 +126,7 @@ const Navbar = () => {
           <div className="pt-4 flex flex-col gap-2 px-2">
             {user ? (
               <>
-                <Link to="/app" onClick={() => setIsOpen(false)}>
+                <Link to="/app/dashboard" onClick={() => setIsOpen(false)}>
                   <Button className="w-full bg-slate-900 text-white font-semibold h-11 rounded-xl">Meu Painel</Button>
                 </Link>
                 <Button onClick={handleLogout} variant="outline" className="w-full font-semibold h-11 rounded-xl border-slate-200 text-red-500">Sair</Button>

@@ -5,22 +5,24 @@ import { supabase } from '@/lib/supabase';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, User, MessageSquare, RefreshCw } from 'lucide-react';
+import { Loader2, Send, User, MessageSquare, RefreshCw, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/use-toast';
 
 const AdminChat = () => {
+  const { toast } = useToast();
   const [conversations, setConversations] = useState<any[]>([]);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [reply, setReply] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
+  const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const fetchConversations = async () => {
     setIsFetching(true);
     try {
-      // Busca as mensagens mais recentes primeiro
       const { data: msgs, error: msgsError } = await supabase
         .from('support_messages')
         .select('user_id, created_at')
@@ -33,10 +35,8 @@ const AdminChat = () => {
         return;
       }
 
-      // Agrupar IDs únicos
       const uniqueUserIds = Array.from(new Set(msgs.map(m => m.user_id)));
 
-      // Buscar perfis desses usuários
       const { data: profiles, error: profError } = await supabase
         .from('profiles')
         .select('id, full_name, email')
@@ -72,12 +72,43 @@ const AdminChat = () => {
     if (!error) setMessages(data || []);
   };
 
+  const handleDeleteConversation = async (e: React.MouseEvent, userId: string) => {
+    e.stopPropagation();
+    if (!confirm("Tem certeza que deseja excluir toda esta conversa? Esta ação não pode ser desfeita.")) return;
+
+    setIsDeleting(userId);
+    try {
+      const { error } = await supabase
+        .from('support_messages')
+        .delete()
+        .eq('user_id', userId);
+
+      if (error) throw error;
+
+      toast({ title: "Conversa excluída", description: "Todas as mensagens foram removidas." });
+      
+      if (selectedUser?.user_id === userId) {
+        setSelectedUser(null);
+        setMessages([]);
+      }
+      
+      fetchConversations();
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Erro ao excluir", description: err.message });
+    } finally {
+      setIsDeleting(null);
+    }
+  };
+
   useEffect(() => {
     fetchConversations();
     
     const channel = supabase
       .channel('admin-support-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, () => {
+        fetchConversations();
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'support_messages' }, () => {
         fetchConversations();
       })
       .subscribe();
@@ -154,11 +185,11 @@ const AdminChat = () => {
         </div>
         <div className="flex-1 overflow-y-auto">
           {conversations.length > 0 ? conversations.map((conv) => (
-            <button
+            <div
               key={conv.user_id}
               onClick={() => setSelectedUser(conv)}
               className={cn(
-                "w-full p-4 text-left border-b border-slate-50 transition-colors flex items-center gap-3",
+                "w-full p-4 text-left border-b border-slate-50 transition-colors flex items-center gap-3 cursor-pointer group",
                 selectedUser?.user_id === conv.user_id ? "bg-orange-50 border-orange-100" : "hover:bg-slate-50"
               )}
             >
@@ -169,7 +200,16 @@ const AdminChat = () => {
                 <p className="font-bold text-sm text-slate-900 truncate">{conv.profiles?.full_name}</p>
                 <p className="text-[10px] text-slate-500 truncate">{conv.profiles?.email}</p>
               </div>
-            </button>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-full transition-all"
+                onClick={(e) => handleDeleteConversation(e, conv.user_id)}
+                disabled={isDeleting === conv.user_id}
+              >
+                {isDeleting === conv.user_id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 size={16} />}
+              </Button>
+            </div>
           )) : (
             <div className="p-8 text-center text-slate-400 text-sm">Nenhuma conversa encontrada.</div>
           )}

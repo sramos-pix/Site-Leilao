@@ -29,28 +29,24 @@ const Admin = () => {
         </div>
         <nav className="flex-1 space-y-2">
           <Button
-            variant="ghost"
             onClick={() => setActiveTab("dashboard")}
             className={`w-full justify-start rounded-xl ${activeTab === "dashboard" ? "bg-orange-500 text-white" : "text-slate-300 hover:bg-slate-800"}`}
           >
             <LayoutDashboard size={18} className="mr-2" /> Painel
           </Button>
           <Button
-            variant="ghost"
             onClick={() => setActiveTab("payments")}
             className={`w-full justify-start rounded-xl ${activeTab === "payments" ? "bg-orange-500 text-white" : "text-slate-300 hover:bg-slate-800"}`}
           >
             <CreditCard size={18} className="mr-2" /> Pagamentos
           </Button>
           <Button
-            variant="ghost"
             onClick={() => setActiveTab("auctions")}
             className={`w-full justify-start rounded-xl ${activeTab === "auctions" ? "bg-orange-500 text-white" : "text-slate-300 hover:bg-slate-800"}`}
           >
             <Gavel size={18} className="mr-2" /> Leilões
           </Button>
           <Button
-            variant="ghost"
             onClick={() => setActiveTab("lots")}
             className={`w-full justify-start rounded-xl ${activeTab === "lots" ? "bg-orange-500 text-white" : "text-slate-300 hover:bg-slate-800"}`}
           >

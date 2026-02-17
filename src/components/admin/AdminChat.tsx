@@ -20,23 +20,41 @@ const AdminChat = () => {
   const fetchConversations = async () => {
     setIsFetching(true);
     try {
-      // Busca todas as mensagens e faz o join com profiles
-      const { data, error } = await supabase
+      // Busca as mensagens mais recentes primeiro
+      const { data: msgs, error: msgsError } = await supabase
         .from('support_messages')
-        .select('user_id, created_at, profiles(id, full_name, email)')
+        .select('user_id, created_at')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (msgsError) throw msgsError;
 
-      // Agrupar por usuário único pegando a mensagem mais recente
-      const uniqueUsersMap = new Map();
-      data?.forEach(item => {
-        if (!uniqueUsersMap.has(item.user_id)) {
-          uniqueUsersMap.set(item.user_id, item);
-        }
+      if (!msgs || msgs.length === 0) {
+        setConversations([]);
+        return;
+      }
+
+      // Agrupar IDs únicos
+      const uniqueUserIds = Array.from(new Set(msgs.map(m => m.user_id)));
+
+      // Buscar perfis desses usuários
+      const { data: profiles, error: profError } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', uniqueUserIds);
+
+      if (profError) console.error("Erro ao buscar perfis:", profError);
+
+      const convs = uniqueUserIds.map(uid => {
+        const profile = profiles?.find(p => p.id === uid);
+        const lastMsg = msgs.find(m => m.user_id === uid);
+        return {
+          user_id: uid,
+          created_at: lastMsg?.created_at,
+          profiles: profile || { full_name: 'Usuário Desconhecido', email: uid.substring(0, 8) }
+        };
       });
       
-      setConversations(Array.from(uniqueUsersMap.values()));
+      setConversations(convs);
     } catch (err) {
       console.error("Erro ao buscar conversas:", err);
     } finally {
@@ -57,9 +75,8 @@ const AdminChat = () => {
   useEffect(() => {
     fetchConversations();
     
-    // Inscrição para novas mensagens globais para atualizar a lista de conversas
     const channel = supabase
-      .channel('admin-support-global')
+      .channel('admin-support-realtime')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, () => {
         fetchConversations();
       })
@@ -72,9 +89,8 @@ const AdminChat = () => {
     if (selectedUser) {
       fetchMessages(selectedUser.user_id);
       
-      // Inscrição para mensagens do usuário selecionado
       const userChannel = supabase
-        .channel(`admin-support-user-${selectedUser.user_id}`)
+        .channel(`admin-msg-${selectedUser.user_id}`)
         .on('postgres_changes', 
           { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${selectedUser.user_id}` }, 
           (payload) => {
@@ -114,7 +130,6 @@ const AdminChat = () => {
         .single();
 
       if (error) throw error;
-
       if (data) {
         setMessages(prev => [...prev, data]);
         setReply('');
@@ -128,7 +143,6 @@ const AdminChat = () => {
 
   return (
     <div className="grid grid-cols-12 gap-6 h-[calc(100vh-200px)]">
-      {/* Lista de Conversas */}
       <Card className="col-span-4 border-none shadow-sm rounded-2xl overflow-hidden flex flex-col">
         <div className="p-4 bg-slate-50 border-b font-bold text-slate-900 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -152,7 +166,7 @@ const AdminChat = () => {
                 <User size={20} />
               </div>
               <div className="flex-1 overflow-hidden">
-                <p className="font-bold text-sm text-slate-900 truncate">{conv.profiles?.full_name || 'Usuário'}</p>
+                <p className="font-bold text-sm text-slate-900 truncate">{conv.profiles?.full_name}</p>
                 <p className="text-[10px] text-slate-500 truncate">{conv.profiles?.email}</p>
               </div>
             </button>
@@ -162,7 +176,6 @@ const AdminChat = () => {
         </div>
       </Card>
 
-      {/* Área de Chat */}
       <Card className="col-span-8 border-none shadow-sm rounded-2xl overflow-hidden flex flex-col bg-white">
         {selectedUser ? (
           <>

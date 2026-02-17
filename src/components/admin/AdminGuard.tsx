@@ -21,39 +21,38 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      const adminAuth = localStorage.getItem('admin_auth');
-      
-      // Só permite acesso se estiver logado no Supabase E tiver passado pela senha do admin
-      if (session && adminAuth === 'true') {
-        setIsAuthenticated(true);
-      } else if (!session) {
-        // Se não houver sessão no Supabase, limpa o auth do admin e manda pro login
-        localStorage.removeItem('admin_auth');
-        setIsAuthenticated(false);
-      }
-      setIsLoading(false);
-    };
+  const checkSession = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    const adminAuth = localStorage.getItem('admin_auth');
+    
+    if (session && adminAuth === 'true') {
+      setIsAuthenticated(true);
+    } else {
+      setIsAuthenticated(false);
+      if (!session) localStorage.removeItem('admin_auth');
+    }
+    setIsLoading(false);
+  };
 
+  useEffect(() => {
     checkSession();
 
-    // Escuta mudanças na autenticação (como o logout)
+    // Escuta mudanças na autenticação globalmente
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (event === 'SIGNED_OUT') {
+      if (event === 'SIGNED_OUT' || !session) {
         localStorage.removeItem('admin_auth');
         setIsAuthenticated(false);
-        navigate('/login');
+      } else if (event === 'SIGNED_IN' && localStorage.getItem('admin_auth') === 'true') {
+        setIsAuthenticated(true);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate]);
+  }, []);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    // Aqui você pode manter sua senha simples ou validar contra o banco
+    // Validação simples conforme solicitado
     if (username === 'admin' && password === 'admin') {
       localStorage.setItem('admin_auth', 'true');
       setIsAuthenticated(true);

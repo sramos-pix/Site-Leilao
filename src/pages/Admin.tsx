@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Gavel, LayoutDashboard, Package, Users, Settings, LogOut, CreditCard } from "lucide-react";
+import { Gavel, LayoutDashboard, Package, Users, Settings, LogOut, CreditCard, MessageSquare } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import AdminOverview from "@/components/admin/AdminOverview";
@@ -11,6 +11,7 @@ import LotManager from "@/components/admin/LotManager";
 import AdminUsers from "@/pages/admin/AdminUsers";
 import AdminSettings from "@/pages/admin/AdminSettings";
 import AdminPayments from "@/components/admin/AdminPayments";
+import AdminChat from "@/components/admin/AdminChat";
 import AdminGuard from "@/components/admin/AdminGuard";
 
 const Admin = () => {
@@ -18,7 +19,7 @@ const Admin = () => {
   const [searchParams] = useSearchParams();
   const userIdParam = searchParams.get('id');
 
-  const [activeTab, setActiveTab] = useState<"dashboard" | "auctions" | "lots" | "users" | "settings" | "payments">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "auctions" | "lots" | "users" | "settings" | "payments" | "chat">("dashboard");
 
   useEffect(() => {
     if (userIdParam) {
@@ -49,6 +50,14 @@ const Admin = () => {
               <LayoutDashboard size={18} className="mr-3" /> Dashboard
             </Button>
             
+            <Button
+              variant="ghost"
+              onClick={() => setActiveTab("chat")}
+              className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${activeTab === "chat" ? "bg-orange-500 text-white hover:bg-orange-600" : "text-slate-400 hover:bg-slate-800 hover:text-white"}`}
+            >
+              <MessageSquare size={18} className="mr-3" /> Chat Suporte
+            </Button>
+
             <Button
               variant="ghost"
               onClick={() => setActiveTab("payments")}
@@ -100,6 +109,7 @@ const Admin = () => {
         <main className="flex-1 p-10 overflow-y-auto">
           <div className="max-w-7xl mx-auto">
             {activeTab === "dashboard" && <AdminOverview />}
+            {activeTab === "chat" && <AdminChat />}
             {activeTab === "payments" && <AdminPayments />}
             {activeTab === "auctions" && <AuctionManager />}
             {activeTab === "lots" && <LotManager />}

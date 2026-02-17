@@ -7,6 +7,7 @@ import FeaturedAuctions from '@/components/FeaturedAuctions';
 import FeaturedLots from '@/components/FeaturedLots';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import SupportChat from '@/components/SupportChat';
 
 const Index = () => {
   return (
@@ -51,13 +52,9 @@ const Index = () => {
           <div className="absolute top-0 right-0 -translate-y-1/4 translate-x-1/4 w-1/2 h-full bg-orange-500/5 rounded-full blur-3xl" />
         </section>
 
-        {/* Featured Lots (Veículos Individuais) */}
         <FeaturedLots />
-
-        {/* Featured Auctions (Eventos de Leilão) */}
         <FeaturedAuctions />
 
-        {/* Features Section */}
         <section className="py-20 bg-white border-t border-slate-100">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
@@ -88,6 +85,7 @@ const Index = () => {
       </main>
 
       <Footer />
+      <SupportChat />
     </div>
   );
 };

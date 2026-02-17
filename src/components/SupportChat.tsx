@@ -88,8 +88,6 @@ const SupportChat = () => {
     try {
       const visitorId = localStorage.getItem('autobid_visitor_id') || crypto.randomUUID();
       
-      // Tenta criar o perfil. Se falhar (RLS), ignoramos e tentamos enviar a mensagem assim mesmo
-      // pois o admin verá o ID e poderá buscar o contato se necessário.
       await supabase.from('profiles').upsert({
         id: visitorId,
         full_name: `${visitorData.name} (Visitante)`,
@@ -125,7 +123,6 @@ const SupportChat = () => {
 
     setIsLoading(true);
     try {
-      // Tentativa de envio direto
       const { data, error } = await supabase
         .from('support_messages')
         .insert({
@@ -137,13 +134,13 @@ const SupportChat = () => {
         .single();
 
       if (error) {
-        // Se o erro for de chave estrangeira ou permissão, o banco não aceita visitantes.
-        // Nesse caso, mostramos uma mensagem clara.
         console.error("Erro Supabase:", error);
+        // Aumentado o tempo de exibição para 8 segundos (8000ms)
         toast({ 
           variant: "destructive", 
           title: "Acesso Restrito", 
-          description: "Para sua segurança, o chat requer uma conta. Por favor, faça login ou cadastre-se rapidamente." 
+          description: "Para sua segurança, o chat requer uma conta. Por favor, faça login ou cadastre-se rapidamente para falar conosco.",
+          duration: 8000 
         });
       } else if (data) {
         setMessages(prev => [...prev, data]);

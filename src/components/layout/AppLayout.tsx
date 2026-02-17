@@ -4,18 +4,12 @@ import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { 
   Gavel, LayoutDashboard, User, 
-  LogOut, Bell, Menu, X, AlertCircle, Home, Heart
+  LogOut, Bell, Menu, X, Home, Heart, Trophy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
 import { cn } from '@/lib/utils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 const AppLayout = ({ children }: { children: React.ReactNode }) => {
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -52,6 +46,7 @@ const AppLayout = ({ children }: { children: React.ReactNode }) => {
 
   const menuItems = [
     { icon: LayoutDashboard, label: 'Painel', path: '/app/dashboard' },
+    { icon: Trophy, label: 'Meus Arremates', path: '/app/wins' },
     { icon: Heart, label: 'Favoritos', path: '/app/favorites' },
     { icon: User, label: 'Meu Perfil', path: '/app/profile' },
   ];

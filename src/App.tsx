@@ -15,6 +15,7 @@ import Dashboard from './pages/app/Dashboard';
 import Profile from './pages/app/Profile';
 import VerifyAccount from './pages/app/VerifyAccount';
 import Favorites from './pages/app/Favorites';
+import MyWins from './pages/app/MyWins';
 import Admin from './pages/Admin';
 import { Toaster } from './components/ui/toaster';
 
@@ -37,8 +38,9 @@ function App() {
         <Route path="/app/profile" element={<Profile />} />
         <Route path="/app/verify" element={<VerifyAccount />} />
         <Route path="/app/favorites" element={<Favorites />} />
+        <Route path="/app/wins" element={<MyWins />} />
         
-        {/* Admin Route - Restaurando para o componente Admin único que gerencia as abas */}
+        {/* Admin Route */}
         <Route path="/admin" element={<Admin />} />
       </Routes>
       <Toaster />

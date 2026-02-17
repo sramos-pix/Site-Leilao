@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Car, Calendar, Gauge, MapPin, Loader2, Lock } from 'lucide-react';
+import { Search, Filter, Car, Calendar, Gauge, MapPin, Loader2, Lock, Heart } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -10,24 +10,81 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { useToast } from '@/components/ui/use-toast';
 
 const Vehicles = () => {
   const [lots, setLots] = useState<any[]>([]);
+  const [favorites, setFavorites] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const { toast } = useToast();
+
+  const fetchData = async () => {
+    setLoading(true);
+    const { data: lotsData, error: lotsError } = await supabase
+      .from('lots')
+      .select('*')
+      .order('created_at', { ascending: false });
+    
+    if (!lotsError) setLots(lotsData || []);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session) {
+      const { data: favsData } = await supabase
+        .from('favorites')
+        .select('lot_id')
+        .eq('user_id', session.user.id);
+      
+      if (favsData) setFavorites(favsData.map(f => f.lot_id));
+    }
+    
+    setLoading(false);
+  };
 
   useEffect(() => {
-    const fetchLots = async () => {
-      const { data, error } = await supabase
-        .from('lots')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (!error) setLots(data || []);
-      setLoading(false);
-    };
-    fetchLots();
+    fetchData();
   }, []);
+
+  const toggleFavorite = async (e: React.MouseEvent, lotId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      toast({
+        title: "Acesso restrito",
+        description: "Faça login para favoritar veículos.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const isFavorite = favorites.includes(lotId);
+
+    if (isFavorite) {
+      const { error } = await supabase
+        .from('favorites')
+        .delete()
+        .eq('user_id', session.user.id)
+        .eq('lot_id', lotId);
+
+      if (!error) {
+        setFavorites(prev => prev.filter(id => id !== lotId));
+      }
+    } else {
+      const { error } = await supabase
+        .from('favorites')
+        .insert({ user_id: session.user.id, lot_id: lotId });
+
+      if (!error) {
+        setFavorites(prev => [...prev, lotId]);
+        toast({
+          title: "Adicionado aos favoritos",
+          description: "O veículo foi salvo na sua lista.",
+        });
+      }
+    }
+  };
 
   const filteredLots = lots.filter(lot => 
     lot.title.toLowerCase().includes(searchTerm.toLowerCase())
@@ -63,6 +120,7 @@ const Vehicles = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {filteredLots.map((lot) => {
               const isFinished = lot.status === 'finished';
+              const isFav = favorites.includes(lot.id);
               
               return (
                 <Link key={lot.id} to={`/lots/${lot.id}`} className="group">
@@ -77,6 +135,19 @@ const Vehicles = () => {
                         )}
                       />
                       
+                      {/* Botão de Favorito */}
+                      {!isFinished && (
+                        <button
+                          onClick={(e) => toggleFavorite(e, lot.id)}
+                          className={cn(
+                            "absolute top-3 right-3 z-10 p-2 rounded-full backdrop-blur-md transition-all duration-300",
+                            isFav ? "bg-orange-500 text-white" : "bg-white/80 text-slate-600 hover:bg-white"
+                          )}
+                        >
+                          <Heart size={18} fill={isFav ? "currentColor" : "none"} />
+                        </button>
+                      )}
+
                       {isFinished ? (
                         <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-900/40 backdrop-blur-[1px]">
                           <div className="bg-white/20 backdrop-blur-md border border-white/30 p-2 rounded-full mb-2">

@@ -16,10 +16,8 @@ const SupportChat = () => {
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
   const [isIdentifying, setIsIdentifying] = useState(false);
   
-  // Dados para visitantes
   const [visitorData, setVisitorData] = useState({ name: '', email: '' });
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
 
@@ -29,7 +27,6 @@ const SupportChat = () => {
     const checkUser = async () => {
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser) {
-        setUser(authUser);
         setActiveUserId(authUser.id);
         fetchMessages(authUser.id);
       } else {
@@ -81,11 +78,19 @@ const SupportChat = () => {
     setIsLoading(true);
     try {
       let visitorId = localStorage.getItem('autobid_visitor_id');
-      
       if (!visitorId) {
         visitorId = crypto.randomUUID();
         localStorage.setItem('autobid_visitor_id', visitorId);
       }
+
+      // Tenta criar um perfil temporário para o visitante para evitar erro de FK
+      // Se a tabela profiles permitir inserção manual de IDs
+      await supabase.from('profiles').upsert({
+        id: visitorId,
+        full_name: visitorData.name + " (Visitante)",
+        email: visitorData.email,
+        kyc_status: 'guest'
+      }, { onConflict: 'id' });
 
       setActiveUserId(visitorId);
       setIsIdentifying(false);
@@ -93,7 +98,10 @@ const SupportChat = () => {
       
       toast({ title: "Identificado!", description: "Agora você pode falar com nosso suporte." });
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao identificar:", err);
+      // Mesmo com erro no upsert, permitimos tentar enviar a mensagem
+      setActiveUserId(localStorage.getItem('autobid_visitor_id') || crypto.randomUUID());
+      setIsIdentifying(false);
     } finally {
       setIsLoading(false);
     }
@@ -121,14 +129,26 @@ const SupportChat = () => {
         .select()
         .single();
 
-      if (error) throw error;
+      if (error) {
+        // Se der erro de FK, mostramos uma mensagem amigável
+        if (error.code === '23503') {
+          toast({ 
+            variant: "destructive", 
+            title: "Erro de Conexão", 
+            description: "Não foi possível registrar sua mensagem como visitante. Por favor, crie uma conta gratuita." 
+          });
+        } else {
+          throw error;
+        }
+      }
       
       if (data) {
         setMessages(prev => [...prev, data]);
         setMessage('');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Erro ao enviar mensagem:", err);
+      toast({ variant: "destructive", title: "Erro ao enviar", description: "Tente novamente em instantes." });
     } finally {
       setIsLoading(false);
     }

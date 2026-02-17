@@ -27,6 +27,8 @@ type AdminWinRow = {
 };
 
 const FUNCTION_URL = "https://tedinonjoqlhmuclyrfg.supabase.co/functions/v1/mark-lot-payment";
+// Chave mestra para o painel administrativo (mesma configurada no Supabase)
+const ADMIN_SECRET = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZGlub25qb3FsaG11Y2x5cmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzY1NjMsImV4cCI6MjA4NjUxMjU2M30.ryrZCH-SxSe9Cx0gTbs747n9YTw2_vSUh-uMmj4efxg";
 
 export default function AdminPayments() {
   const { toast } = useToast();
@@ -113,18 +115,11 @@ export default function AdminPayments() {
   const setRowStatus = async (row: AdminWinRow, status: PaymentStatus) => {
     setIsRefreshing(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      // Se não houver sessão, usamos a anon key para a requisição (a função deve lidar com isso ou ser pública para admins)
-      const authHeader = session?.access_token 
-        ? `Bearer ${session.access_token}` 
-        : `Bearer ${supabase['supabaseKey']}`;
-
       const res = await fetch(FUNCTION_URL, {
         method: "POST",
         headers: {
-          "Authorization": authHeader,
           "Content-Type": "application/json",
+          "x-admin-key": "CONNECTPAY_API_SECRET" // A Edge Function buscará o valor real no ambiente
         },
         body: JSON.stringify({ lot_id: row.lot_id, user_id: row.winner_id, status }),
       });

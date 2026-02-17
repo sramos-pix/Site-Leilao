@@ -5,7 +5,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.45.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-key",
 };
 
 type Status = "paid" | "unpaid";
@@ -15,67 +15,55 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
-  if (req.method !== "POST") {
-    return new Response(JSON.stringify({ success: false, error: "Método não permitido." }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader) {
-    return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
-      status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
-  const token = authHeader.replace("Bearer ", "").trim();
-
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
-  const anonKey = Deno.env.get("SUPABASE_ANON_KEY");
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+  const adminSecret = Deno.env.get("CONNECTPAY_API_SECRET"); // Usando como chave mestra
 
-  if (!supabaseUrl || !anonKey || !serviceKey) {
+  if (!supabaseUrl || !serviceKey) {
     return new Response(JSON.stringify({ success: false, error: "Configuração do servidor ausente." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const authClient = createClient(supabaseUrl, anonKey, {
-    global: { headers: { Authorization: `Bearer ${token}` } },
-  });
-
   const serviceClient = createClient(supabaseUrl, serviceKey);
 
-  const { data: authData, error: authError } = await authClient.auth.getUser();
-  if (authError || !authData?.user) {
-    return new Response(JSON.stringify({ success: false, error: "Unauthorized" }), {
+  // Validação de Autenticação (JWT ou Admin Key)
+  const authHeader = req.headers.get("Authorization");
+  const adminKeyHeader = req.headers.get("x-admin-key");
+  let isAuthorized = false;
+
+  // 1. Tenta validar via Admin Key (Painel admin/admin)
+  if (adminKeyHeader && adminSecret && adminKeyHeader === adminSecret) {
+    isAuthorized = true;
+  } 
+  // 2. Tenta validar via JWT (Usuário logado com role admin)
+  else if (authHeader) {
+    const token = authHeader.replace("Bearer ", "").trim();
+    const { data: { user }, error: authError } = await serviceClient.auth.getUser(token);
+    
+    if (!authError && user) {
+      const { data: profile } = await serviceClient
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+      
+      if (profile?.role === 'admin') isAuthorized = true;
+    }
+  }
+
+  if (!isAuthorized) {
+    return new Response(JSON.stringify({ success: false, error: "Não autorizado." }), {
       status: 401,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const callerId = authData.user.id;
-
-  const { data: profile } = await serviceClient
-    .from("profiles")
-    .select("role")
-    .eq("id", callerId)
-    .maybeSingle();
-
-  if (profile?.role !== 'admin') {
-    return new Response(JSON.stringify({ success: false, error: "Forbidden" }), {
-      status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-
   const body = await req.json().catch(() => null);
-  const lot_id = body?.lot_id as string | undefined;
-  const user_id = body?.user_id as string | undefined;
-  const status = body?.status as Status | undefined;
+  const lot_id = body?.lot_id;
+  const user_id = body?.user_id;
+  const status = body?.status as Status;
 
   if (!lot_id || !user_id || (status !== "paid" && status !== "unpaid")) {
     return new Response(JSON.stringify({ success: false, error: "Payload inválido." }), {
@@ -84,20 +72,18 @@ serve(async (req) => {
     });
   }
 
-  const payload = {
-    lot_id,
-    user_id,
-    status,
-    paid_at: status === "paid" ? new Date().toISOString() : null,
-    updated_at: new Date().toISOString(),
-  };
-
   const { error: upsertError } = await serviceClient
     .from("lot_payments")
-    .upsert(payload, { onConflict: "lot_id,user_id" });
+    .upsert({
+      lot_id,
+      user_id,
+      status,
+      paid_at: status === "paid" ? new Date().toISOString() : null,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: "lot_id,user_id" });
 
   if (upsertError) {
-    return new Response(JSON.stringify({ success: false, error: "Erro ao salvar pagamento." }), {
+    return new Response(JSON.stringify({ success: false, error: upsertError.message }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { 
   Gavel, Wallet, Heart, 
   Trophy, Bell, ShieldCheck, Loader2,
@@ -21,6 +21,7 @@ import { supabase } from '@/lib/supabase';
 import AppLayout from '@/components/layout/AppLayout';
 
 const Dashboard = () => {
+  const navigate = useNavigate();
   const [profile, setProfile] = React.useState<any>(null);
   const [activeBids, setActiveBids] = React.useState<any[]>([]);
   const [favoritesCount, setFavoritesCount] = React.useState(0);
@@ -38,7 +39,6 @@ const Dashboard = () => {
         .eq('id', user.id)
         .single();
       
-      // Se o perfil não existir na tabela, usa os metadados do Auth
       setProfile(profileData || {
         full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
         kyc_status: 'waiting'
@@ -86,17 +86,16 @@ const Dashboard = () => {
   );
 
   const stats = [
-    { label: 'Lances Ativos', value: activeBids.length, icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50' },
-    { label: 'Arremates', value: winsCount, icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50' },
-    { label: 'Favoritos', value: favoritesCount, icon: Heart, color: 'text-red-600', bg: 'bg-red-50' },
-    { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50' },
+    { label: 'Lances Ativos', value: activeBids.length, icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50', path: null },
+    { label: 'Arremates', value: winsCount, icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50', path: null },
+    { label: 'Favoritos', value: favoritesCount, icon: Heart, color: 'text-red-600', bg: 'bg-red-50', path: '/app/favorites' },
+    { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50', path: null },
   ];
 
   const kycStatus = profile?.kyc_status;
   const isVerified = kycStatus === 'verified';
   const isPendingAnalysis = kycStatus === 'pending';
   const isRejected = kycStatus === 'rejected';
-  const isWaiting = !kycStatus || kycStatus === 'waiting' || kycStatus === '';
 
   const getKycStatusLabel = () => {
     if (isVerified) return 'APROVADO';
@@ -158,7 +157,14 @@ const Dashboard = () => {
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-10">
         {stats.map((stat) => (
-          <Card key={stat.label} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden group hover:shadow-md transition-all duration-300">
+          <Card 
+            key={stat.label} 
+            className={cn(
+              "border-none shadow-sm rounded-2xl bg-white overflow-hidden group hover:shadow-md transition-all duration-300",
+              stat.path && "cursor-pointer hover:ring-2 hover:ring-orange-100"
+            )}
+            onClick={() => stat.path && navigate(stat.path)}
+          >
             <CardContent className="p-5 lg:p-6">
               <div className={cn("p-3 rounded-xl w-fit mb-4 transition-transform group-hover:scale-105 duration-300", stat.bg)}>
                 <stat.icon className={stat.color} size={20} />

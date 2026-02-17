@@ -1,26 +1,44 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { MessageCircle, X, Send, Loader2, User } from 'lucide-react';
+import { MessageCircle, X, Send, Loader2, User, Mail, UserCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/components/ui/use-toast';
 
 const SupportChat = () => {
+  const { toast } = useToast();
   const [isOpen, setIsOpen] = useState(false);
   const [message, setMessage] = useState('');
   const [messages, setMessages] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [isIdentifying, setIsIdentifying] = useState(false);
+  
+  // Dados para visitantes
+  const [visitorData, setVisitorData] = useState({ name: '', email: '' });
+  const [activeUserId, setActiveUserId] = useState<string | null>(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-      if (user) fetchMessages(user.id);
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser) {
+        setUser(authUser);
+        setActiveUserId(authUser.id);
+        fetchMessages(authUser.id);
+      } else {
+        const savedVisitorId = localStorage.getItem('autobid_visitor_id');
+        if (savedVisitorId) {
+          setActiveUserId(savedVisitorId);
+          fetchMessages(savedVisitorId);
+        }
+      }
     };
     checkUser();
   }, []);
@@ -40,14 +58,12 @@ const SupportChat = () => {
     
     if (!error) setMessages(data || []);
 
-    // Realtime subscription
     const channel = supabase
       .channel(`support-client-${userId}`)
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${userId}` }, 
         (payload) => {
           setMessages(prev => {
-            // Evita duplicatas se o insert local já adicionou
             if (prev.find(m => m.id === payload.new.id)) return prev;
             return [...prev, payload.new];
           });
@@ -58,17 +74,47 @@ const SupportChat = () => {
     return () => { supabase.removeChannel(channel); };
   };
 
+  const handleIdentifyVisitor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!visitorData.name || !visitorData.email) return;
+
+    setIsLoading(true);
+    try {
+      let visitorId = localStorage.getItem('autobid_visitor_id');
+      
+      if (!visitorId) {
+        visitorId = crypto.randomUUID();
+        localStorage.setItem('autobid_visitor_id', visitorId);
+      }
+
+      setActiveUserId(visitorId);
+      setIsIdentifying(false);
+      fetchMessages(visitorId);
+      
+      toast({ title: "Identificado!", description: "Agora você pode falar com nosso suporte." });
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedMsg = message.trim();
-    if (!trimmedMsg || !user) return;
+    if (!trimmedMsg) return;
+
+    if (!activeUserId) {
+      setIsIdentifying(true);
+      return;
+    }
 
     setIsLoading(true);
     try {
       const { data, error } = await supabase
         .from('support_messages')
         .insert({
-          user_id: user.id,
+          user_id: activeUserId,
           message: trimmedMsg,
           is_from_admin: false
         })
@@ -77,7 +123,6 @@ const SupportChat = () => {
 
       if (error) throw error;
       
-      // Atualiza localmente para feedback instantâneo
       if (data) {
         setMessages(prev => [...prev, data]);
         setMessage('');
@@ -88,8 +133,6 @@ const SupportChat = () => {
       setIsLoading(false);
     }
   };
-
-  if (!user) return null;
 
   return (
     <div className="fixed bottom-6 right-6 z-[100]">
@@ -118,43 +161,90 @@ const SupportChat = () => {
           </CardHeader>
           
           <CardContent className="flex-1 overflow-y-auto p-4 space-y-4 bg-slate-50" ref={scrollRef}>
-            {messages.map((msg) => (
-              <div key={msg.id || Math.random()} className={cn(
-                "flex flex-col max-w-[80%]",
-                msg.is_from_admin ? "mr-auto" : "ml-auto items-end"
-              )}>
-                <div className={cn(
-                  "p-3 rounded-2xl text-sm font-medium shadow-sm",
-                  msg.is_from_admin 
-                    ? "bg-white text-slate-700 rounded-tl-none" 
-                    : "bg-orange-500 text-white rounded-tr-none"
-                )}>
-                  {msg.message}
+            {isIdentifying ? (
+              <div className="h-full flex flex-col justify-center space-y-4 animate-in fade-in">
+                <div className="text-center space-y-2 mb-4">
+                  <UserCircle className="mx-auto text-orange-500" size={48} />
+                  <h3 className="font-bold text-slate-900">Identifique-se</h3>
+                  <p className="text-xs text-slate-500">Para iniciarmos o atendimento, preencha os campos abaixo.</p>
                 </div>
-                <span className="text-[9px] text-slate-400 mt-1 font-bold">
-                  {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Enviando...'}
-                </span>
+                <form onSubmit={handleIdentifyVisitor} className="space-y-3">
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-slate-400">Nome</Label>
+                    <Input 
+                      required
+                      placeholder="Seu nome" 
+                      className="rounded-xl"
+                      value={visitorData.name}
+                      onChange={e => setVisitorData({...visitorData, name: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-[10px] font-bold uppercase text-slate-400">E-mail</Label>
+                    <Input 
+                      required
+                      type="email"
+                      placeholder="seu@email.com" 
+                      className="rounded-xl"
+                      value={visitorData.email}
+                      onChange={e => setVisitorData({...visitorData, email: e.target.value})}
+                    />
+                  </div>
+                  <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 rounded-xl font-bold mt-2" disabled={isLoading}>
+                    {isLoading ? <Loader2 className="animate-spin" /> : "Iniciar Chat"}
+                  </Button>
+                </form>
               </div>
-            ))}
-            {messages.length === 0 && (
-              <div className="text-center py-10">
-                <p className="text-xs text-slate-400 font-bold">Olá! Como podemos ajudar você hoje?</p>
-              </div>
+            ) : (
+              <>
+                {messages.map((msg) => (
+                  <div key={msg.id || Math.random()} className={cn(
+                    "flex flex-col max-w-[80%]",
+                    msg.is_from_admin ? "mr-auto" : "ml-auto items-end"
+                  )}>
+                    <div className={cn(
+                      "p-3 rounded-2xl text-sm font-medium shadow-sm",
+                      msg.is_from_admin 
+                        ? "bg-white text-slate-700 rounded-tl-none" 
+                        : "bg-orange-500 text-white rounded-tr-none"
+                    )}>
+                      {msg.message}
+                    </div>
+                    <span className="text-[9px] text-slate-400 mt-1 font-bold">
+                      {msg.created_at ? new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'Enviando...'}
+                    </span>
+                  </div>
+                ))}
+                {messages.length === 0 && !activeUserId && (
+                  <div className="text-center py-10">
+                    <p className="text-xs text-slate-400 font-bold">Olá! Como podemos ajudar você hoje?</p>
+                    <Button 
+                      variant="link" 
+                      className="text-orange-500 text-xs font-bold"
+                      onClick={() => setIsIdentifying(true)}
+                    >
+                      Clique aqui para iniciar
+                    </Button>
+                  </div>
+                )}
+              </>
             )}
           </CardContent>
 
-          <form onSubmit={handleSendMessage} className="p-4 bg-white border-t flex gap-2">
-            <Input 
-              value={message}
-              onChange={(e) => setMessage(e.target.value)}
-              placeholder="Digite sua dúvida..."
-              className="rounded-xl border-slate-100 bg-slate-50"
-              disabled={isLoading}
-            />
-            <Button type="submit" disabled={isLoading || !message.trim()} className="bg-slate-900 rounded-xl">
-              {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
-            </Button>
-          </form>
+          {!isIdentifying && (
+            <form onSubmit={handleSendMessage} className="p-4 bg-white border-t flex gap-2">
+              <Input 
+                value={message}
+                onChange={(e) => setMessage(e.target.value)}
+                placeholder="Digite sua dúvida..."
+                className="rounded-xl border-slate-100 bg-slate-50"
+                disabled={isLoading}
+              />
+              <Button type="submit" disabled={isLoading || !message.trim()} className="bg-slate-900 rounded-xl">
+                {isLoading ? <Loader2 className="animate-spin" size={18} /> : <Send size={18} />}
+              </Button>
+            </form>
+          )}
         </Card>
       )}
     </div>

@@ -1,51 +1,48 @@
-"use client";
+import { Toaster } from "@/components/ui/toaster";
+import { Toaster as Sonner } from "@/components/ui/sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import Index from "./pages/Index";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Profile from "./pages/Profile";
+import Admin from "./pages/Admin";
+import Wins from "./pages/Wins";
+import Favorites from "./pages/Favorites";
+import Notifications from "./pages/Notifications";
+import AppLayout from "./components/layout/AppLayout";
+import LotDetails from "./pages/LotDetails";
 
-import React from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
-import Index from './pages/Index';
-import Auctions from './pages/Auctions';
-import AuctionDetails from './pages/AuctionDetails';
-import LotDetails from './pages/LotDetails';
-import Vehicles from './pages/Vehicles';
-import HowItWorks from './pages/HowItWorks';
-import Contact from './pages/Contact';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Dashboard from './pages/app/Dashboard';
-import Profile from './pages/app/Profile';
-import VerifyAccount from './pages/app/VerifyAccount';
-import Favorites from './pages/app/Favorites';
-import MyWins from './pages/app/MyWins';
-import Admin from './pages/Admin';
-import { Toaster } from './components/ui/toaster';
+const queryClient = new QueryClient();
 
-function App() {
-  return (
-    <>
-      <Routes>
-        <Route path="/" element={<Index />} />
-        <Route path="/auctions" element={<Auctions />} />
-        <Route path="/auctions/:id" element={<AuctionDetails />} />
-        <Route path="/lots/:id" element={<LotDetails />} />
-        <Route path="/vehicles" element={<Vehicles />} />
-        <Route path="/how-it-works" element={<HowItWorks />} />
-        <Route path="/contact" element={<Contact />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/register" element={<Register />} />
-        
-        {/* App Routes */}
-        <Route path="/app/dashboard" element={<Dashboard />} />
-        <Route path="/app/profile" element={<Profile />} />
-        <Route path="/app/verify" element={<VerifyAccount />} />
-        <Route path="/app/favorites" element={<Favorites />} />
-        <Route path="/app/wins" element={<MyWins />} />
-        
-        {/* Admin Route */}
-        <Route path="/admin" element={<Admin />} />
-      </Routes>
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <TooltipProvider>
       <Toaster />
-    </>
-  );
-}
+      <Sonner />
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/lot/:id" element={<LotDetails />} />
+          
+          {/* Rotas do App com Layout */}
+          <Route path="/app" element={<AppLayout children={<Navigate to="/app/dashboard" />} />} />
+          <Route path="/app/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
+          <Route path="/app/profile" element={<AppLayout><Profile /></AppLayout>} />
+          <Route path="/app/wins" element={<AppLayout><Wins /></AppLayout>} />
+          <Route path="/app/favorites" element={<AppLayout><Favorites /></AppLayout>} />
+          <Route path="/app/notifications" element={<AppLayout><Notifications /></AppLayout>} />
+          
+          {/* Rota Admin */}
+          <Route path="/admin" element={<Admin />} />
+        </Routes>
+      </BrowserRouter>
+    </TooltipProvider>
+  </QueryClientProvider>
+);
 
 export default App;

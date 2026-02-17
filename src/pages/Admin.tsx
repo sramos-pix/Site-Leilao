@@ -28,9 +28,12 @@ const Admin = () => {
   }, [userIdParam]);
 
   const handleLogout = async () => {
+    // 1. Limpa o Supabase
     await supabase.auth.signOut();
+    // 2. Limpa a trava do AdminGuard
     localStorage.removeItem("admin_auth");
-    navigate("/login");
+    // 3. Força o redirecionamento e recarregamento para garantir que o Guard bloqueie o acesso
+    window.location.href = "/admin";
   };
 
   return (

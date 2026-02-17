@@ -15,11 +15,7 @@ import Dashboard from './pages/app/Dashboard';
 import Profile from './pages/app/Profile';
 import VerifyAccount from './pages/app/VerifyAccount';
 import Favorites from './pages/app/Favorites';
-import AdminDashboard from './pages/admin/AdminDashboard';
-import AdminAuctions from './pages/admin/AdminAuctions';
-import AdminLots from './pages/admin/AdminLots';
-import AdminUsers from './pages/admin/AdminUsers';
-import AdminKYC from './pages/admin/AdminKYC';
+import Admin from './pages/Admin';
 import { Toaster } from './components/ui/toaster';
 
 function App() {
@@ -42,14 +38,8 @@ function App() {
         <Route path="/app/verify" element={<VerifyAccount />} />
         <Route path="/app/favorites" element={<Favorites />} />
         
-        {/* Admin Routes */}
-        <Route path="/admin" element={<AdminDashboard />}>
-          <Route index element={<Navigate to="/admin/auctions" replace />} />
-          <Route path="auctions" element={<AdminAuctions />} />
-          <Route path="lots" element={<AdminLots />} />
-          <Route path="users" element={<AdminUsers />} />
-          <Route path="kyc" element={<AdminKYC />} />
-        </Route>
+        {/* Admin Route - Restaurando para o componente Admin único que gerencia as abas */}
+        <Route path="/admin" element={<Admin />} />
       </Routes>
       <Toaster />
     </>

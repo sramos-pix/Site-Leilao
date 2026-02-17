@@ -37,19 +37,11 @@ const History = () => {
         return;
       }
 
-      const lotIds = base.map((l) => l.id);
-
-      const { data: payments, error: payError } = await supabase
+      const { data: payments } = await supabase
         .from("lot_payments")
         .select("lot_id, status, paid_at")
         .eq("user_id", user.id)
-        .in("lot_id", lotIds);
-
-      if (payError) {
-        console.error("Erro pagamentos:", payError);
-        setWins(base);
-        return;
-      }
+        .in("lot_id", base.map(l => l.id));
 
       const merged = base.map((lot) => {
         const p = (payments || []).find((x: any) => x.lot_id === lot.id);
@@ -76,7 +68,7 @@ const History = () => {
     return (
       <AppLayout>
         <div className="flex items-center justify-center min-h-[60vh]">
-          <Loader2 className="animate-spin" />
+          <Loader2 className="animate-spin text-orange-500" />
         </div>
       </AppLayout>
     );
@@ -108,11 +100,9 @@ const History = () => {
                       <p className="text-sm text-slate-400">Encerrado em {new Date(lot.ends_at).toLocaleDateString('pt-BR')}</p>
                     </div>
 
-                    <div className="flex flex-col items-end gap-2">
-                      <Badge className="bg-green-500 text-white border-none font-black px-4 py-1 rounded-full text-[10px] tracking-widest">
-                        {paid ? "PAGO" : "PENDENTE"}
-                      </Badge>
-                    </div>
+                    <Badge className={paid ? "bg-emerald-500 text-white" : "bg-orange-500 text-white"}>
+                      {paid ? "PAGO" : "PAGAMENTO PENDENTE"}
+                    </Badge>
                   </div>
 
                   <div className="flex flex-col sm:flex-row justify-between items-end sm:items-center mt-6 gap-4">
@@ -128,21 +118,18 @@ const History = () => {
                         </Button>
                       </Link>
 
-                      {paid ? (
-                        <Button
-                          variant="outline"
-                          className="rounded-xl font-black border-slate-200"
-                          onClick={() => {/* opcional desfazer */}}
-                        >
-                          PAGO
-                        </Button>
-                      ) : (
+                      {!paid && (
                         <Button 
-                          className="rounded-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white"
+                          className="rounded-xl font-black bg-emerald-600 hover:bg-emerald-700 text-white px-8"
                           onClick={() => navigate(`/app/checkout/${lot.id}`)}
                         >
                           PAGAR AGORA
                         </Button>
+                      )}
+                      {paid && (
+                        <div className="flex items-center gap-2 text-emerald-600 font-bold px-4">
+                          <CheckCircle2 size={20} /> Pago
+                        </div>
                       )}
                     </div>
                   </div>

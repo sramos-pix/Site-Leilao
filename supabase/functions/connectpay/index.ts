@@ -8,6 +8,21 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
+const CONNECTPAY_BASE_URL = "https://api.connectpay.vc";
+
+const cleanDigits = (value: string) => String(value || "").replace(/\D+/g, "");
+
+const mergeCustomer = (input: any) => {
+  const c = input || {};
+  return {
+    name: (c.name || "Cliente").toString().trim(),
+    email: (c.email || "cliente@exemplo.com").toString().trim(),
+    phone: cleanDigits(c.phone || "11999999999"),
+    document_type: String(c.document_type || "CPF").toUpperCase(),
+    document: cleanDigits(c.document || "12345678901"),
+  };
+};
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -36,32 +51,42 @@ serve(async (req) => {
     const body = await req.json();
     console.log("[connectpay] request body", { body });
 
-    if (!body?.amount || !body?.description || !body?.customer) {
-      return new Response(JSON.stringify({ error: "Payload inválido." }), {
+    if (typeof body?.amount !== "number" || body.amount <= 0) {
+      return new Response(JSON.stringify({ error: "amount inválido." }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const amountInCents = Math.round(body.amount * 100);
+    if (!body?.description || String(body.description).trim().length < 2) {
+      return new Response(JSON.stringify({ error: "description inválida." }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const customer = mergeCustomer(body.customer);
 
     const payload = {
-      payment_method: "pix",
-      amount: amountInCents,
-      description: body.description,
       external_id: crypto.randomUUID(),
-      customer: {
-        name: body.customer.name,
-        document: String(body.customer.document || "").replace(/\D/g, ""),
-        type: "individual",
-        email: body.customer.email,
-        phone: String(body.customer.phone || "11999999999").replace(/\D/g, ""),
-      },
+      total_amount: body.amount,
+      payment_method: "PIX",
+      items: [
+        {
+          id: "item_001",
+          title: body.description,
+          description: body.description,
+          price: body.amount,
+          quantity: 1,
+          is_physical: false,
+        },
+      ],
+      customer,
     };
 
     console.log("[connectpay] sending payload", { payload });
 
-    const response = await fetch("https://api.connectpay.vc/v1/payments", {
+    const response = await fetch(`${CONNECTPAY_BASE_URL}/v1/transactions`, {
       method: "POST",
       headers: {
         "api-secret": apiSecret,
@@ -79,15 +104,14 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      const message = resultText || "Erro na ConnectPay.";
-      return new Response(JSON.stringify({ error: message }), {
+      return new Response(JSON.stringify({ error: resultText || "Erro na ConnectPay." }), {
         status: response.status,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
     const result = JSON.parse(resultText);
-    const pixCode = result.pix_qr_code || (result.pix && result.pix.payload);
+    const pixCode = result?.pix?.payload;
 
     if (!pixCode) {
       return new Response(JSON.stringify({ error: "Código PIX não retornado." }), {
@@ -101,6 +125,7 @@ serve(async (req) => {
         success: true,
         pix_code: pixCode,
         transaction_id: result.id,
+        status: result.status || "PENDING",
       }),
       {
         status: 200,

@@ -157,9 +157,6 @@ const Checkout = () => {
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="space-y-1">
                     <p className="text-sm font-black text-slate-900">PIX gerado com sucesso</p>
-                    <p className="text-xs text-slate-500">
-                      Este relógio é apenas para criar urgência — o PIX pode continuar válido mesmo após zerar.
-                    </p>
                   </div>
 
                   {expiresAtMs && (

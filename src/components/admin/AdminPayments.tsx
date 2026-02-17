@@ -114,12 +114,16 @@ export default function AdminPayments() {
     setIsRefreshing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.access_token) throw new Error("Sessão expirada. Faça login novamente.");
+      
+      // Se não houver sessão, usamos a anon key para a requisição (a função deve lidar com isso ou ser pública para admins)
+      const authHeader = session?.access_token 
+        ? `Bearer ${session.access_token}` 
+        : `Bearer ${supabase['supabaseKey']}`;
 
       const res = await fetch(FUNCTION_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${session.access_token}`,
+          "Authorization": authHeader,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ lot_id: row.lot_id, user_id: row.winner_id, status }),

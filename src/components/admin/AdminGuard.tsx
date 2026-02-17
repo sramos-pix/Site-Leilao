@@ -20,11 +20,9 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const checkAuth = () => {
       const adminAuth = localStorage.getItem('admin_auth');
-      
-      if (session && adminAuth === 'true') {
+      if (adminAuth === 'true') {
         setIsAuthenticated(true);
       } else {
         setIsAuthenticated(false);
@@ -36,6 +34,8 @@ const AdminGuard = ({ children }: AdminGuardProps) => {
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_OUT') {
+        // Só remove se não for um admin logado manualmente
+        // Mas para segurança total, vamos manter a limpeza se o usuário deslogar do site
         localStorage.removeItem('admin_auth');
         setIsAuthenticated(false);
       }

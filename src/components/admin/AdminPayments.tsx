@@ -38,7 +38,6 @@ export default function AdminPayments() {
   const fetchRows = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      // Busca lotes finalizados
       const { data: lots, error: lotsError } = await supabase
         .from("lots")
         .select("id, lot_number, title, ends_at, cover_image_url, status")
@@ -51,7 +50,6 @@ export default function AdminPayments() {
       const enriched: AdminWinRow[] = [];
 
       for (const lot of lots || []) {
-        // Busca o maior lance para identificar o vencedor
         const { data: topBids } = await supabase
           .from("bids")
           .select("user_id, amount")
@@ -101,6 +99,8 @@ export default function AdminPayments() {
       } else {
         setRows([]);
       }
+    } catch (err: any) {
+      console.error("Erro ao buscar dados:", err);
     } finally {
       setIsLoading(false);
     }
@@ -113,17 +113,20 @@ export default function AdminPayments() {
   const setRowStatus = async (row: AdminWinRow, status: PaymentStatus) => {
     setIsRefreshing(true);
     try {
-      const { data: session } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error("Sessão expirada. Faça login novamente.");
+
       const res = await fetch(FUNCTION_URL, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session.session?.access_token}`,
+          "Authorization": `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({ lot_id: row.lot_id, user_id: row.winner_id, status }),
       });
 
-      if (!res.ok) throw new Error("Erro ao atualizar pagamento.");
+      const result = await res.json();
+      if (!res.ok || !result.success) throw new Error(result.error || "Erro ao atualizar pagamento.");
 
       setRows(prev => prev.map(r => 
         (r.lot_id === row.lot_id && r.winner_id === row.winner_id) 

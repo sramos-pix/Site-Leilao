@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -22,25 +22,23 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/lot/:id" element={<LotDetails />} />
-          
-          {/* Rotas do App com Layout */}
-          <Route path="/app" element={<AppLayout children={<Navigate to="/app/dashboard" />} />} />
-          <Route path="/app/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
-          <Route path="/app/profile" element={<AppLayout><Profile /></AppLayout>} />
-          <Route path="/app/wins" element={<AppLayout><Wins /></AppLayout>} />
-          <Route path="/app/favorites" element={<AppLayout><Favorites /></AppLayout>} />
-          <Route path="/app/notifications" element={<AppLayout><Notifications /></AppLayout>} />
-          
-          {/* Rota Admin */}
-          <Route path="/admin" element={<Admin />} />
-        </Routes>
-      </BrowserRouter>
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/lot/:id" element={<LotDetails />} />
+        
+        {/* Rotas do App com Layout */}
+        <Route path="/app" element={<Navigate to="/app/dashboard" replace />} />
+        <Route path="/app/dashboard" element={<AppLayout><Dashboard /></AppLayout>} />
+        <Route path="/app/profile" element={<AppLayout><Profile /></AppLayout>} />
+        <Route path="/app/wins" element={<AppLayout><Wins /></AppLayout>} />
+        <Route path="/app/favorites" element={<AppLayout><Favorites /></AppLayout>} />
+        <Route path="/app/notifications" element={<AppLayout><Notifications /></AppLayout>} />
+        
+        {/* Rota Admin */}
+        <Route path="/admin" element={<Admin />} />
+      </Routes>
     </TooltipProvider>
   </QueryClientProvider>
 );

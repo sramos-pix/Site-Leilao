@@ -11,6 +11,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { generatePixPayment } from '@/services/connectPay';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import PaymentCountdown from '@/components/PaymentCountdown';
 
 const Checkout = () => {
   const { id } = useParams();
@@ -23,6 +24,7 @@ const Checkout = () => {
   const [paymentData, setPaymentData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [expiresAtMs, setExpiresAtMs] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchLot = async () => {
@@ -83,6 +85,7 @@ const Checkout = () => {
 
       if (res.success) {
         setPaymentData(res);
+        setExpiresAtMs(Date.now() + 12 * 60 * 1000);
         toast({ title: "PIX Gerado!", description: "Aguardando pagamento." });
       } else {
         setError(res.error);
@@ -151,6 +154,28 @@ const Checkout = () => {
               </Button>
             ) : (
               <div className="space-y-8 animate-in fade-in duration-500">
+                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="space-y-1">
+                    <p className="text-sm font-black text-slate-900">PIX gerado com sucesso</p>
+                    <p className="text-xs text-slate-500">
+                      Este relógio é apenas para criar urgência — o PIX pode continuar válido mesmo após zerar.
+                    </p>
+                  </div>
+
+                  {expiresAtMs && (
+                    <PaymentCountdown
+                      expiresAtMs={expiresAtMs}
+                      onExpire={() => {
+                        toast({
+                          variant: "destructive",
+                          title: "Tempo sugerido encerrado",
+                          description: "Se ainda não pagou, gere um novo PIX para evitar divergências.",
+                        });
+                      }}
+                    />
+                  )}
+                </div>
+
                 <div className="flex flex-col items-center gap-4">
                   <div className="bg-white p-4 rounded-3xl shadow-inner border-2 border-slate-100">
                     <img src={paymentData.qr_code_url} alt="QR Code PIX" className="w-48 h-48" />
@@ -172,13 +197,25 @@ const Checkout = () => {
                     </Button>
                   </div>
                 </div>
-                
-                <Button 
-                  onClick={() => navigate('/app/history')}
-                  className="w-full h-14 bg-slate-100 text-slate-900 hover:bg-slate-200 rounded-xl font-bold"
-                >
-                  JÁ REALIZEI O PAGAMENTO
-                </Button>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <Button 
+                    onClick={handleGeneratePix}
+                    variant="outline"
+                    disabled={processing}
+                    className="w-full h-12 rounded-xl font-black border-slate-200"
+                  >
+                    {processing ? <Loader2 className="animate-spin mr-2" /> : <RefreshCw size={16} className="mr-2" />}
+                    GERAR NOVO PIX
+                  </Button>
+
+                  <Button 
+                    onClick={() => navigate('/app/history')}
+                    className="w-full h-12 bg-slate-900 text-white hover:bg-orange-600 rounded-xl font-black"
+                  >
+                    JÁ REALIZEI O PAGAMENTO
+                  </Button>
+                </div>
               </div>
             )}
           </CardContent>

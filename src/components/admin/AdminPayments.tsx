@@ -3,7 +3,7 @@
 import React from "react";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
@@ -12,27 +12,11 @@ import { CheckCircle2, Loader2, RefreshCw, Search, Undo2 } from "lucide-react";
 
 type PaymentStatus = "paid" | "unpaid";
 
-type AdminWinRow = {
-  lot_id: string;
-  lot_number: number;
-  lot_title: string;
-  ends_at: string;
-  final_price: number;
-  cover_image_url?: string | null;
-  winner_id: string;
-  winner_name?: string | null;
-  winner_email?: string | null;
-  payment_status: PaymentStatus;
-  paid_at?: string | null;
-};
-
 const FUNCTION_URL = "https://tedinonjoqlhmuclyrfg.supabase.co/functions/v1/mark-lot-payment";
-// Chave mestra para o painel administrativo (mesma configurada no Supabase)
-const ADMIN_SECRET = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRlZGlub25qb3FsaG11Y2x5cmZnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MzY1NjMsImV4cCI6MjA4NjUxMjU2M30.ryrZCH-SxSe9Cx0gTbs747n9YTw2_vSUh-uMmj4efxg";
 
 export default function AdminPayments() {
   const { toast } = useToast();
-  const [rows, setRows] = React.useState<AdminWinRow[]>([]);
+  const [rows, setRows] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -40,17 +24,13 @@ export default function AdminPayments() {
   const fetchRows = React.useCallback(async () => {
     setIsLoading(true);
     try {
-      const { data: lots, error: lotsError } = await supabase
+      const { data: lots } = await supabase
         .from("lots")
         .select("id, lot_number, title, ends_at, cover_image_url, status")
         .or(`ends_at.lt.${new Date().toISOString()},status.eq.finished`)
-        .order("ends_at", { ascending: false })
-        .limit(40);
+        .order("ends_at", { ascending: false });
 
-      if (lotsError) throw lotsError;
-
-      const enriched: AdminWinRow[] = [];
-
+      const enriched = [];
       for (const lot of lots || []) {
         const { data: topBids } = await supabase
           .from("bids")
@@ -59,81 +39,54 @@ export default function AdminPayments() {
           .order("amount", { ascending: false })
           .limit(1);
 
-        const topBid = topBids?.[0];
-        if (!topBid?.user_id) continue;
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("full_name, email")
-          .eq("id", topBid.user_id)
-          .maybeSingle();
-
-        enriched.push({
-          lot_id: lot.id,
-          lot_number: lot.lot_number,
-          lot_title: lot.title,
-          ends_at: lot.ends_at,
-          final_price: topBid.amount,
-          cover_image_url: lot.cover_image_url,
-          winner_id: topBid.user_id,
-          winner_name: profile?.full_name || null,
-          winner_email: profile?.email || null,
-          payment_status: "unpaid",
-          paid_at: null,
-        });
+        if (topBids?.[0]) {
+          const { data: profile } = await supabase.from("profiles").select("full_name, email").eq("id", topBids[0].user_id).maybeSingle();
+          enriched.push({
+            ...lot,
+            winner_id: topBids[0].user_id,
+            winner_name: profile?.full_name,
+            winner_email: profile?.email,
+            final_price: topBids[0].amount
+          });
+        }
       }
 
-      if (enriched.length > 0) {
-        const { data: payments } = await supabase
-          .from("lot_payments")
-          .select("lot_id, user_id, status, paid_at")
-          .in("lot_id", enriched.map(r => r.lot_id));
-
-        const merged = enriched.map(r => {
-          const p = (payments || []).find(x => x.lot_id === r.lot_id && x.user_id === r.winner_id);
-          return {
-            ...r,
-            payment_status: (p?.status as PaymentStatus) || "unpaid",
-            paid_at: p?.paid_at || null,
-          };
-        });
-        setRows(merged);
-      } else {
-        setRows([]);
-      }
-    } catch (err: any) {
-      console.error("Erro ao buscar dados:", err);
+      const { data: payments } = await supabase.from("lot_payments").select("*");
+      const merged = enriched.map(r => ({
+        ...r,
+        payment_status: payments?.find(p => p.lot_id === r.id)?.status || "unpaid"
+      }));
+      
+      setRows(merged);
+    } catch (err) {
+      console.error(err);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  React.useEffect(() => {
-    fetchRows();
-  }, [fetchRows]);
+  React.useEffect(() => { fetchRows(); }, [fetchRows]);
 
-  const setRowStatus = async (row: AdminWinRow, status: PaymentStatus) => {
+  const setRowStatus = async (row: any, status: PaymentStatus) => {
     setIsRefreshing(true);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sessão expirada.");
+
       const res = await fetch(FUNCTION_URL, {
         method: "POST",
         headers: {
+          "Authorization": `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
-          "x-admin-key": "CONNECTPAY_API_SECRET" // A Edge Function buscará o valor real no ambiente
         },
-        body: JSON.stringify({ lot_id: row.lot_id, user_id: row.winner_id, status }),
+        body: JSON.stringify({ lot_id: row.id, user_id: row.winner_id, status }),
       });
 
       const result = await res.json();
-      if (!res.ok || !result.success) throw new Error(result.error || "Erro ao atualizar pagamento.");
+      if (!res.ok || !result.success) throw new Error(result.error || "Erro na operação.");
 
-      setRows(prev => prev.map(r => 
-        (r.lot_id === row.lot_id && r.winner_id === row.winner_id) 
-          ? { ...r, payment_status: status, paid_at: status === "paid" ? new Date().toISOString() : null } 
-          : r
-      ));
-
-      toast({ title: status === "paid" ? "Pagamento Confirmado" : "Pagamento Estornado" });
+      toast({ title: "Sucesso!" });
+      fetchRows();
     } catch (err: any) {
       toast({ variant: "destructive", title: "Erro", description: err.message });
     } finally {
@@ -141,72 +94,46 @@ export default function AdminPayments() {
     }
   };
 
-  const filtered = rows.filter(r => {
-    const q = search.toLowerCase();
-    return r.lot_title.toLowerCase().includes(q) || String(r.lot_number).includes(q) || (r.winner_name || "").toLowerCase().includes(q);
-  });
+  const filtered = rows.filter(r => r.title.toLowerCase().includes(search.toLowerCase()));
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-black text-slate-900">Gestão de Pagamentos</h2>
-          <p className="text-slate-500 text-sm">Confirme o recebimento dos valores de arremate.</p>
-        </div>
+        <h2 className="text-2xl font-black">Gestão de Pagamentos</h2>
         <div className="flex gap-2">
-          <div className="relative w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-            <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar arremate..." className="pl-10 rounded-xl border-none shadow-sm" />
-          </div>
-          <Button onClick={fetchRows} variant="outline" className="rounded-xl" disabled={isLoading}><RefreshCw size={16} /></Button>
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar..." className="w-64 rounded-xl" />
+          <Button onClick={fetchRows} variant="outline" className="rounded-xl"><RefreshCw size={16} /></Button>
         </div>
       </div>
 
       <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-        <CardContent className="p-0">
-          {isLoading ? (
-            <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-orange-500" /></div>
-          ) : filtered.length === 0 ? (
-            <div className="py-20 text-center text-slate-400 italic">Nenhum arremate pendente encontrado.</div>
-          ) : (
-            <div className="divide-y divide-slate-100">
-              {filtered.map((r) => (
-                <div key={`${r.lot_id}-${r.winner_id}`} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors">
-                  <div className="flex items-center gap-4">
-                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0">
-                      <img src={r.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=200"} className="w-full h-full object-cover" alt="" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="font-black text-slate-900">LOTE #{r.lot_number} — {r.lot_title}</p>
-                        <Badge className={r.payment_status === 'paid' ? "bg-emerald-500" : "bg-orange-500"}>
-                          {r.payment_status === 'paid' ? 'PAGO' : 'PENDENTE'}
-                        </Badge>
-                      </div>
-                      <p className="text-xs text-slate-500 mt-1">Vencedor: <span className="font-bold text-slate-700">{r.winner_name || '—'}</span> ({r.winner_email || '—'})</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-4">
-                    <div className="text-right">
-                      <p className="text-[10px] font-black text-slate-400 uppercase">Valor Final</p>
-                      <p className="text-xl font-black text-slate-900">{formatCurrency(r.final_price)}</p>
-                    </div>
-                    {r.payment_status === 'paid' ? (
-                      <Button variant="outline" size="sm" className="rounded-xl border-slate-200 text-orange-600" onClick={() => setRowStatus(r, 'unpaid')} disabled={isRefreshing}>
-                        <Undo2 size={16} className="mr-2" /> Estornar
-                      </Button>
-                    ) : (
-                      <Button className="rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold" onClick={() => setRowStatus(r, 'paid')} disabled={isRefreshing}>
-                        <CheckCircle2 size={16} className="mr-2" /> Confirmar Recebimento
-                      </Button>
-                    )}
+        <div className="divide-y divide-slate-100">
+          {isLoading ? <div className="p-20 flex justify-center"><Loader2 className="animate-spin" /></div> : 
+            filtered.map((r) => (
+              <div key={r.id} className="p-6 flex justify-between items-center">
+                <div className="flex items-center gap-4">
+                  <img src={r.cover_image_url} className="w-12 h-12 rounded-lg object-cover" />
+                  <div>
+                    <p className="font-bold">#{r.lot_number} - {r.title}</p>
+                    <p className="text-xs text-slate-500">{r.winner_name} ({r.winner_email})</p>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
+                <div className="flex items-center gap-4">
+                  <p className="font-black">{formatCurrency(r.final_price)}</p>
+                  <Badge className={r.payment_status === 'paid' ? "bg-emerald-500" : "bg-orange-500"}>{r.payment_status.toUpperCase()}</Badge>
+                  <Button 
+                    variant={r.payment_status === 'paid' ? "outline" : "default"}
+                    onClick={() => setRowStatus(r, r.payment_status === 'paid' ? 'unpaid' : 'paid')}
+                    disabled={isRefreshing}
+                    className="rounded-xl"
+                  >
+                    {r.payment_status === 'paid' ? <Undo2 size={16} /> : <CheckCircle2 size={16} />}
+                  </Button>
+                </div>
+              </div>
+            ))
+          }
+        </div>
       </Card>
     </div>
   );

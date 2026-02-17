@@ -1,11 +1,10 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { Lock, Loader2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Lock, Loader2, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import { supabase } from '@/lib/supabase';
 
 interface AdminGuardProps {
@@ -13,95 +12,64 @@ interface AdminGuardProps {
 }
 
 const AdminGuard = ({ children }: AdminGuardProps) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [status, setStatus] = useState<'loading' | 'unauthorized' | 'authorized'>('loading');
+  const navigate = useNavigate();
 
   useEffect(() => {
-    const checkAuth = () => {
-      const adminAuth = localStorage.getItem('admin_auth');
-      if (adminAuth === 'true') {
-        setIsAuthenticated(true);
-      } else {
-        setIsAuthenticated(false);
+    const checkAdminAccess = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        setStatus('unauthorized');
+        return;
       }
-      setIsLoading(false);
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', session.user.id)
+        .single();
+
+      // Permite acesso se for admin ou financeiro
+      if (profile?.role === 'admin' || profile?.role === 'finance') {
+        setStatus('authorized');
+      } else {
+        setStatus('unauthorized');
+      }
     };
 
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_OUT') {
-        // Só remove se não for um admin logado manualmente
-        // Mas para segurança total, vamos manter a limpeza se o usuário deslogar do site
-        localStorage.removeItem('admin_auth');
-        setIsAuthenticated(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
+    checkAdminAccess();
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (username === 'admin' && password === 'admin') {
-      localStorage.setItem('admin_auth', 'true');
-      setIsAuthenticated(true);
-      setError('');
-    } else {
-      setError('Credenciais administrativas inválidas.');
-    }
-  };
-
-  if (isLoading) {
+  if (status === 'loading') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-100">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
         <Loader2 className="animate-spin text-orange-500" size={32} />
       </div>
     );
   }
 
-  if (!isAuthenticated) {
+  if (status === 'unauthorized') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-900 p-4">
         <Card className="w-full max-w-md border-none shadow-2xl rounded-3xl overflow-hidden">
-          <CardHeader className="bg-orange-500 text-white text-center py-8">
+          <CardHeader className="bg-red-600 text-white text-center py-8">
             <div className="inline-flex p-3 bg-white/20 rounded-2xl mb-4">
-              <Lock size={32} />
+              <ShieldAlert size={32} />
             </div>
-            <CardTitle className="text-2xl font-bold">Acesso Restrito</CardTitle>
-            <p className="text-orange-100 text-sm mt-2">Painel de Controle AutoBid</p>
+            <CardTitle className="text-2xl font-bold">Acesso Negado</CardTitle>
+            <p className="text-red-100 text-sm mt-2">Você não tem permissão para acessar esta área.</p>
           </CardHeader>
-          <CardContent className="p-8">
-            <form onSubmit={handleLogin} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="user">Usuário</Label>
-                <Input 
-                  id="user"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="admin"
-                  className="h-12 rounded-xl"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="pass">Senha</Label>
-                <Input 
-                  id="pass"
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="h-12 rounded-xl"
-                />
-              </div>
-              {error && <p className="text-red-500 text-xs font-bold text-center">{error}</p>}
-              <Button type="submit" className="w-full bg-slate-900 hover:bg-slate-800 text-white py-6 rounded-xl font-bold">
-                ENTRAR NO PAINEL
+          <CardContent className="p-8 text-center space-y-6">
+            <p className="text-slate-600">Esta área é restrita a administradores e equipe financeira autorizada.</p>
+            <div className="flex flex-col gap-3">
+              <Button onClick={() => navigate('/login')} className="w-full bg-slate-900 h-12 rounded-xl font-bold">
+                FAZER LOGIN COMO ADMIN
               </Button>
-            </form>
+              <Button variant="ghost" onClick={() => navigate('/')} className="w-full text-slate-500">
+                Voltar para o Início
+              </Button>
+            </div>
           </CardContent>
         </Card>
       </div>

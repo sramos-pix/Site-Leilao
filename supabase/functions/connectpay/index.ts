@@ -10,6 +10,9 @@ const corsHeaders = {
 
 const CONNECTPAY_BASE_URL = "https://api.connectpay.vc";
 
+const WEBHOOK_URL =
+  "https://tedinonjoqlhmuclyrfg.supabase.co/functions/v1/connectpay-webhook";
+
 const json200 = (payload: unknown) =>
   new Response(JSON.stringify(payload), {
     status: 200,
@@ -27,6 +30,37 @@ const mergeCustomer = (input: any) => {
     document_type: String(c.document_type || "CPF").toUpperCase(),
     document: cleanDigits(c.document || "12345678901"),
   };
+};
+
+const isValidIp = (ip: string) => {
+  const s = (ip || "").trim();
+  if (!s) return false;
+
+  // IPv4
+  const ipv4 =
+    /^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\.(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}$/;
+  if (ipv4.test(s)) return true;
+
+  // IPv6 (simple check)
+  const ipv6 = /^[0-9a-fA-F:]+$/;
+  if (s.includes(":") && ipv6.test(s)) return true;
+
+  return false;
+};
+
+const getClientIp = (req: Request) => {
+  const forwarded = req.headers.get("x-forwarded-for") || "";
+  const first = forwarded.split(",")[0]?.trim() || "";
+
+  const candidate =
+    first ||
+    (req.headers.get("cf-connecting-ip") || "").trim() ||
+    (req.headers.get("x-real-ip") || "").trim();
+
+  if (isValidIp(candidate)) return candidate;
+
+  // Fallback: ConnectPay só valida formato
+  return "127.0.0.1";
 };
 
 serve(async (req) => {
@@ -61,11 +95,14 @@ serve(async (req) => {
     }
 
     const customer = mergeCustomer(body.customer);
+    const ip = getClientIp(req);
 
     const payload = {
       external_id: crypto.randomUUID(),
       total_amount: body.amount,
       payment_method: "PIX",
+      webhook_url: WEBHOOK_URL,
+      ip,
       items: [
         {
           id: "item_001",

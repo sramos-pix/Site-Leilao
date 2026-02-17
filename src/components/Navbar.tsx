@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Gavel, Menu, X, LayoutDashboard, LogOut } from 'lucide-react';
+import { Gavel, Menu, X, LayoutDashboard, LogOut, Car } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/lib/supabase';
@@ -28,8 +28,8 @@ const Navbar = () => {
   const navigation = [
     { name: 'Início', href: '/' },
     { name: 'Leilões', href: '/auctions' },
+    { name: 'Veículos', href: '/vehicles' },
     { name: 'Como Funciona', href: '/how-it-works' },
-    { name: 'Contato', href: '/contact' },
   ];
 
   const isActive = (path: string) => location.pathname === path;
@@ -54,7 +54,6 @@ const Navbar = () => {
             </Link>
           </div>
 
-          {/* Desktop Menu */}
           <div className="hidden md:flex md:items-center md:space-x-6">
             <div className="flex items-center space-x-1">
               {navigation.map((item) => (
@@ -98,7 +97,6 @@ const Navbar = () => {
             </div>
           </div>
 
-          {/* Mobile Menu Button */}
           <div className="md:hidden">
             <Button variant="ghost" size="icon" onClick={() => setIsOpen(!isOpen)} className="rounded-xl w-10 h-10">
               {isOpen ? <X size={20} /> : <Menu size={20} />}
@@ -107,7 +105,6 @@ const Navbar = () => {
         </div>
       </div>
 
-      {/* Mobile Menu */}
       {isOpen && (
         <div className="md:hidden bg-white border-b px-4 pt-2 pb-6 space-y-1 shadow-xl animate-in slide-in-from-top duration-200">
           {navigation.map((item) => (

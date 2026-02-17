@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Gavel, LayoutDashboard, Package, Users, Settings, LogOut, CreditCard } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { supabase } from "@/lib/supabase";
 import AdminOverview from "@/components/admin/AdminOverview";
 import AuctionManager from "@/components/admin/AuctionManager";
 import LotManager from "@/components/admin/LotManager";
@@ -26,9 +27,10 @@ const Admin = () => {
     }
   }, [userIdParam]);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
     localStorage.removeItem("admin_auth");
-    navigate("/");
+    navigate("/login");
   };
 
   return (

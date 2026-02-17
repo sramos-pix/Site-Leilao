@@ -10,6 +10,12 @@ const corsHeaders = {
 
 const CONNECTPAY_BASE_URL = "https://api.connectpay.vc";
 
+const json200 = (payload: unknown) =>
+  new Response(JSON.stringify(payload), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+
 const cleanDigits = (value: string) => String(value || "").replace(/\D+/g, "");
 
 const mergeCustomer = (input: any) => {
@@ -29,40 +35,29 @@ serve(async (req) => {
   }
 
   if (req.method !== "POST") {
-    return new Response(JSON.stringify({ error: "Método não permitido." }), {
-      status: 405,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return json200({ success: false, error: "Método não permitido.", status_code: 405 });
   }
 
   try {
     const apiSecret = Deno.env.get("CONNECTPAY_API_SECRET");
     if (!apiSecret) {
       console.error("[connectpay] missing CONNECTPAY_API_SECRET");
-      return new Response(
-        JSON.stringify({ error: "CONNECTPAY_API_SECRET não configurado." }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+      return json200({
+        success: false,
+        error: "CONNECTPAY_API_SECRET não configurado.",
+        status_code: 500,
+      });
     }
 
     const body = await req.json();
     console.log("[connectpay] request body", { body });
 
-    if (typeof body?.amount !== "number" || body.amount <= 0) {
-      return new Response(JSON.stringify({ error: "amount inválido." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    if (typeof body?.amount !== "number" || !Number.isFinite(body.amount) || body.amount <= 0) {
+      return json200({ success: false, error: "amount inválido.", status_code: 400 });
     }
 
     if (!body?.description || String(body.description).trim().length < 2) {
-      return new Response(JSON.stringify({ error: "description inválida." }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      return json200({ success: false, error: "description inválida.", status_code: 400 });
     }
 
     const customer = mergeCustomer(body.customer);
@@ -104,9 +99,10 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      return new Response(JSON.stringify({ error: resultText || "Erro na ConnectPay." }), {
-        status: response.status,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return json200({
+        success: false,
+        error: resultText || "Erro na ConnectPay.",
+        status_code: response.status,
       });
     }
 
@@ -114,29 +110,26 @@ serve(async (req) => {
     const pixCode = result?.pix?.payload;
 
     if (!pixCode) {
-      return new Response(JSON.stringify({ error: "Código PIX não retornado." }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return json200({
+        success: false,
+        error: "Código PIX não retornado (pix.payload ausente).",
+        status_code: 500,
+        raw: result,
       });
     }
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        pix_code: pixCode,
-        transaction_id: result.id,
-        status: result.status || "PENDING",
-      }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      },
-    );
+    return json200({
+      success: true,
+      pix_code: pixCode,
+      transaction_id: result.id,
+      status: result.status || "PENDING",
+    });
   } catch (error) {
     console.error("[connectpay] unexpected error", { error });
-    return new Response(JSON.stringify({ error: "Erro interno ao processar pagamento." }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    return json200({
+      success: false,
+      error: "Erro interno ao processar pagamento.",
+      status_code: 500,
     });
   }
 });

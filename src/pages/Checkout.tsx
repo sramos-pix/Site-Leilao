@@ -33,10 +33,24 @@ const Checkout = () => {
       if (!id) return;
       const { data } = await supabase.from('lots').select('*, auctions(title)').eq('id', id).single();
       if (data) setLot(data);
+      
+      // Tenta recuperar pagamento salvo para este lote
+      const savedPayment = localStorage.getItem(`pix_payment_${id}_${isCommission ? 'comm' : 'veh'}`);
+      if (savedPayment) {
+        const parsed = JSON.parse(savedPayment);
+        // Só restaura se ainda não expirou
+        if (parsed.expiresAtMs > Date.now()) {
+          setPaymentData(parsed.data);
+          setExpiresAtMs(parsed.expiresAtMs);
+        } else {
+          localStorage.removeItem(`pix_payment_${id}_${isCommission ? 'comm' : 'veh'}`);
+        }
+      }
+      
       setLoading(false);
     };
     fetchLot();
-  }, [id]);
+  }, [id, isCommission]);
 
   const handleGeneratePix = async () => {
     setProcessing(true);
@@ -65,8 +79,16 @@ const Checkout = () => {
       });
 
       if (res.success) {
+        const expiry = Date.now() + 12 * 60 * 1000;
         setPaymentData(res);
-        setExpiresAtMs(Date.now() + 12 * 60 * 1000);
+        setExpiresAtMs(expiry);
+        
+        // Salva no localStorage para persistência
+        localStorage.setItem(`pix_payment_${id}_${isCommission ? 'comm' : 'veh'}`, JSON.stringify({
+          data: res,
+          expiresAtMs: expiry
+        }));
+
         toast({ title: "PIX Gerado!", description: "Aguardando pagamento." });
       } else {
         setError(res.error);
@@ -163,7 +185,12 @@ const Checkout = () => {
                       <CheckCircle2 size={10} /> QR CODE ATIVO
                     </div>
                   </div>
-                  {expiresAtMs && <PaymentCountdown expiresAtMs={expiresAtMs} />}
+                  {expiresAtMs && <PaymentCountdown expiresAtMs={expiresAtMs} onExpire={() => {
+                    localStorage.removeItem(`pix_payment_${id}_${isCommission ? 'comm' : 'veh'}`);
+                    setPaymentData(null);
+                    setExpiresAtMs(null);
+                    toast({ variant: "destructive", title: "PIX Expirado", description: "Gere um novo código para pagar." });
+                  }} />}
                 </div>
 
                 <div className="space-y-2">

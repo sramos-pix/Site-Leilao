@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { generateWinningCertificate } from '@/lib/pdf-generator';
+import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, ChevronLeft, Heart, Share2, Clock, Gavel,
   ShieldCheck, MapPin, Calendar, Gauge,
   Fuel, Settings2, Loader2, History, User,
@@ -33,6 +34,7 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
+  const [lastBidId, setLastBidId] = useState<string | null>(null);
 
   const fetchLotData = async () => {
     try {
@@ -71,6 +73,9 @@ const LotDetail = () => {
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
+      if (bidsData && bidsData.length > 0 && bidsData[0].id !== lastBidId) {
+        setLastBidId(bidsData[0].id);
+      }
       setRealBids(bidsData || []);
 
     } catch (error: any) {
@@ -119,16 +124,18 @@ const LotDetail = () => {
 
   const isFinished = lot.status === 'finished';
   const isWinner = user && lot.winner_id === user.id;
-  // Só aplica o escurecimento se estiver finalizado E o usuário NÃO for o vencedor
   const shouldApplyOverlay = isFinished && !isWinner;
 
   return (
     <div className="bg-white min-h-screen flex flex-col">
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
-        {/* Banner de Vitória */}
         {isFinished && isWinner && (
-          <div className="mb-8 bg-emerald-500 text-white p-6 rounded-[2rem] shadow-lg shadow-emerald-100 flex flex-col md:flex-row items-center justify-between gap-6 animate-in fade-in slide-in-from-top-4 duration-500">
+          <motion.div 
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 bg-emerald-500 text-white p-6 rounded-[2rem] shadow-lg shadow-emerald-100 flex flex-col md:flex-row items-center justify-between gap-6"
+          >
             <div className="flex items-center gap-4">
               <div className="bg-white/20 p-3 rounded-2xl">
                 <Trophy size={32} className="text-white" />
@@ -152,8 +159,7 @@ const LotDetail = () => {
                 </Button>
               </Link>
             </div>
-
-          </div>
+          </motion.div>
         )}
 
         <div className="flex items-center justify-between mb-6">
@@ -167,7 +173,6 @@ const LotDetail = () => {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Coluna da Esquerda: Galeria e Info */}
           <div className="lg:col-span-8 space-y-8">
             <div className="space-y-4">
               <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative group border border-slate-100">
@@ -197,7 +202,6 @@ const LotDetail = () => {
                 )}
               </div>
               
-              {/* Miniaturas */}
               <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
                 {[lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean).map((url, i) => (
                   <button 
@@ -250,7 +254,6 @@ const LotDetail = () => {
             </div>
           </div>
 
-          {/* Coluna da Direita: Painel de Lances */}
           <div className="lg:col-span-4 space-y-6">
             <Card className={cn(
               "border-none shadow-xl rounded-3xl overflow-hidden text-white",
@@ -276,7 +279,16 @@ const LotDetail = () => {
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
                     {isFinished ? "Valor de Arremate" : "Lance Atual"}
                   </p>
-                  <p className="text-4xl font-black text-white">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                  <AnimatePresence mode="wait">
+                    <motion.p 
+                      key={lot.current_bid}
+                      initial={{ scale: 1.1, color: "#f97316" }}
+                      animate={{ scale: 1, color: "#ffffff" }}
+                      className="text-4xl font-black text-white"
+                    >
+                      {formatCurrency(lot.current_bid || lot.start_bid)}
+                    </motion.p>
+                  </AnimatePresence>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/10">
@@ -331,24 +343,30 @@ const LotDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Histórico Simplificado */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
-                {realBids.slice(0, 5).map((bid, idx) => (
-                  <div key={bid.id} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
-                      <span className="font-medium text-slate-600">
-                        {bid.user_id === user?.id ? "Seu Lance" : "Licitante"}
-                        {isFinished && idx === 0 && <span className="ml-2 text-[10px] text-emerald-600 font-bold">(Vencedor)</span>}
-                      </span>
-                    </div>
-                    <span className="font-bold text-slate-900">{formatCurrency(bid.amount)}</span>
-                  </div>
-                ))}
+                <AnimatePresence initial={false}>
+                  {realBids.slice(0, 5).map((bid, idx) => (
+                    <motion.div 
+                      key={bid.id}
+                      initial={{ opacity: 0, x: -10 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className="flex items-center justify-between text-sm"
+                    >
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
+                        <span className="font-medium text-slate-600">
+                          {bid.user_id === user?.id ? "Seu Lance" : "Licitante"}
+                          {isFinished && idx === 0 && <span className="ml-2 text-[10px] text-emerald-600 font-bold">(Vencedor)</span>}
+                        </span>
+                      </div>
+                      <span className="font-bold text-slate-900">{formatCurrency(bid.amount)}</span>
+                    </motion.div>
+                  ))}
+                </AnimatePresence>
                 {realBids.length === 0 && <p className="text-xs text-slate-400 italic text-center">Nenhum lance registrado.</p>}
               </div>
             </div>

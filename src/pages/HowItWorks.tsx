@@ -64,7 +64,7 @@ const HowItWorks = () => {
           <div className="container mx-auto px-4 text-center text-white">
             <h2 className="text-3xl md:text-4xl font-black mb-8">Pronto para começar sua jornada?</h2>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Link to="/auth?mode=signup">
+              <Link to="/register">
                 <Button size="lg" className="bg-white text-orange-600 hover:bg-slate-100 px-10 py-7 rounded-2xl font-bold text-lg w-full sm:w-auto">
                   Criar Conta Agora
                 </Button>

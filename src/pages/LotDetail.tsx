@@ -54,7 +54,6 @@ const LotDetail = () => {
     }
   };
 
-  // Lógica de encerramento: Se ends_at for nulo, NUNCA encerra por tempo.
   const isFinished = useMemo(() => {
     if (!lot) return false;
     if (lot.status === 'finished') return true;
@@ -64,7 +63,6 @@ const LotDetail = () => {
     return endTime <= now.getTime();
   }, [lot, now]);
 
-  // Restaurando lances fictícios para preencher o histórico
   const displayBids = useMemo(() => {
     if (!lot) return [];
     const bids = [...realBids];
@@ -92,8 +90,8 @@ const LotDetail = () => {
 
   const fetchLotData = async () => {
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      setUser(currentUser);
+      const { data: { session } } = await supabase.auth.getSession();
+      setUser(session?.user || null);
 
       const { data: lotData, error: lotError } = await supabase
         .from('lots')
@@ -152,17 +150,31 @@ const LotDetail = () => {
   }, [id]);
 
   const handleBid = async () => {
-    if (!user) {
+    console.log("[LotDetail] Iniciando processo de lance...");
+    
+    // Verifica sessão atualizada antes de dar o lance
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      console.warn("[LotDetail] Usuário não autenticado.");
       toast({ title: "Acesso restrito", description: "Faça login para dar lances.", variant: "destructive" });
       return;
     }
+
+    const minBid = (lot.current_bid || lot.start_bid) + (lot.bid_increment || 500);
+    if (bidAmount < minBid) {
+      toast({ title: "Valor insuficiente", description: `O lance mínimo é ${formatCurrency(minBid)}`, variant: "destructive" });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
+      console.log("[LotDetail] Chamando placeBid para o lote:", lot.id, "valor:", bidAmount);
       await placeBid(lot.id, bidAmount);
-      toast({ title: "Lance efetuado!" });
+      toast({ title: "Lance efetuado com sucesso!" });
       fetchLotData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      console.error("[LotDetail] Erro ao dar lance:", error);
+      toast({ variant: "destructive", title: "Erro no lance", description: error.message });
     } finally {
       setIsSubmitting(false);
     }

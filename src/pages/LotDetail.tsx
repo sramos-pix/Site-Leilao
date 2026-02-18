@@ -64,9 +64,10 @@ const LotDetail = () => {
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
+    // Começamos com os lances reais
     const bids = [...realBids];
     
-    // Se o leilão não terminou, adicionamos lances fictícios
+    // Se o leilão não terminou, garantimos que existam lances fictícios
     if (!isFinished) {
       const fakeEmails = [
         "marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", 
@@ -78,30 +79,35 @@ const LotDetail = () => {
       const startVal = lot.start_bid || 1000;
       const currentVal = lot.current_bid || startVal;
       const increment = lot.bid_increment || 500;
+      
+      // Usamos o ID do lote para gerar uma semente consistente
       const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
 
       // Geramos lances retroativos baseados no valor atual
       let tempAmount = currentVal;
+      
+      // Geramos pelo menos 8 lances fictícios
       for (let i = 0; i < 12; i++) {
         // Reduzimos o valor para simular o passado
         tempAmount -= (increment * ((seed + i) % 2 + 1));
         
-        if (tempAmount < startVal) break;
+        // Se o valor ficar muito baixo, paramos
+        if (tempAmount < (startVal * 0.8)) break;
 
-        // Só adicionamos se não houver um lance real com esse valor exato
-        if (!bids.some(b => b.amount === tempAmount)) {
-          bids.push({
-            id: `fake-${i}-${id}`,
-            amount: tempAmount,
-            user_email: fakeEmails[(seed + i) % fakeEmails.length],
-            is_fake: true,
-            created_at: new Date(Date.now() - (i + 1) * 1800000).toISOString()
-          });
-        }
+        // Adicionamos o lance fictício
+        bids.push({
+          id: `fake-${i}-${id}`,
+          amount: tempAmount,
+          user_email: fakeEmails[(seed + i) % fakeEmails.length],
+          is_fake: true,
+          created_at: new Date(Date.now() - (i + 1) * 1800000).toISOString()
+        });
       }
     }
     
-    return bids.sort((a, b) => b.amount - a.amount);
+    // Removemos duplicatas de valor e ordenamos
+    const uniqueBids = Array.from(new Map(bids.map(item => [item.amount, item])).values());
+    return uniqueBids.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, isFinished, id]);
 
   const fetchLotData = async () => {

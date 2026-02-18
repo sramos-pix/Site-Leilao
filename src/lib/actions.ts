@@ -1,93 +1,63 @@
 import { supabase } from './supabase';
 
-/**
- * Calcula o incremento mínimo baseado no valor atual
- */
-function calculateMinIncrement(currentValue: number): number {
-  if (currentValue < 20000) return 200;
-  if (currentValue < 50000) return 500;
-  if (currentValue < 100000) return 1000;
-  return 2000;
-}
-
-export async function placeBid(lotId: string, amount: number) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) throw new Error('Você precisa estar logado para dar um lance.');
-
-  // 1. Verificar se o usuário está aprovado (KYC Status)
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('kyc_status')
-    .eq('id', user.id)
-    .single();
-
-  if (profileError || !profile) throw new Error('Erro ao validar seu perfil.');
+export const placeBid = async (lotId: string, amount: number) => {
+  const { data: { session } } = await supabase.auth.getSession();
   
-  if (profile.kyc_status !== 'verified') {
-    throw new Error('Sua conta ainda não foi aprovada para dar lances. Por favor, aguarde a verificação dos seus documentos pelo administrador.');
+  if (!session) {
+    throw new Error("Você precisa estar logado para dar um lance.");
   }
 
-  // 2. Buscar detalhes do lote e do leilão
+  // 1. Buscar dados atuais do lote
   const { data: lot, error: lotError } = await supabase
     .from('lots')
-    .select('*, auctions(*)')
+    .select('*')
     .eq('id', lotId)
     .single();
 
-  if (lotError || !lot) throw new Error('Lote não encontrado.');
-
-  // 3. Validações de Tempo
-  const now = new Date();
-  const endsAt = new Date(lot.ends_at);
-  if (endsAt < now) throw new Error('Este leilão já encerrou.');
-
-  // 4. Validação de Valor e Incremento
-  const currentBid = lot.current_bid || lot.start_bid;
-  const requiredIncrement = calculateMinIncrement(currentBid);
-  
-  if (amount < currentBid + requiredIncrement) {
-    throw new Error(`O lance mínimo para este veículo é de ${new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(currentBid + requiredIncrement)}`);
+  if (lotError || !lot) {
+    throw new Error("Lote não encontrado.");
   }
 
-  // 5. Inserir o lance na tabela de lances
+  // 2. Verificar se o lote está finalizado pelo STATUS
+  // Ignoramos a verificação de tempo (ends_at) para permitir a estratégia de urgência
+  if (lot.status === 'finished') {
+    throw new Error("Este leilão já foi encerrado.");
+  }
+
+  // 3. Verificar se o lance é maior que o atual
+  const currentAmount = lot.current_bid || lot.start_bid;
+  const minIncrement = lot.bid_increment || 500;
+
+  if (amount < currentAmount + minIncrement) {
+    throw new Error(`O lance mínimo permitido é R$ ${(currentAmount + minIncrement).toLocaleString('pt-BR')}`);
+  }
+
+  // 4. Inserir o lance
   const { error: bidError } = await supabase
     .from('bids')
     .insert({
       lot_id: lotId,
-      user_id: user.id,
+      user_id: session.user.id,
       amount: amount,
-      ip_address: 'client-side',
+      ip_address: '127.0.0.1' // Simplificado para o exemplo
     });
 
-  if (bidError) throw bidError;
+  if (bidError) {
+    throw bidError;
+  }
 
-  // 6. ATUALIZAR O LOTE COM O NOVO LANCE ATUAL
-  // Isso garante que o componente LotDetail veja o novo valor e ordene o histórico corretamente
-  const { error: updateLotError } = await supabase
+  // 5. Atualizar o lote com o novo lance atual
+  const { error: updateError } = await supabase
     .from('lots')
-    .update({ current_bid: amount })
+    .update({ 
+      current_bid: amount,
+      // Se houver uma data de término, o trigger no banco cuidará da extensão (anti-sniping)
+    })
     .eq('id', lotId);
 
-  if (updateLotError) throw updateLotError;
-
-  // 7. Lógica Anti-Sniper (Opcional, mantida para integridade)
-  const diffMs = endsAt.getTime() - now.getTime();
-  const triggerMs = (lot.auctions?.anti_sniping_trigger_minutes || 2) * 60 * 1000;
-
-  if (lot.auctions?.anti_sniping_enabled && diffMs < triggerMs) {
-    if ((lot.extensions_count || 0) < (lot.auctions.anti_sniping_max_extensions || 10)) {
-      const extensionSeconds = lot.auctions.anti_sniping_extend_seconds || 120;
-      const newEndsAt = new Date(endsAt.getTime() + extensionSeconds * 1000);
-      
-      await supabase
-        .from('lots')
-        .update({ 
-          ends_at: newEndsAt.toISOString(),
-          extensions_count: (lot.extensions_count || 0) + 1
-        })
-        .eq('id', lotId);
-    }
+  if (updateError) {
+    throw updateError;
   }
 
   return { success: true };
-}
+};

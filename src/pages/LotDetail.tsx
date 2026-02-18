@@ -33,7 +33,7 @@ const LotDetail = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState<number>(0);
-  const [user, setUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
 
   const maskEmail = (email: string) => {
@@ -48,15 +48,14 @@ const LotDetail = () => {
 
   const isFinished = lot?.status === 'finished';
 
-  // Lógica de lances RECONSTRUÍDA
+  // Lógica de lances com dependência explícita do currentUser
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Começamos com os lances reais vindos do banco
+    // 1. Lances reais do banco
     const combined = [...realBids];
     
-    // 2. Definimos o ponto de partida para os lances fictícios
-    // Deve ser menor que o menor lance real, ou menor que o lance atual/inicial
+    // 2. Parâmetros para lances fictícios
     const startBid = lot.start_bid || 0;
     const currentBid = lot.current_bid || startBid;
     const increment = lot.bid_increment || 500;
@@ -67,11 +66,10 @@ const LotDetail = () => {
 
     const fakeEmails = [
       "m.silva@gmail.com", "ana.p@uol.com", "carlos.v@bol.com", 
-      "fer.l@gmail.com", "rob.a@outlook.com", "j.oliveira@gmail.com",
-      "tati.santos@hotmail.com", "marcos.v@gmail.com"
+      "fer.l@gmail.com", "rob.a@outlook.com", "j.oliveira@gmail.com"
     ];
 
-    // 3. Preenchemos até ter 10 lances no total
+    // 3. Preenchimento até 10 lances
     let i = 0;
     while (combined.length < 10 && lastAmount > (startBid * 0.5)) {
       lastAmount -= increment;
@@ -81,21 +79,22 @@ const LotDetail = () => {
         id: `fake-${i}-${id}`,
         amount: lastAmount,
         user_email: fakeEmails[i % fakeEmails.length],
-        user_id: 'fake-id', // ID que nunca será igual ao do usuário real
+        user_id: 'system-fake-id',
         is_fake: true
       });
       i++;
     }
     
-    // 4. Ordenamos do maior para o menor para garantir a exibição correta
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id]);
 
   const fetchLotData = async () => {
     try {
-      // Busca sessão do usuário
+      // Busca usuário logado primeiro
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+      if (session?.user) {
+        setCurrentUser(session.user);
+      }
 
       // Busca dados do lote
       const { data: lotData, error: lotError } = await supabase
@@ -116,22 +115,31 @@ const LotDetail = () => {
         setPhotos(ph || []);
         if (!activePhoto) setActivePhoto(lotData.cover_image_url);
 
-        // Lances Reais - Buscando e-mail do perfil associado
-        const { data: b } = await supabase
+        // Lances Reais - Buscando user_id e e-mail do perfil
+        const { data: b, error: bError } = await supabase
           .from('bids')
-          .select(`id, amount, user_id, created_at, profiles(email)`)
+          .select(`
+            id, 
+            amount, 
+            user_id, 
+            created_at, 
+            profiles:user_id (email)
+          `)
           .eq('lot_id', id)
           .order('amount', { ascending: false });
         
         if (b) {
-          setRealBids(b.map(item => ({
-            ...item,
-            user_email: (item.profiles as any)?.email || "usuario@leilao.com"
+          setRealBids(b.map((item: any) => ({
+            id: item.id,
+            amount: item.amount,
+            user_id: item.user_id,
+            user_email: item.profiles?.email || "usuario@leilao.com",
+            created_at: item.created_at
           })));
         }
       }
     } catch (e) {
-      console.error("Erro ao carregar dados:", e);
+      console.error("Erro ao carregar dados do lote:", e);
     } finally {
       setIsLoading(false);
     }
@@ -140,7 +148,6 @@ const LotDetail = () => {
   useEffect(() => {
     fetchLotData();
     
-    // Realtime para lances e atualizações do lote
     const channel = supabase.channel(`lot-realtime-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => fetchLotData())
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => fetchLotData())
@@ -150,7 +157,7 @@ const LotDetail = () => {
   }, [id]);
 
   const handleBid = async () => {
-    if (!user) {
+    if (!currentUser) {
       toast({ title: "Login necessário", description: "Você precisa estar logado para dar lances.", variant: "destructive" });
       return;
     }
@@ -159,6 +166,7 @@ const LotDetail = () => {
     try {
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance realizado com sucesso!" });
+      // Forçamos a atualização imediata
       await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no lance", description: error.message });
@@ -174,7 +182,7 @@ const LotDetail = () => {
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Coluna Esquerda: Galeria e Info */}
+          {/* Coluna Esquerda */}
           <div className="lg:col-span-8 space-y-6">
             <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border border-slate-100">
               <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover" alt={lot.title} />
@@ -231,7 +239,7 @@ const LotDetail = () => {
             </div>
           </div>
 
-          {/* Coluna Direita: Painel de Lances */}
+          {/* Coluna Direita */}
           <div className="lg:col-span-4 space-y-6">
             <Card className={cn("border-none shadow-xl rounded-3xl overflow-hidden text-white", isFinished ? "bg-slate-800" : "bg-slate-900")}>
               <CardContent className="p-8 space-y-6">
@@ -274,20 +282,20 @@ const LotDetail = () => {
               </CardContent>
             </Card>
 
-            {/* LISTA DE LANCES COM DESTAQUE */}
+            {/* LISTA DE LANCES */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  // COMPARAÇÃO CRUCIAL: Verifica se o lance pertence ao usuário logado
-                  const isMe = user && String(bid.user_id) === String(user.id);
+                  // Comparação rigorosa de ID
+                  const isMe = currentUser && String(bid.user_id) === String(currentUser.id);
                   
                   return (
                     <div key={bid.id} className={cn(
-                      "flex items-center justify-between text-sm p-2.5 rounded-xl transition-all",
-                      isMe ? "bg-orange-50 border border-orange-100 shadow-sm" : "bg-white/50"
+                      "flex items-center justify-between text-sm p-3 rounded-2xl transition-all",
+                      isMe ? "bg-orange-50 border border-orange-200 shadow-sm" : "bg-white/50"
                     )}>
                       <div className="flex items-center gap-2">
                         <div className={cn(
@@ -310,9 +318,6 @@ const LotDetail = () => {
                     </div>
                   );
                 })}
-                {displayBids.length === 0 && (
-                  <p className="text-xs text-slate-400 text-center py-4 italic">Nenhum lance registrado.</p>
-                )}
               </div>
             </div>
           </div>

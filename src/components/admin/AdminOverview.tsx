@@ -160,8 +160,8 @@ const AdminOverview = () => {
         .eq('id', bidId);
 
       if (deleteError) {
-        console.error("Erro ao deletar lance:", deleteError);
-        throw new Error("Não foi possível excluir o lance. Verifique as permissões.");
+        console.error("Erro detalhado do Supabase ao deletar:", deleteError);
+        throw new Error(deleteError.message || "Erro de permissão no banco de dados.");
       }
 
       // 2. Busca o próximo maior lance para este lote
@@ -205,7 +205,12 @@ const AdminOverview = () => {
       toast({ title: "Lance excluído", description: "O sistema foi atualizado com o próximo maior lance." });
       await fetchStats(true);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+      console.error("Erro na função handleDeleteBid:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Falha na Exclusão", 
+        description: "Verifique se você tem permissões de Admin no Supabase. Erro: " + error.message 
+      });
     } finally {
       setIsProcessing(null);
     }

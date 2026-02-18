@@ -64,51 +64,44 @@ const LotDetail = () => {
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
-    // Começamos com os lances reais do banco de dados
+    // Começamos com os lances reais
     const bids = [...realBids];
     
-    // Se o leilão não terminou, adicionamos lances fictícios para criar volume
-    if (!isFinished) {
-      const fakeEmails = [
-        "marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", 
-        "fernanda.l@yahoo.com", "roberto.a@gmail.com", "juliana.m@gmail.com",
-        "ricardo.t@uol.com.br", "patricia.f@gmail.com", "lucas.oliveira@gmail.com",
-        "gabriela.santos@hotmail.com"
-      ];
-      
-      const startVal = lot.start_bid || 1000;
-      const currentVal = lot.current_bid || startVal;
-      const increment = lot.bid_increment || 500;
-      const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
+    // Geramos lances fictícios para garantir volume (mínimo 10 lances totais)
+    const fakeEmails = [
+      "marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", 
+      "fernanda.l@yahoo.com", "roberto.a@gmail.com", "juliana.m@gmail.com",
+      "ricardo.t@uol.com.br", "patricia.f@gmail.com", "lucas.oliveira@gmail.com",
+      "gabriela.santos@hotmail.com"
+    ];
+    
+    const startVal = lot.start_bid || 1000;
+    const currentVal = lot.current_bid || startVal;
+    const increment = lot.bid_increment || 500;
+    const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
 
-      // Geramos lances retroativos baseados no valor atual
-      let tempAmount = currentVal;
-      
-      // Se o maior lance real for menor que o current_bid (o que não deveria acontecer, mas por segurança),
-      // garantimos que o histórico mostre como chegamos no valor atual.
-      for (let i = 0; i < 15; i++) {
-        // Reduzimos o valor para simular o passado
-        tempAmount -= (increment * ((seed + i) % 2 + 1));
-        
-        if (tempAmount < startVal) break;
+    let tempAmount = currentVal;
+    
+    // Adicionamos lances fictícios abaixo do valor atual para criar histórico
+    for (let i = 0; i < 15; i++) {
+      tempAmount -= (increment * ((seed + i) % 2 + 1));
+      if (tempAmount < (startVal * 0.5)) break;
 
-        // Só adicionamos o lance fictício se não houver um lance REAL com esse valor exato
-        // Isso evita que o lance fictício "atropele" o lance do usuário logado
-        if (!bids.some(b => Math.abs(b.amount - tempAmount) < 1)) {
-          bids.push({
-            id: `fake-${i}-${id}`,
-            amount: tempAmount,
-            user_email: fakeEmails[(seed + i) % fakeEmails.length],
-            is_fake: true,
-            created_at: new Date(Date.now() - (i + 1) * 1800000).toISOString()
-          });
-        }
+      // Só adicionamos se não houver um lance real com valor similar
+      if (!bids.some(b => Math.abs(b.amount - tempAmount) < 10)) {
+        bids.push({
+          id: `fake-${i}-${id}`,
+          amount: tempAmount,
+          user_email: fakeEmails[(seed + i) % fakeEmails.length],
+          is_fake: true,
+          created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString()
+        });
       }
     }
     
-    // Ordenamos do maior para o menor. Lances reais e fictícios agora convivem.
+    // Ordenamos do maior para o menor
     return bids.sort((a, b) => b.amount - a.amount);
-  }, [realBids, lot, isFinished, id]);
+  }, [realBids, lot, id]);
 
   const fetchLotData = async () => {
     try {
@@ -142,7 +135,7 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      // Buscamos os lances reais e incluímos o perfil para pegar o email
+      // Busca lances reais
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`id, amount, user_id, created_at, profiles (email, full_name)`)

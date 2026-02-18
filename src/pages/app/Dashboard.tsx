@@ -33,6 +33,7 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Busca perfil
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -44,23 +45,53 @@ const Dashboard = () => {
         kyc_status: 'waiting'
       });
 
-      const { data: bidsData } = await supabase
+      // Busca lances do usuário com dados do lote
+      const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
-        .select(`id, amount, lot_id, created_at, lots ( id, title, cover_image_url, status, ends_at )`)
+        .select(`
+          id, 
+          amount, 
+          lot_id, 
+          created_at, 
+          lots ( 
+            id, 
+            title, 
+            cover_image_url, 
+            status, 
+            ends_at 
+          )
+        `)
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      const now = new Date();
-      const filteredBids = bidsData?.filter(b => {
-        const lot = Array.isArray(b.lots) ? b.lots[0] : b.lots;
-        return lot && new Date(lot.ends_at) > now && lot.status !== 'finished';
-      }) || [];
-      
-      setActiveBids(filteredBids);
+      if (bidsError) throw bidsError;
 
+      // Filtra apenas o lance mais recente por lote e que ainda esteja ativo
+      const now = new Date();
+      const uniqueBidsMap = new Map();
+
+      (bidsData || []).forEach(bid => {
+        const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
+        if (!lot) return;
+
+        const isExpired = new Date(lot.ends_at) < now;
+        const isFinished = lot.status === 'finished';
+
+        if (!isExpired && !isFinished) {
+          // Mantém apenas o lance de maior valor/mais recente para cada lote
+          if (!uniqueBidsMap.has(bid.lot_id) || uniqueBidsMap.get(bid.lot_id).amount < bid.amount) {
+            uniqueBidsMap.set(bid.lot_id, bid);
+          }
+        }
+      });
+      
+      setActiveBids(Array.from(uniqueBidsMap.values()));
+
+      // Busca vitórias
       const { data: wins } = await supabase.rpc("get_user_wins", { p_user: user.id });
       setWinsCount(wins?.length || 0);
 
+      // Busca favoritos
       const { count } = await supabase
         .from('favorites')
         .select('*', { count: 'exact', head: true })

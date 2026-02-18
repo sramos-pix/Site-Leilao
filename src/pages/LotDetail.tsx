@@ -37,7 +37,6 @@ const LotDetail = () => {
   const [lastBidId, setLastBidId] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
 
-  // Atualiza o 'agora' a cada segundo para checar expiração em tempo real
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -60,7 +59,7 @@ const LotDetail = () => {
     if (!lot) return [];
     const bids = [...realBids];
     
-    // Só mostra lances fictícios se o leilão NÃO estiver encerrado
+    // Lógica de encerramento: Só encerra por tempo se ends_at existir
     const isTimeUp = lot.ends_at ? new Date(lot.ends_at) <= now : false;
     const isFinished = lot.status === 'finished' || isTimeUp;
 
@@ -183,7 +182,7 @@ const LotDetail = () => {
 
   if (!lot) return null;
 
-  // Lógica de encerramento: Status 'finished' OU tempo expirado
+  // Lógica de encerramento: Só encerra por tempo se ends_at NÃO for nulo
   const isTimeUp = lot.ends_at ? new Date(lot.ends_at) <= now : false;
   const isFinished = lot.status === 'finished' || isTimeUp;
   const isWinner = user && lot.winner_id === user.id;
@@ -257,10 +256,12 @@ const LotDetail = () => {
                 {!isFinished && (
                   <div className="absolute top-6 left-6 flex gap-3">
                     <Badge className="bg-slate-900/90 backdrop-blur-md text-white border-none px-4 py-1.5 rounded-full font-bold text-xs">LOTE #{lot.lot_number}</Badge>
-                    <Badge className="bg-orange-500 text-white border-none px-4 py-1.5 rounded-full font-black flex items-center gap-2 shadow-lg shadow-orange-500/30">
-                      <Clock size={14} className="animate-pulse" /> 
-                      <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
-                    </Badge>
+                    {lot.ends_at && (
+                      <Badge className="bg-orange-500 text-white border-none px-4 py-1.5 rounded-full font-black flex items-center gap-2 shadow-lg shadow-orange-500/30">
+                        <Clock size={14} className="animate-pulse" /> 
+                        <CountdownTimer endsAt={lot.ends_at} randomScarcity={false} lotId={lot.id} />
+                      </Badge>
+                    )}
                   </div>
                 )}
               </div>
@@ -330,10 +331,10 @@ const LotDetail = () => {
                   )}>
                     {isFinished ? "ENCERRADO" : "AO VIVO"}
                   </Badge>
-                  {!isFinished && (
+                  {!isFinished && lot.ends_at && (
                     <div className="flex items-center gap-2 text-orange-500 font-bold text-sm">
                       <Clock size={16} />
-                      <CountdownTimer endsAt={lot.ends_at} randomScarcity={true} lotId={lot.id} />
+                      <CountdownTimer endsAt={lot.ends_at} randomScarcity={false} lotId={lot.id} />
                     </div>
                   )}
                 </div>

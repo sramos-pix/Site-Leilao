@@ -64,10 +64,10 @@ const LotDetail = () => {
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Começamos com os lances reais do banco
+    // 1. Começamos com os lances reais do banco (sem filtros)
     const bids = [...realBids];
     
-    // 2. Geramos lances fictícios para preencher a lista até ter pelo menos 12
+    // 2. Geramos lances fictícios apenas para preencher se houver menos de 10
     const fakeEmails = [
       "marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", 
       "fernanda.l@yahoo.com", "roberto.a@gmail.com", "juliana.m@gmail.com",
@@ -80,21 +80,20 @@ const LotDetail = () => {
     const increment = lot.bid_increment || 500;
     const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
 
-    // Determinamos o valor de partida para os fictícios (sempre abaixo do menor lance real ou do atual)
-    let minRealBid = bids.length > 0 ? Math.min(...bids.map(b => b.amount)) : currentVal;
-    let tempAmount = minRealBid;
-    
-    // Adicionamos lances fictícios para garantir volume
-    for (let i = 0; i < 15; i++) {
-      tempAmount -= (increment * ((seed + i) % 2 + 1));
-      if (tempAmount < (startVal * 0.3)) break;
+    // Se tivermos poucos lances reais, adicionamos fictícios ABAIXO do menor lance real
+    let minAmount = bids.length > 0 ? Math.min(...bids.map(b => b.amount)) : currentVal;
+    let tempAmount = minAmount;
+
+    while (bids.length < 12) {
+      tempAmount -= (increment * ((seed + bids.length) % 2 + 1));
+      if (tempAmount < (startVal * 0.2)) break;
 
       bids.push({
-        id: `fake-${i}-${id}`,
+        id: `fake-${bids.length}-${id}`,
         amount: tempAmount,
-        user_email: fakeEmails[(seed + i) % fakeEmails.length],
+        user_email: fakeEmails[(seed + bids.length) % fakeEmails.length],
         is_fake: true,
-        created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString()
+        created_at: new Date(Date.now() - (bids.length + 1) * 3600000).toISOString()
       });
     }
     
@@ -134,7 +133,7 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      // Busca lances reais
+      // Busca lances reais - IMPORTANTE: Pegar user_id para identificar "Seu Lance"
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`id, amount, user_id, created_at, profiles (email, full_name)`)

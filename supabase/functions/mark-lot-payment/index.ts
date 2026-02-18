@@ -30,6 +30,10 @@ serve(async (req) => {
 
   const { lot_id, user_id, status } = await req.json();
 
+  // Status possíveis: 
+  // 'unpaid' -> Nada pago
+  // 'partial' -> Veículo pago, comissão pendente
+  // 'paid' -> Tudo pago
   const { error: upsertError } = await serviceClient
     .from("lot_payments")
     .upsert({

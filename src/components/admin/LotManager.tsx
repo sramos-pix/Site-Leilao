@@ -18,6 +18,7 @@ import { Switch } from '@/components/ui/switch';
 import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
+import BulkImportLots from './BulkImportLots';
 
 const LotManager = () => {
   const [lots, setLots] = useState<any[]>([]);
@@ -140,118 +141,121 @@ const LotManager = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-slate-900">Gerenciar Veículos</h2>
-        <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingLot(null); }}>
-          <DialogTrigger asChild>
-            <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
-              <Plus size={18} className="mr-2" /> Novo Veículo
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-2xl rounded-3xl max-h-[90vh] overflow-y-auto">
-            <DialogHeader><DialogTitle>{editingLot ? 'Editar Veículo' : 'Cadastrar Novo Veículo'}</DialogTitle></DialogHeader>
-            <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 py-4">
-              <div className="col-span-2 space-y-2">
-                <Label>Leilão Vinculado</Label>
-                <Select name="auction_id" defaultValue={editingLot?.auction_id} required>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o leilão" /></SelectTrigger>
-                  <SelectContent>{auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}</SelectContent>
-                </Select>
-              </div>
-              
-              <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" defaultValue={editingLot?.lot_number} className="rounded-xl" required /></div>
-              <div className="space-y-2"><Label>Título</Label><Input name="title" defaultValue={editingLot?.title} className="rounded-xl" required /></div>
-              
-              <div className="col-span-2 grid grid-cols-2 gap-4 p-4 bg-orange-50 rounded-2xl border border-orange-100">
-                <div className="flex items-center justify-between space-x-2">
-                  <div className="flex flex-col">
-                    <Label className="text-orange-900 font-bold flex items-center gap-2">
-                      <Star size={14} /> Lote em Destaque
-                    </Label>
-                    <span className="text-[10px] text-orange-700">Aparece na Home</span>
-                  </div>
-                  <Switch name="is_featured" defaultChecked={editingLot?.is_featured} />
-                </div>
-                <div className="flex items-center justify-between space-x-2">
-                  <div className="flex flex-col">
-                    <Label className="text-orange-900 font-bold flex items-center gap-2">
-                      <Calendar size={14} /> Destaque da Semana
-                    </Label>
-                    <span className="text-[10px] text-orange-700">Banner principal</span>
-                  </div>
-                  <Switch name="is_weekly_highlight" defaultChecked={editingLot?.is_weekly_highlight} />
-                </div>
-              </div>
-
-              <div className="space-y-2"><Label>Marca</Label><Input name="brand" defaultValue={editingLot?.brand} className="rounded-xl" required /></div>
-              <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={editingLot?.model} className="rounded-xl" required /></div>
-              <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={editingLot?.year} className="rounded-xl" required /></div>
-              <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" defaultValue={editingLot?.mileage_km} className="rounded-xl" required /></div>
-              
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Settings2 size={14} /> Câmbio</Label>
-                <Select name="transmission" defaultValue={editingLot?.transmission || "none"}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o câmbio" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Não informado</SelectItem>
-                    <SelectItem value="Automático">Automático</SelectItem>
-                    <SelectItem value="Manual">Manual</SelectItem>
-                    <SelectItem value="CVT">CVT</SelectItem>
-                    <SelectItem value="Automatizado">Automatizado</SelectItem>
-                    <SelectItem value="Semi-Automático">Semi-Automático</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="flex items-center gap-2"><Fuel size={14} /> Combustível</Label>
-                <Select name="fuel_type" defaultValue={editingLot?.fuel_type || "none"}>
-                  <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Não informado</SelectItem>
-                    <SelectItem value="Flex">Flex</SelectItem>
-                    <SelectItem value="Gasolina">Gasolina</SelectItem>
-                    <SelectItem value="Diesel">Diesel</SelectItem>
-                    <SelectItem value="Etanol">Etanol</SelectItem>
-                    <SelectItem value="Híbrido">Híbrido</SelectItem>
-                    <SelectItem value="Elétrico">Elétrico</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Lance Inicial</Label>
-                <Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} className="rounded-xl" required />
-              </div>
-              
-              <div className="space-y-2">
-                <Label className="text-orange-600 font-bold flex items-center gap-2">
-                  <TrendingUp size={14} /> Incremento Mínimo
-                </Label>
-                <Input 
-                  name="bid_increment" 
-                  type="number" 
-                  step="0.01" 
-                  defaultValue={editingLot?.bid_increment || 500} 
-                  className="border-orange-200 focus:border-orange-500 rounded-xl"
-                  required 
-                />
-              </div>
-
-              <div className="col-span-2 space-y-2">
-                <Label>Encerramento (Opcional)</Label>
-                <Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} className="rounded-xl" />
-                <p className="text-[10px] text-slate-400 italic">Deixe em branco para usar o tempo aleatório de até 24h.</p>
-              </div>
-              
-              <div className="col-span-2 space-y-2">
-                <Label>Descrição Detalhada</Label>
-                <Textarea name="description" defaultValue={editingLot?.description} placeholder="Detalhes do veículo..." className="min-h-[100px] rounded-xl" />
-              </div>
-              <Button type="submit" className="col-span-2 bg-orange-500 hover:bg-orange-600 mt-4 py-6 rounded-2xl font-bold text-white" disabled={isSubmitting}>
-                {isSubmitting ? <Loader2 className="animate-spin" /> : editingLot ? 'Salvar Alterações' : 'Cadastrar Veículo'}
+        <div className="flex gap-3">
+          <BulkImportLots auctions={auctions} onSuccess={fetchData} />
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingLot(null); }}>
+            <DialogTrigger asChild>
+              <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
+                <Plus size={18} className="mr-2" /> Novo Veículo
               </Button>
-            </form>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="max-w-2xl rounded-3xl max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>{editingLot ? 'Editar Veículo' : 'Cadastrar Novo Veículo'}</DialogTitle></DialogHeader>
+              <form onSubmit={handleSubmit} className="grid grid-cols-2 gap-4 py-4">
+                <div className="col-span-2 space-y-2">
+                  <Label>Leilão Vinculado</Label>
+                  <Select name="auction_id" defaultValue={editingLot?.auction_id} required>
+                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o leilão" /></SelectTrigger>
+                    <SelectContent>{auctions.map(a => <SelectItem key={a.id} value={a.id}>{a.title}</SelectItem>)}</SelectContent>
+                  </Select>
+                </div>
+                
+                <div className="space-y-2"><Label>Lote #</Label><Input name="lot_number" type="number" defaultValue={editingLot?.lot_number} className="rounded-xl" required /></div>
+                <div className="space-y-2"><Label>Título</Label><Input name="title" defaultValue={editingLot?.title} className="rounded-xl" required /></div>
+                
+                <div className="col-span-2 grid grid-cols-2 gap-4 p-4 bg-orange-50 rounded-2xl border border-orange-100">
+                  <div className="flex items-center justify-between space-x-2">
+                    <div className="flex flex-col">
+                      <Label className="text-orange-900 font-bold flex items-center gap-2">
+                        <Star size={14} /> Lote em Destaque
+                      </Label>
+                      <span className="text-[10px] text-orange-700">Aparece na Home</span>
+                    </div>
+                    <Switch name="is_featured" defaultChecked={editingLot?.is_featured} />
+                  </div>
+                  <div className="flex items-center justify-between space-x-2">
+                    <div className="flex flex-col">
+                      <Label className="text-orange-900 font-bold flex items-center gap-2">
+                        <Calendar size={14} /> Destaque da Semana
+                      </Label>
+                      <span className="text-[10px] text-orange-700">Banner principal</span>
+                    </div>
+                    <Switch name="is_weekly_highlight" defaultChecked={editingLot?.is_weekly_highlight} />
+                  </div>
+                </div>
+
+                <div className="space-y-2"><Label>Marca</Label><Input name="brand" defaultValue={editingLot?.brand} className="rounded-xl" required /></div>
+                <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={editingLot?.model} className="rounded-xl" required /></div>
+                <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={editingLot?.year} className="rounded-xl" required /></div>
+                <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" defaultValue={editingLot?.mileage_km} className="rounded-xl" required /></div>
+                
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Settings2 size={14} /> Câmbio</Label>
+                  <Select name="transmission" defaultValue={editingLot?.transmission || "none"}>
+                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o câmbio" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Não informado</SelectItem>
+                      <SelectItem value="Automático">Automático</SelectItem>
+                      <SelectItem value="Manual">Manual</SelectItem>
+                      <SelectItem value="CVT">CVT</SelectItem>
+                      <SelectItem value="Automatizado">Automatizado</SelectItem>
+                      <SelectItem value="Semi-Automático">Semi-Automático</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="flex items-center gap-2"><Fuel size={14} /> Combustível</Label>
+                  <Select name="fuel_type" defaultValue={editingLot?.fuel_type || "none"}>
+                    <SelectTrigger className="rounded-xl"><SelectValue placeholder="Selecione o combustível" /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">Não informado</SelectItem>
+                      <SelectItem value="Flex">Flex</SelectItem>
+                      <SelectItem value="Gasolina">Gasolina</SelectItem>
+                      <SelectItem value="Diesel">Diesel</SelectItem>
+                      <SelectItem value="Etanol">Etanol</SelectItem>
+                      <SelectItem value="Híbrido">Híbrido</SelectItem>
+                      <SelectItem value="Elétrico">Elétrico</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Lance Inicial</Label>
+                  <Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} className="rounded-xl" required />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label className="text-orange-600 font-bold flex items-center gap-2">
+                    <TrendingUp size={14} /> Incremento Mínimo
+                  </Label>
+                  <Input 
+                    name="bid_increment" 
+                    type="number" 
+                    step="0.01" 
+                    defaultValue={editingLot?.bid_increment || 500} 
+                    className="border-orange-200 focus:border-orange-500 rounded-xl"
+                    required 
+                  />
+                </div>
+
+                <div className="col-span-2 space-y-2">
+                  <Label>Encerramento (Opcional)</Label>
+                  <Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} className="rounded-xl" />
+                  <p className="text-[10px] text-slate-400 italic">Deixe em branco para usar o tempo aleatório de até 24h.</p>
+                </div>
+                
+                <div className="col-span-2 space-y-2">
+                  <Label>Descrição Detalhada</Label>
+                  <Textarea name="description" defaultValue={editingLot?.description} placeholder="Detalhes do veículo..." className="min-h-[100px] rounded-xl" />
+                </div>
+                <Button type="submit" className="col-span-2 bg-orange-500 hover:bg-orange-600 mt-4 py-6 rounded-2xl font-bold text-white" disabled={isSubmitting}>
+                  {isSubmitting ? <Loader2 className="animate-spin" /> : editingLot ? 'Salvar Alterações' : 'Cadastrar Veículo'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">

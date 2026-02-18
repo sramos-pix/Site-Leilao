@@ -70,7 +70,7 @@ const HowItWorks = () => {
                 </Button>
               </Link>
               <Link to="/contact">
-                <Button size="lg" variant="outline" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-orange-600 px-10 py-7 rounded-2xl font-bold text-lg w-full sm:w-auto transition-all">
+                <Button size="lg" className="bg-white text-orange-600 hover:bg-slate-100 px-10 py-7 rounded-2xl font-bold text-lg w-full sm:w-auto">
                   Tirar Dúvidas
                 </Button>
               </Link>

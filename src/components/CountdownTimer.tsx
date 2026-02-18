@@ -1,57 +1,65 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabase';
+import React, { useState, useEffect, useMemo } from 'react';
 
 interface CountdownTimerProps {
-  endsAt: string | null;
+  endsAt?: string | null;
   randomScarcity?: boolean;
   lotId?: string;
 }
 
 const CountdownTimer = ({ endsAt, randomScarcity = false, lotId }: CountdownTimerProps) => {
   const [timeLeft, setTimeLeft] = useState<string>("");
-  const [isExpired, setIsExpired] = useState(false);
+
+  // Gera um tempo de escassez baseado no ID do lote para ser consistente por sessão
+  const scarcityTime = useMemo(() => {
+    if (!randomScarcity && endsAt) return null;
+    
+    // Semente baseada no ID do lote para que o tempo não mude a cada refresh
+    const seed = lotId ? lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : Math.random();
+    // Retorna um valor entre 120 e 600 segundos (2 a 10 minutos)
+    return (seed % 480) + 120;
+  }, [lotId, randomScarcity, endsAt]);
 
   useEffect(() => {
-    // Se não houver data de encerramento, o leilão é por tempo indeterminado
-    if (!endsAt) {
-      setTimeLeft("Tempo Indeterminado");
-      return;
+    let targetTime: number;
+
+    if (endsAt) {
+      targetTime = new Date(endsAt).getTime();
+    } else {
+      // Se não tem data, cria um tempo de expiração fictício (agora + scarcityTime)
+      targetTime = Date.now() + (scarcityTime || 300) * 1000;
     }
 
-    const calculateTimeLeft = () => {
-      const difference = +new Date(endsAt) - +new Date();
-      
+    const updateTimer = () => {
+      const now = Date.now();
+      const difference = targetTime - now;
+
       if (difference <= 0) {
-        setIsExpired(true);
-        setTimeLeft("Encerrado");
-        
-        // Se o lote expirou e temos o ID, atualizamos o status no banco se necessário
-        if (lotId) {
-          supabase.from('lots').update({ status: 'finished' }).eq('id', lotId).then();
-        }
+        setTimeLeft("00:00:00");
         return;
       }
 
       const hours = Math.floor((difference / (1000 * 60 * 60)));
-      const minutes = Math.floor((difference / 1000 / 60) % 60);
-      const seconds = Math.floor((difference / 1000) % 60);
+      const minutes = Math.floor((difference % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((difference % (1000 * 60)) / 1000);
 
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`);
+      const formatted = [
+        hours.toString().padStart(2, '0'),
+        minutes.toString().padStart(2, '0'),
+        seconds.toString().padStart(2, '0')
+      ].join(':');
+
+      setTimeLeft(formatted);
     };
 
-    const timer = setInterval(calculateTimeLeft, 1000);
-    calculateTimeLeft();
+    updateTimer();
+    const interval = setInterval(updateTimer, 1000);
 
-    return () => clearInterval(timer);
-  }, [endsAt, lotId]);
+    return () => clearInterval(interval);
+  }, [endsAt, scarcityTime]);
 
-  return (
-    <span className={isExpired ? "text-slate-400" : ""}>
-      {timeLeft}
-    </span>
-  );
+  return <span>{timeLeft}</span>;
 };
 
 export default CountdownTimer;

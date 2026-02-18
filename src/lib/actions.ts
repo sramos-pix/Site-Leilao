@@ -1,4 +1,4 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase } from './supabase';
 
 export const placeBid = async (lotId: string, amount: number) => {
   // 1. Obter sessão do usuário
@@ -34,8 +34,6 @@ export const placeBid = async (lotId: string, amount: number) => {
   }
 
   // 5. Inserir o lance na tabela de bids
-  // O banco de dados possui triggers que podem atualizar o lote automaticamente, 
-  // mas faremos a atualização manual para garantir a interface imediata.
   const { error: bidError } = await supabase
     .from('bids')
     .insert({
@@ -59,7 +57,6 @@ export const placeBid = async (lotId: string, amount: number) => {
 
   if (updateError) {
     console.error("Erro ao atualizar lote:", updateError);
-    // Não lançamos erro aqui pois o lance já foi registrado na tabela de bids
   }
 
   return { success: true };

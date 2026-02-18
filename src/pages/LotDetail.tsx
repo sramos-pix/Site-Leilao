@@ -54,14 +54,12 @@ const LotDetail = () => {
     }
   };
 
-  // Forçamos o leilão a estar sempre ativo se não houver status 'finished'
+  // MODIFICADO: O leilão só é considerado encerrado se o status for 'finished' no banco.
+  // Ignoramos o tempo do cronômetro para permitir lances infinitos/urgência.
   const isFinished = useMemo(() => {
     if (!lot) return false;
-    if (lot.status === 'finished') return true;
-    if (!lot.ends_at) return false; 
-    const endTime = new Date(lot.ends_at).getTime();
-    return endTime <= now.getTime();
-  }, [lot, now]);
+    return lot.status === 'finished';
+  }, [lot]);
 
   const displayBids = useMemo(() => {
     if (!lot) return [];

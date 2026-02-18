@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 
 interface CountdownTimerProps {
   randomScarcity?: boolean;
@@ -12,6 +13,7 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
   const [secondsLeft, setSecondsLeft] = useState<number>(0);
 
   useEffect(() => {
+    // Prioridade 1: Data real vinda do banco de dados
     if (endsAt) {
       const end = new Date(endsAt).getTime();
       const now = new Date().getTime();
@@ -20,21 +22,22 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
       return;
     }
 
+    // Prioridade 2: Escassez aleatória (Máximo 24 horas)
     if (randomScarcity) {
-      // Gera um tempo aleatório entre 1h (3600s) e 12h (43200s) baseado no ID do lote para ser persistente por sessão
+      // Gera um "seed" baseado no ID do lote para o tempo ser persistente para aquele veículo
       const idNum = typeof lotId === 'string' 
         ? lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) 
-        : (Number(lotId) || Math.floor(Math.random() * 1000));
+        : (Number(lotId) || 1);
       
-      const minSeconds = 3600; // 1 hora
-      const maxSeconds = 43200; // 12 horas
+      const minSeconds = 1800; // 30 minutos (mínimo)
+      const maxSeconds = 86400; // 24 horas (máximo)
       const range = maxSeconds - minSeconds;
       
-      // Usa o ID para garantir que o mesmo lote tenha o mesmo tempo "aleatório"
+      // O cálculo garante que o tempo fique entre 30min e 24h
       const randomFactor = (idNum * 1337) % range;
       setSecondsLeft(minSeconds + randomFactor);
     } else {
-      setSecondsLeft(7200); // 2 horas padrão
+      setSecondsLeft(7200); // 2 horas padrão caso nada seja informado
     }
   }, [endsAt, randomScarcity, lotId]);
 
@@ -52,6 +55,7 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
     const s = totalSeconds % 60;
     const pad = (n: number) => n.toString().padStart(2, '0');
 
+    // Alerta visual crítico nos últimos 30 segundos
     if (totalSeconds <= 30 && totalSeconds > 0) {
       return `BATIDA DO MARTELO: ${pad(s)}s`;
     }
@@ -62,6 +66,7 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
 
   return (
     <span className={cn(
+      "transition-all duration-300",
       secondsLeft < 3600 ? "text-white font-bold animate-pulse" : "",
       secondsLeft <= 30 && secondsLeft > 0 ? "text-yellow-400 scale-110 inline-block" : ""
     )}>
@@ -70,5 +75,4 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
   );
 };
 
-import { cn } from '@/lib/utils';
 export default CountdownTimer;

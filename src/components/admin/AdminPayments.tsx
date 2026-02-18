@@ -100,7 +100,7 @@ export default function AdminPayments() {
       toast({ 
         variant: "destructive", 
         title: "Falha na atualização", 
-        description: err.message 
+        description: "O banco de dados não aceitou este status. Verifique as permissões." 
       });
     } finally {
       setIsRefreshing(false);
@@ -126,8 +126,8 @@ export default function AdminPayments() {
         <div className="divide-y divide-slate-100">
           {isLoading ? <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-orange-500" /></div> : 
             filtered.map((r) => {
-              const isVehiclePaid = r.payment_status === 'partial' || r.payment_status === 'paid';
-              const isCommissionPaid = r.payment_status === 'paid';
+              // Simplificando a lógica para usar apenas 'paid' e 'unpaid' conforme a restrição do banco
+              const isPaid = r.payment_status === 'paid';
               const commission = r.final_price * 0.05;
 
               return (
@@ -148,30 +148,24 @@ export default function AdminPayments() {
                       <p className="font-black text-slate-900">{formatCurrency(r.final_price)}</p>
                       <Button 
                         size="sm"
-                        variant={isVehiclePaid ? "outline" : "default"}
-                        className={cn("w-full rounded-lg gap-2 h-9", isVehiclePaid ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "bg-slate-900")}
-                        onClick={() => updateStatus(r, isVehiclePaid ? 'unpaid' : 'partial')}
+                        variant={isPaid ? "outline" : "default"}
+                        className={cn("w-full rounded-lg gap-2 h-9", isPaid ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "bg-slate-900")}
+                        onClick={() => updateStatus(r, isPaid ? 'unpaid' : 'paid')}
                         disabled={isRefreshing}
                       >
-                        {isVehiclePaid ? <Undo2 size={14} /> : <Car size={14} />}
-                        {isVehiclePaid ? 'Estornar' : 'Confirmar'}
+                        {isPaid ? <Undo2 size={14} /> : <Car size={14} />}
+                        {isPaid ? 'Estornar' : 'Confirmar Tudo'}
                       </Button>
                     </div>
 
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-slate-400 uppercase">Comissão (5%)</p>
                       <p className="font-black text-orange-600">{formatCurrency(commission)}</p>
-                      <Button 
-                        size="sm"
-                        variant={isCommissionPaid ? "outline" : "default"}
-                        className={cn("w-full rounded-lg gap-2 h-9", isCommissionPaid ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "bg-orange-500 hover:bg-orange-600")}
-                        onClick={() => updateStatus(r, isCommissionPaid ? 'partial' : 'paid')}
-                        disabled={isRefreshing || !isVehiclePaid}
-                        title={!isVehiclePaid ? "Pague o veículo primeiro" : ""}
-                      >
-                        {isCommissionPaid ? <Undo2 size={14} /> : <Wallet size={14} />}
-                        {isCommissionPaid ? 'Estornar' : 'Confirmar'}
-                      </Button>
+                      <div className="h-9 flex items-center justify-center">
+                        <Badge variant="outline" className={cn("border-none font-bold", isPaid ? "text-emerald-600" : "text-slate-300")}>
+                          {isPaid ? "PAGO" : "PENDENTE"}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </div>

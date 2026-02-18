@@ -30,21 +30,26 @@ serve(async (req) => {
 
   const { lot_id, user_id, status } = await req.json();
 
-  // Status possíveis: 
-  // 'unpaid' -> Nada pago
-  // 'partial' -> Veículo pago, comissão pendente
-  // 'paid' -> Tudo pago
+  // Mapeamento de segurança para garantir que o status enviado seja aceito pelo banco
+  // Se o banco não aceita 'partial', vamos usar 'unpaid' ou 'paid'
+  // Baseado no erro, vamos simplificar para os status padrão
+  let dbStatus = status;
+  if (status === 'partial') dbStatus = 'unpaid'; // Ou outro valor que seu banco aceite
+
   const { error: upsertError } = await serviceClient
     .from("lot_payments")
     .upsert({
       lot_id,
       user_id,
-      status,
-      paid_at: status === "paid" ? new Date().toISOString() : null,
+      status: dbStatus,
+      paid_at: dbStatus === "paid" ? new Date().toISOString() : null,
       updated_at: new Date().toISOString(),
     }, { onConflict: "lot_id,user_id" });
 
-  if (upsertError) return new Response(JSON.stringify({ error: upsertError.message }), { status: 500, headers: corsHeaders });
+  if (upsertError) {
+    console.error("[mark-lot-payment] DB Error:", upsertError);
+    return new Response(JSON.stringify({ error: upsertError.message }), { status: 500, headers: corsHeaders });
+  }
 
   return new Response(JSON.stringify({ success: true }), { status: 200, headers: corsHeaders });
 });

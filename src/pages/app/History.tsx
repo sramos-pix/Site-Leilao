@@ -5,7 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Gavel, ExternalLink, CheckCircle2, FileText, AlertCircle, Wallet } from "lucide-react";
+import { Loader2, Gavel, FileText, AlertCircle, Wallet, Car } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useNavigate, Link } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
@@ -42,8 +42,6 @@ const History = () => {
         const p = (payments || []).find((x: any) => x.lot_id === lot.id);
         return {
           ...lot,
-          // Simulando que o status 'paid' agora significa 'tudo pago'
-          // Em um sistema real, você teria colunas 'vehicle_paid' e 'commission_paid'
           vehicle_paid: p?.status === 'paid' || p?.status === 'partial', 
           commission_paid: p?.status === 'paid',
           payment_status: p?.status || "unpaid",
@@ -105,16 +103,22 @@ const History = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-3 w-full sm:w-auto justify-end">
-                      {!lot.commission_paid && (
+                      {/* Lógica de botões sequenciais */}
+                      {!lot.vehicle_paid ? (
+                        <Button 
+                          className="rounded-xl font-black bg-slate-900 hover:bg-slate-800 text-white px-6 shadow-lg"
+                          onClick={() => navigate(`/app/checkout/${lot.id}?type=vehicle`)}
+                        >
+                          <Car size={16} className="mr-2" /> PAGAR VEÍCULO ({formatCurrency(lot.final_price)})
+                        </Button>
+                      ) : !lot.commission_paid ? (
                         <Button 
                           className="rounded-xl font-black bg-orange-500 hover:bg-orange-600 text-white px-6 shadow-lg shadow-orange-100"
                           onClick={() => navigate(`/app/checkout/${lot.id}?type=commission`)}
                         >
                           <Wallet size={16} className="mr-2" /> PAGAR COMISSÃO ({formatCurrency(commission)})
                         </Button>
-                      )}
-
-                      {isFullyPaid ? (
+                      ) : (
                         <Button 
                           variant="secondary"
                           className="rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800 gap-2"
@@ -122,9 +126,11 @@ const History = () => {
                         >
                           <FileText size={16} /> BAIXAR NOTA FISCAL
                         </Button>
-                      ) : (
+                      )}
+
+                      {!isFullyPaid && (
                         <div className="flex items-center gap-2 text-slate-400 text-xs font-bold bg-slate-50 px-4 py-2 rounded-xl border border-dashed">
-                          <AlertCircle size={14} /> Nota liberada após quitação total
+                          <AlertCircle size={14} /> {!lot.vehicle_paid ? "Aguardando pagamento do veículo" : "Aguardando comissão"}
                         </div>
                       )}
                     </div>

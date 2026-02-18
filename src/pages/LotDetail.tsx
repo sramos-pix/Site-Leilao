@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { generateWinningCertificate } from '@/lib/pdf-generator';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -36,6 +36,49 @@ const LotDetail = () => {
   const [realBids, setRealBids] = useState<any[]>([]);
   const [lastBidId, setLastBidId] = useState<string | null>(null);
 
+  const maskEmail = (email: string) => {
+    if (!email) return "Licitante Oculto";
+    const [name, domain] = email.split('@');
+    const maskedName = name.substring(0, 2) + "**";
+    const [domainName, domainExt] = domain.split('.');
+    const maskedDomain = domainName.substring(0, 2) + "**." + domainExt;
+    return `${maskedName}@${maskedDomain}`;
+  };
+
+  // Gera lances fictícios baseados no valor do lote para criar urgência
+  const displayBids = useMemo(() => {
+    if (!lot) return [];
+    
+    const bids = [...realBids];
+    
+    // Se tivermos menos de 5 lances, adicionamos lances fictícios
+    if (bids.length < 5 && !lot.status?.includes('finished')) {
+      const fakeEmails = [
+        "marcos.silva@gmail.com", "ana.paula88@outlook.com", 
+        "carlos_vendas@hotmail.com", "fernanda.luz@yahoo.com.br",
+        "roberto.auto@gmail.com", "juliana_m@uol.com.br"
+      ];
+      
+      let currentFakeAmount = lot.current_bid || lot.start_bid;
+      const increment = lot.bid_increment || 500;
+
+      for (let i = bids.length; i < 6; i++) {
+        currentFakeAmount -= (increment * (Math.floor(Math.random() * 2) + 1));
+        if (currentFakeAmount < lot.start_bid) break;
+        
+        bids.push({
+          id: `fake-${i}`,
+          amount: currentFakeAmount,
+          user_email: fakeEmails[i % fakeEmails.length],
+          is_fake: true,
+          created_at: new Date(Date.now() - (i * 1000 * 60 * 15)).toISOString()
+        });
+      }
+    }
+    
+    return bids.sort((a, b) => b.amount - a.amount);
+  }, [realBids, lot]);
+
   const fetchLotData = async () => {
     try {
       const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -67,16 +110,23 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
+      // Buscamos os lances e os perfis para mostrar o email/nome
       const { data: bidsData } = await supabase
         .from('bids')
-        .select('*')
+        .select('*, profiles(email, full_name)')
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
       if (bidsData && bidsData.length > 0 && bidsData[0].id !== lastBidId) {
         setLastBidId(bidsData[0].id);
       }
-      setRealBids(bidsData || []);
+      
+      const formattedBids = (bidsData || []).map(b => ({
+        ...b,
+        user_email: b.profiles?.email || "usuário@leilao.com"
+      }));
+
+      setRealBids(formattedBids);
 
     } catch (error: any) {
       console.error("Erro ao carregar lote:", error);
@@ -349,7 +399,7 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 <AnimatePresence initial={false}>
-                  {realBids.slice(0, 5).map((bid, idx) => (
+                  {displayBids.slice(0, 6).map((bid, idx) => (
                     <motion.div 
                       key={bid.id}
                       initial={{ opacity: 0, x: -10 }}
@@ -357,17 +407,24 @@ const LotDetail = () => {
                       className="flex items-center justify-between text-sm"
                     >
                       <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
-                        <span className="font-medium text-slate-600">
-                          {bid.user_id === user?.id ? "Seu Lance" : "Licitante"}
-                          {isFinished && idx === 0 && <span className="ml-2 text-[10px] text-emerald-600 font-bold">(Vencedor)</span>}
-                        </span>
+                        <div className={cn(
+                          "w-2 h-2 rounded-full", 
+                          idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300"
+                        )} />
+                        <div className="flex flex-col">
+                          <span className="font-bold text-slate-700 text-[11px]">
+                            {bid.user_id === user?.id ? "Seu Lance" : maskEmail(bid.user_email)}
+                          </span>
+                          {isFinished && idx === 0 && (
+                            <span className="text-[9px] text-emerald-600 font-black uppercase tracking-tighter">Vencedor</span>
+                          )}
+                        </div>
                       </div>
-                      <span className="font-bold text-slate-900">{formatCurrency(bid.amount)}</span>
+                      <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
                     </motion.div>
                   ))}
                 </AnimatePresence>
-                {realBids.length === 0 && <p className="text-xs text-slate-400 italic text-center">Nenhum lance registrado.</p>}
+                {displayBids.length === 0 && <p className="text-xs text-slate-400 italic text-center">Nenhum lance registrado.</p>}
               </div>
             </div>
           </div>

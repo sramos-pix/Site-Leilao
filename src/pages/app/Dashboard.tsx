@@ -24,6 +24,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const [profile, setProfile] = React.useState<any>(null);
   const [activeBids, setActiveBids] = React.useState<any[]>([]);
+  const [recentNotifications, setRecentNotifications] = React.useState<any[]>([]);
   const [favoritesCount, setFavoritesCount] = React.useState(0);
   const [winsCount, setWinsCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -33,14 +34,15 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
+      // 1. Perfil
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
-      
       setProfile(profileData);
 
+      // 2. Lances Ativos
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`
@@ -71,6 +73,16 @@ const Dashboard = () => {
       }
       setActiveBids(Array.from(uniqueBidsMap.values()));
 
+      // 3. Notificações Recentes
+      const { data: notifs } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(3);
+      setRecentNotifications(notifs || []);
+
+      // 4. Estatísticas
       const { data: wins } = await supabase.rpc("get_user_wins", { p_user: user.id });
       setWinsCount(wins?.length || 0);
 
@@ -89,6 +101,14 @@ const Dashboard = () => {
 
   React.useEffect(() => {
     fetchDashboardData();
+
+    // Listener Realtime para Lances e Notificações
+    const channel = supabase.channel('dashboard-updates')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, () => fetchDashboardData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'notifications' }, () => fetchDashboardData())
+      .subscribe();
+
+    return () => { supabase.removeChannel(channel); };
   }, [fetchDashboardData]);
 
   if (isLoading) return (
@@ -117,7 +137,7 @@ const Dashboard = () => {
       description: 'Acesso total liberado',
       buttonText: ''
     };
-  } else if (hasDocument || kycStatus === 'in_review') {
+  } else if (hasDocument || kycStatus === 'in_review' || kycStatus === 'pending') {
     statusConfig = {
       label: 'EM ANÁLISE',
       color: 'bg-orange-500',
@@ -125,19 +145,11 @@ const Dashboard = () => {
       description: 'Documentos em verificação',
       buttonText: 'VER DETALHES'
     };
-  } else if (kycStatus === 'rejected') {
-    statusConfig = {
-      label: 'REJEITADO',
-      color: 'bg-red-600',
-      badge: 'text-red-600',
-      description: 'Documento recusado. Tente novamente.',
-      buttonText: 'REENVIAR AGORA'
-    };
   }
 
   const stats = [
     { label: 'Lances Ativos', value: activeBids.filter(b => b.lot_data?.status !== 'finished').length, icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50', path: null },
-    { label: 'Arremates', value: winsCount, icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50', path: null },
+    { label: 'Arremates', value: winsCount, icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50', path: '/app/wins' },
     { label: 'Favoritos', value: favoritesCount, icon: Heart, color: 'text-red-600', bg: 'bg-red-50', path: '/app/favorites' },
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50', path: null },
   ];
@@ -340,6 +352,34 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
+
+          <div className="bg-white p-8 rounded-2xl shadow-sm border border-slate-100">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-slate-900 text-lg flex items-center gap-2">
+                <Bell size={18} className="text-orange-500" /> Notificações
+              </h3>
+              <Link to="/app/notifications" className="text-[10px] font-bold text-orange-500 hover:underline">VER TODAS</Link>
+            </div>
+            <div className="space-y-5">
+              {recentNotifications.length > 0 ? recentNotifications.map((notif) => (
+                <div key={notif.id} className="flex gap-3 group cursor-pointer" onClick={() => navigate('/app/notifications')}>
+                  <div className={cn(
+                    "w-2 h-2 rounded-full mt-1.5 shrink-0",
+                    notif.read ? "bg-slate-200" : "bg-orange-500 shadow-[0_0_8px_rgba(249,115,22,0.4)]"
+                  )} />
+                  <div>
+                    <p className={cn(
+                      "text-xs font-bold leading-tight mb-1 group-hover:text-orange-500 transition-colors",
+                      notif.read ? "text-slate-500" : "text-slate-700"
+                    )}>{notif.title}</p>
+                    <p className="text-[10px] text-slate-400 font-medium line-clamp-2">{notif.message}</p>
+                  </div>
+                </div>
+              )) : (
+                <p className="text-xs text-slate-400 italic text-center py-4">Nenhuma notificação recente.</p>
+              )}
+            </div>
+          </div>
         </div>
       </div>
     </AppLayout>

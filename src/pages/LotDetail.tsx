@@ -55,14 +55,20 @@ const LotDetail = () => {
     }
   };
 
+  // Lógica de encerramento centralizada
+  const isFinished = useMemo(() => {
+    if (!lot) return false;
+    if (lot.status === 'finished') return true;
+    // Só encerra por tempo se ends_at existir e for no passado
+    if (lot.ends_at && new Date(lot.ends_at) <= now) return true;
+    return false;
+  }, [lot, now]);
+
   const displayBids = useMemo(() => {
     if (!lot) return [];
     const bids = [...realBids];
     
-    // Lógica de encerramento: Só encerra por tempo se ends_at existir
-    const isTimeUp = lot.ends_at ? new Date(lot.ends_at) <= now : false;
-    const isFinished = lot.status === 'finished' || isTimeUp;
-
+    // Se o leilão não estiver encerrado e tivermos poucos lances, geramos fictícios estáveis
     if (bids.length < 6 && !isFinished) {
       const fakeEmails = [
         "marcos.silva@gmail.com", "ana.paula88@outlook.com", 
@@ -73,22 +79,27 @@ const LotDetail = () => {
       let currentFakeAmount = lot.current_bid || lot.start_bid;
       const increment = lot.bid_increment || 500;
 
+      // Usamos o ID do lote para que os lances fictícios sejam sempre os mesmos para este carro
+      const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
+
       for (let i = bids.length; i < 8; i++) {
-        currentFakeAmount -= (increment * (Math.floor(Math.random() * 2) + 1));
+        // O valor fictício é baseado no valor atual menos incrementos fixos
+        currentFakeAmount -= (increment * ((seed + i) % 3 + 1));
         if (currentFakeAmount < lot.start_bid) break;
         
         bids.push({
-          id: `fake-${i}`,
+          id: `fake-${i}-${id}`,
           amount: currentFakeAmount,
-          user_email: fakeEmails[i % fakeEmails.length],
+          user_email: fakeEmails[(seed + i) % fakeEmails.length],
           is_fake: true,
-          created_at: new Date(Date.now() - (i * 1000 * 60 * 15)).toISOString()
+          // Data fixa no passado para não mudar a cada segundo
+          created_at: new Date(2024, 0, 1).toISOString() 
         });
       }
     }
     
     return bids.sort((a, b) => b.amount - a.amount);
-  }, [realBids, lot, now]);
+  }, [realBids, lot, isFinished, id]);
 
   const fetchLotData = async () => {
     try {
@@ -126,10 +137,6 @@ const LotDetail = () => {
         .select('*, profiles(email, full_name)')
         .eq('lot_id', id)
         .order('amount', { ascending: false });
-      
-      if (bidsData && bidsData.length > 0 && bidsData[0].id !== lastBidId) {
-        setLastBidId(bidsData[0].id);
-      }
       
       const formattedBids = (bidsData || []).map(b => ({
         ...b,
@@ -182,9 +189,6 @@ const LotDetail = () => {
 
   if (!lot) return null;
 
-  // Lógica de encerramento: Só encerra por tempo se ends_at NÃO for nulo
-  const isTimeUp = lot.ends_at ? new Date(lot.ends_at) <= now : false;
-  const isFinished = lot.status === 'finished' || isTimeUp;
   const isWinner = user && lot.winner_id === user.id;
   const shouldApplyOverlay = isFinished && !isWinner;
 

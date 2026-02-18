@@ -62,25 +62,30 @@ const LotDetail = () => {
 
   const displayBids = useMemo(() => {
     if (!lot) return [];
-    // Combinamos os lances reais com os fakes para manter o histórico cheio
+    // Combinamos os lances reais com os fakes
     const bids = [...realBids];
     
+    // Se não houver lances reais suficientes, adicionamos fakes para preencher a lista
     if (bids.length < 6 && !isFinished) {
       const fakeEmails = ["marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", "fernanda.l@yahoo.com", "roberto.a@gmail.com"];
       let currentFakeAmount = lot.current_bid || lot.start_bid;
       const increment = lot.bid_increment || 500;
       const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
 
-      for (let i = bids.length; i < 12; i++) {
+      for (let i = 0; i < 10; i++) {
         currentFakeAmount -= (increment * ((seed + i) % 3 + 1));
         if (currentFakeAmount < lot.start_bid) break;
-        bids.push({
-          id: `fake-${i}-${id}`,
-          amount: currentFakeAmount,
-          user_email: fakeEmails[(seed + i) % fakeEmails.length],
-          is_fake: true,
-          created_at: new Date(2024, 0, 1).toISOString() 
-        });
+        
+        // Só adiciona fake se não houver um lance real com esse valor exato (evita duplicatas visuais)
+        if (!bids.some(b => b.amount === currentFakeAmount)) {
+          bids.push({
+            id: `fake-${i}-${id}`,
+            amount: currentFakeAmount,
+            user_email: fakeEmails[(seed + i) % fakeEmails.length],
+            is_fake: true,
+            created_at: new Date(2024, 0, 1).toISOString() 
+          });
+        }
       }
     }
     return bids.sort((a, b) => b.amount - a.amount);
@@ -89,7 +94,8 @@ const LotDetail = () => {
   const fetchLotData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      setUser(session?.user || null);
+      const currentUser = session?.user || null;
+      setUser(currentUser);
 
       const { data: lotData, error: lotError } = await supabase
         .from('lots')
@@ -117,7 +123,7 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      // IMPORTANTE: Buscamos os lances e os perfis associados
+      // Buscamos os lances. Se a relação profiles falhar, pegamos apenas os dados de bids
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -133,14 +139,22 @@ const LotDetail = () => {
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
-      if (bidsError) console.error("Erro ao buscar lances:", bidsError);
-
-      const formattedBids = (bidsData || []).map(b => ({
-        ...b,
-        user_email: (b.profiles as any)?.email || "usuario@leilao.com"
-      }));
-
-      setRealBids(formattedBids);
+      if (bidsError) {
+        console.error("Erro ao buscar lances com perfis, tentando busca simples:", bidsError);
+        const { data: simpleBids } = await supabase
+          .from('bids')
+          .select('id, amount, user_id, created_at')
+          .eq('lot_id', id)
+          .order('amount', { ascending: false });
+        
+        setRealBids(simpleBids || []);
+      } else {
+        const formattedBids = (bidsData || []).map(b => ({
+          ...b,
+          user_email: (b.profiles as any)?.email || "usuario@leilao.com"
+        }));
+        setRealBids(formattedBids);
+      }
 
     } catch (error: any) {
       console.error("Erro ao carregar lote:", error);
@@ -152,7 +166,6 @@ const LotDetail = () => {
   useEffect(() => {
     fetchLotData();
     
-    // Inscrição em tempo real para lances e atualizações do lote
     const channel = supabase
       .channel(`lot-updates-${id}`)
       .on('postgres_changes', { 
@@ -194,7 +207,6 @@ const LotDetail = () => {
     try {
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance efetuado com sucesso!", description: "Seu lance foi registrado no sistema." });
-      // Forçamos a atualização imediata
       await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no lance", description: error.message });

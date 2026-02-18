@@ -64,10 +64,11 @@ const LotDetail = () => {
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Começamos com os lances reais do banco (sem filtros)
-    const bids = [...realBids];
+    // 1. Começamos com os lances REAIS vindos do banco de dados
+    // MANTEMOS todos os campos (id, user_id, amount, etc)
+    const combinedBids = [...realBids];
     
-    // 2. Geramos lances fictícios apenas para preencher se houver menos de 10
+    // 2. Geramos lances fictícios apenas para preencher a lista se houver poucos lances reais
     const fakeEmails = [
       "marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", 
       "fernanda.l@yahoo.com", "roberto.a@gmail.com", "juliana.m@gmail.com",
@@ -80,25 +81,33 @@ const LotDetail = () => {
     const increment = lot.bid_increment || 500;
     const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
 
-    // Se tivermos poucos lances reais, adicionamos fictícios ABAIXO do menor lance real
-    let minAmount = bids.length > 0 ? Math.min(...bids.map(b => b.amount)) : currentVal;
-    let tempAmount = minAmount;
+    // Pegamos o menor valor entre os lances reais ou o valor atual para começar a gerar fictícios abaixo
+    let minVal = combinedBids.length > 0 
+      ? Math.min(...combinedBids.map(b => b.amount)) 
+      : currentVal;
+    
+    let tempAmount = minVal;
 
-    while (bids.length < 12) {
-      tempAmount -= (increment * ((seed + bids.length) % 2 + 1));
-      if (tempAmount < (startVal * 0.2)) break;
+    // Preenchemos até ter pelo menos 12 lances na lista
+    while (combinedBids.length < 12) {
+      tempAmount -= (increment * ((seed + combinedBids.length) % 2 + 1));
+      
+      // Não deixamos o valor ficar muito baixo
+      if (tempAmount < (startVal * 0.1)) break;
 
-      bids.push({
-        id: `fake-${bids.length}-${id}`,
+      combinedBids.push({
+        id: `fake-${combinedBids.length}-${id}`,
         amount: tempAmount,
-        user_email: fakeEmails[(seed + bids.length) % fakeEmails.length],
+        user_email: fakeEmails[(seed + combinedBids.length) % fakeEmails.length],
+        user_id: 'fake-user', // ID que nunca baterá com o do usuário logado
         is_fake: true,
-        created_at: new Date(Date.now() - (bids.length + 1) * 3600000).toISOString()
+        created_at: new Date(Date.now() - (combinedBids.length + 1) * 3600000).toISOString()
       });
     }
     
     // 3. Ordenamos do maior para o menor
-    return bids.sort((a, b) => b.amount - a.amount);
+    // O lance real do usuário (se for o maior) estará no topo e manterá seu user_id original
+    return combinedBids.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id]);
 
   const fetchLotData = async () => {
@@ -133,7 +142,7 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      // Busca lances reais - IMPORTANTE: Pegar user_id para identificar "Seu Lance"
+      // BUSCA LANCES REAIS - Crucial: Pegar o user_id para a comparação no displayBids
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`id, amount, user_id, created_at, profiles (email, full_name)`)
@@ -442,16 +451,30 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 {displayBids.slice(0, 12).map((bid, idx) => {
+                  // COMPARAÇÃO CRUCIAL: Usamos o user_id preservado do lance real
                   const isCurrentUser = user && bid.user_id === user.id;
+                  
                   return (
                     <div key={bid.id} className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
-                        <span className={cn("font-bold text-[11px]", isCurrentUser ? "text-orange-600" : "text-slate-700")}>
+                        <div className={cn(
+                          "w-2 h-2 rounded-full", 
+                          idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300",
+                          isCurrentUser && "bg-orange-600"
+                        )} />
+                        <span className={cn(
+                          "font-bold text-[11px]", 
+                          isCurrentUser ? "text-orange-600" : "text-slate-700"
+                        )}>
                           {isCurrentUser ? "Seu Lance" : maskEmail(bid.user_email)}
                         </span>
                       </div>
-                      <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
+                      <span className={cn(
+                        "font-black",
+                        isCurrentUser ? "text-orange-600" : "text-slate-900"
+                      )}>
+                        {formatCurrency(bid.amount)}
+                      </span>
                     </div>
                   );
                 })}

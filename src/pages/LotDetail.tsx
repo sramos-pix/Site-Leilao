@@ -43,12 +43,12 @@ const LotDetail = () => {
   }, []);
 
   const maskEmail = (email: string) => {
-    if (!email) return "Licitante Oculto";
+    if (!email || email === "usuario@leilao.com") return "Licitante Oculto";
     try {
       const [name, domain] = email.split('@');
       const maskedName = name.substring(0, 2) + "***";
       const [domainName, domainExt] = domain.split('.');
-      const maskedDomain = domainName.substring(0, 2) + "***." + domainExt;
+      const maskedDomain = domainName.substring(0, 2) + "***." + (domainExt || "com");
       return `${maskedName}@${maskedDomain}`;
     } catch (e) {
       return "Licitante Oculto";
@@ -62,6 +62,7 @@ const LotDetail = () => {
 
   const displayBids = useMemo(() => {
     if (!lot) return [];
+    // Combinamos os lances reais com os fakes para manter o histórico cheio
     const bids = [...realBids];
     
     if (bids.length < 6 && !isFinished) {
@@ -70,7 +71,7 @@ const LotDetail = () => {
       const increment = lot.bid_increment || 500;
       const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
 
-      for (let i = bids.length; i < 8; i++) {
+      for (let i = bids.length; i < 12; i++) {
         currentFakeAmount -= (increment * ((seed + i) % 3 + 1));
         if (currentFakeAmount < lot.start_bid) break;
         bids.push({
@@ -107,24 +108,36 @@ const LotDetail = () => {
       setLot(lotData);
       setPhotos(photosData || []);
       
-      if (photosData && photosData.length > 0) {
+      if (photosData && photosData.length > 0 && !activePhoto) {
         setActivePhoto(photosData[0].public_url);
-      } else if (lotData.cover_image_url) {
+      } else if (lotData.cover_image_url && !activePhoto) {
         setActivePhoto(lotData.cover_image_url);
       }
 
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      const { data: bidsData } = await supabase
+      // IMPORTANTE: Buscamos os lances e os perfis associados
+      const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
-        .select('*, profiles(email, full_name)')
+        .select(`
+          id,
+          amount,
+          user_id,
+          created_at,
+          profiles (
+            email,
+            full_name
+          )
+        `)
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
+      if (bidsError) console.error("Erro ao buscar lances:", bidsError);
+
       const formattedBids = (bidsData || []).map(b => ({
         ...b,
-        user_email: b.profiles?.email || "usuario@leilao.com"
+        user_email: (b.profiles as any)?.email || "usuario@leilao.com"
       }));
 
       setRealBids(formattedBids);
@@ -138,17 +151,35 @@ const LotDetail = () => {
 
   useEffect(() => {
     fetchLotData();
+    
+    // Inscrição em tempo real para lances e atualizações do lote
     const channel = supabase
-      .channel(`lot-realtime-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => fetchLotData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => fetchLotData())
+      .channel(`lot-updates-${id}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'bids', 
+        filter: `lot_id=eq.${id}` 
+      }, () => {
+        fetchLotData();
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'lots', 
+        filter: `id=eq.${id}` 
+      }, () => {
+        fetchLotData();
+      })
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+
+    return () => { 
+      supabase.removeChannel(channel); 
+    };
   }, [id]);
 
   const handleBid = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    if (!user) {
       toast({ title: "Acesso restrito", description: "Faça login para dar lances.", variant: "destructive" });
       return;
     }
@@ -162,8 +193,9 @@ const LotDetail = () => {
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
-      toast({ title: "Lance efetuado com sucesso!" });
-      fetchLotData();
+      toast({ title: "Lance efetuado com sucesso!", description: "Seu lance foi registrado no sistema." });
+      // Forçamos a atualização imediata
+      await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no lance", description: error.message });
     } finally {
@@ -372,7 +404,7 @@ const LotDetail = () => {
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
-                {displayBids.slice(0, 8).map((bid, idx) => {
+                {displayBids.slice(0, 12).map((bid, idx) => {
                   const isCurrentUser = user && bid.user_id === user.id;
                   return (
                     <div key={bid.id} className="flex items-center justify-between text-sm">
@@ -386,6 +418,9 @@ const LotDetail = () => {
                     </div>
                   );
                 })}
+                {displayBids.length === 0 && (
+                  <p className="text-xs text-slate-400 text-center py-4">Nenhum lance registrado ainda.</p>
+                )}
               </div>
             </div>
           </div>

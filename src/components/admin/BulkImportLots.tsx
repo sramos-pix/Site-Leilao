@@ -59,6 +59,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         current_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
         bid_increment: parseFloat(row.Incremento || row.incremento || 500),
         description: row.Descricao || row.descricao || "",
+        cover_image_url: row.FotoCapa || row.foto_capa || row.Image || null,
         status: 'active',
         transmission: row.Cambio || row.cambio || "Automático",
         fuel_type: row.Combustivel || row.combustivel || "Flex"
@@ -81,8 +82,8 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
   const downloadTemplate = () => {
     const template = [
-      { Lote: 1, Titulo: "Toyota Corolla XEi", Marca: "Toyota", Modelo: "Corolla", Ano: 2023, KM: 15000, LanceInicial: 85000, Incremento: 1000, Cambio: "Automático", Combustivel: "Flex", Descricao: "Veículo impecável" },
-      { Lote: 2, Titulo: "Honda Civic Touring", Marca: "Honda", Modelo: "Civic", Ano: 2022, KM: 22000, LanceInicial: 95000, Incremento: 1000, Cambio: "Automático", Combustivel: "Gasolina", Descricao: "Único dono" }
+      { Lote: 1, Titulo: "Toyota Corolla XEi", Marca: "Toyota", Modelo: "Corolla", Ano: 2023, KM: 15000, LanceInicial: 85000, Incremento: 1000, Cambio: "Automático", Combustivel: "Flex", FotoCapa: "https://link-da-foto.com/foto.jpg", Descricao: "Veículo impecável" },
+      { Lote: 2, Titulo: "Honda Civic Touring", Marca: "Honda", Modelo: "Civic", Ano: 2022, KM: 22000, LanceInicial: 95000, Incremento: 1000, Cambio: "Automático", Combustivel: "Gasolina", FotoCapa: "", Descricao: "Único dono" }
     ];
     const ws = XLSX.utils.json_to_sheet(template);
     const wb = XLSX.utils.book_new();
@@ -107,7 +108,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertTitle className="text-blue-900 font-bold">Instruções</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs">
-              Use os nomes das colunas exatamente como no modelo: <b>Lote, Titulo, Marca, Modelo, Ano, KM, LanceInicial, Incremento, Cambio, Combustivel, Descricao</b>.
+              Use os nomes das colunas exatamente como no modelo. A coluna <b>FotoCapa</b> aceita links diretos de imagens (opcional).
             </AlertDescription>
           </Alert>
 
@@ -155,7 +156,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
                   <tr>
                     <th className="p-1 text-left">Lote</th>
                     <th className="p-1 text-left">Título</th>
-                    <th className="p-1 text-left">Valor</th>
+                    <th className="p-1 text-left">Foto (Link)</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -163,10 +164,9 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
                     <tr key={i} className="border-t">
                       <td className="p-1">{row.Lote || row.lote}</td>
                       <td className="p-1">{row.Titulo || row.titulo}</td>
-                      <td className="p-1">{row.LanceInicial || row.lance_inicial}</td>
+                      <td className="p-1 truncate max-w-[100px]">{row.FotoCapa || "N/A"}</td>
                     </tr>
                   ))}
-                  {previewData.length > 5 && <tr><td colSpan={3} className="text-center p-1 text-slate-400">... e mais {previewData.length - 5} itens</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -178,7 +178,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-14 rounded-2xl font-black shadow-lg shadow-emerald-100 transition-all"
           >
             {isImporting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-            CONFIRMAR IMPORTAÇÃO DE {previewData.length} ITENS
+            CONFIRMAR IMPORTAÇÃO
           </Button>
         </div>
       </DialogContent>

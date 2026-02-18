@@ -15,7 +15,8 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
     if (endsAt) {
       const end = new Date(endsAt).getTime();
       const now = new Date().getTime();
-      setSecondsLeft(Math.max(0, Math.floor((end - now) / 1000)));
+      const diff = Math.max(0, Math.floor((end - now) / 1000));
+      setSecondsLeft(diff);
       return;
     }
 
@@ -51,15 +52,23 @@ const CountdownTimer = ({ randomScarcity = false, endsAt, lotId }: CountdownTime
     const s = totalSeconds % 60;
     const pad = (n: number) => n.toString().padStart(2, '0');
 
+    if (totalSeconds <= 30 && totalSeconds > 0) {
+      return `BATIDA DO MARTELO: ${pad(s)}s`;
+    }
+
     if (h > 0) return `${h}h ${pad(m)}m ${pad(s)}s`;
     return `${pad(m)}m ${pad(s)}s`;
   };
 
   return (
-    <span className={secondsLeft < 3600 ? "text-white font-bold animate-pulse" : ""}>
+    <span className={cn(
+      secondsLeft < 3600 ? "text-white font-bold animate-pulse" : "",
+      secondsLeft <= 30 && secondsLeft > 0 ? "text-yellow-400 scale-110 inline-block" : ""
+    )}>
       {formatTime(secondsLeft)}
     </span>
   );
 };
 
+import { cn } from '@/lib/utils';
 export default CountdownTimer;

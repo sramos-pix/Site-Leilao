@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { 
-  ChevronLeft, Heart, Share2, Clock, Gavel, 
-  ShieldCheck, MapPin, Calendar, Gauge, 
-  Fuel, Settings2, Loader2, History, User, 
+import { generateWinningCertificate } from '@/lib/pdf-generator';
+import { FileText, ChevronLeft, Heart, Share2, Clock, Gavel,
+  ShieldCheck, MapPin, Calendar, Gauge,
+  Fuel, Settings2, Loader2, History, User,
   Trophy, Info, CheckCircle2, Lock as LockIcon
 } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -137,11 +138,21 @@ const LotDetail = () => {
                 <p className="text-emerald-50 text-sm font-medium">Parabéns! Seu lance foi o vencedor. Verifique suas notificações para os próximos passos.</p>
               </div>
             </div>
-            <Link to={`/app/checkout/${lot.id}`}>
-              <Button className="bg-white text-emerald-600 hover:bg-emerald-50 font-black px-8 py-6 rounded-2xl shadow-sm">
-                PAGAR AGORA
+            <div className="flex flex-col md:flex-row gap-3">
+              <Button
+                onClick={() => generateWinningCertificate(lot, user)}
+                variant="outline"
+                className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-bold px-6 py-6 rounded-2xl flex items-center gap-2"
+              >
+                <FileText size={20} /> NOTA DE ARREMATE
               </Button>
-            </Link>
+              <Link to={`/app/checkout/${lot.id}`}>
+                <Button className="bg-white text-emerald-600 hover:bg-emerald-50 font-black px-8 py-6 rounded-2xl shadow-sm w-full md:w-auto">
+                  PAGAR AGORA
+                </Button>
+              </Link>
+            </div>
+
           </div>
         )}
 

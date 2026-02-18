@@ -62,10 +62,8 @@ const LotDetail = () => {
 
   const displayBids = useMemo(() => {
     if (!lot) return [];
-    // Combinamos os lances reais com os fakes
     const bids = [...realBids];
     
-    // Se não houver lances reais suficientes, adicionamos fakes para preencher a lista
     if (bids.length < 6 && !isFinished) {
       const fakeEmails = ["marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", "fernanda.l@yahoo.com", "roberto.a@gmail.com"];
       let currentFakeAmount = lot.current_bid || lot.start_bid;
@@ -76,7 +74,6 @@ const LotDetail = () => {
         currentFakeAmount -= (increment * ((seed + i) % 3 + 1));
         if (currentFakeAmount < lot.start_bid) break;
         
-        // Só adiciona fake se não houver um lance real com esse valor exato (evita duplicatas visuais)
         if (!bids.some(b => b.amount === currentFakeAmount)) {
           bids.push({
             id: `fake-${i}-${id}`,
@@ -123,7 +120,6 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      // Buscamos os lances. Se a relação profiles falhar, pegamos apenas os dados de bids
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -140,7 +136,6 @@ const LotDetail = () => {
         .order('amount', { ascending: false });
       
       if (bidsError) {
-        console.error("Erro ao buscar lances com perfis, tentando busca simples:", bidsError);
         const { data: simpleBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at')
@@ -251,15 +246,10 @@ const LotDetail = () => {
               <Button
                 onClick={() => generateWinningCertificate(lot, user)}
                 variant="outline"
-                className="bg-white/10 border-white/20 text-white hover:bg-white/20 font-bold px-6 py-6 rounded-2xl flex items-center gap-2"
+                className="bg-white text-emerald-600 border-none hover:bg-emerald-50 font-black px-8 py-6 rounded-2xl shadow-sm flex items-center gap-2 w-full md:w-auto"
               >
-                <FileText size={20} /> NOTA DE ARREMATE
+                <FileText size={20} /> GERAR NOTA DE ARREMATE
               </Button>
-              <Link to={`/app/checkout/${lot.id}`}>
-                <Button className="bg-white text-emerald-600 hover:bg-emerald-50 font-black px-8 py-6 rounded-2xl shadow-sm w-full md:w-auto">
-                  PAGAR AGORA
-                </Button>
-              </Link>
             </div>
           </motion.div>
         )}

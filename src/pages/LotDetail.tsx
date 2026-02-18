@@ -35,7 +35,6 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
-  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
 
   const maskEmail = (email: string) => {
     if (!email || email === "usuario@leilao.com") return "Licitante Oculto";
@@ -49,14 +48,14 @@ const LotDetail = () => {
 
   const isFinished = lot?.status === 'finished';
 
-  // Lógica de lances unificada e simplificada
+  // Lógica de lances unificada
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Lances Reais
+    // 1. Lances Reais (Preservando user_id original)
     const bids = [...realBids];
     
-    // 2. Preenchimento Fictício
+    // 2. Preenchimento Fictício para manter a lista com 10 itens
     const fakeEmails = ["m.silva@gmail.com", "ana.p@uol.com", "carlos.v@bol.com", "fer.l@gmail.com", "rob.a@outlook.com"];
     const startVal = lot.start_bid || 1000;
     const currentVal = lot.current_bid || startVal;
@@ -71,7 +70,7 @@ const LotDetail = () => {
         id: `fake-${bids.length}`,
         amount: tempAmount,
         user_email: fakeEmails[bids.length % fakeEmails.length],
-        user_id: 'fake',
+        user_id: 'fake-id', // ID que nunca será igual ao do usuário logado
         is_fake: true
       });
     }
@@ -81,9 +80,11 @@ const LotDetail = () => {
 
   const fetchLotData = async () => {
     try {
+      // Busca usuário logado
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
 
+      // Busca dados do lote
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -100,7 +101,7 @@ const LotDetail = () => {
         setPhotos(ph || []);
         if (!activePhoto) setActivePhoto(lotData.cover_image_url);
 
-        // Lances Reais - Pegando o perfil para o e-mail
+        // Lances Reais com e-mail do perfil
         const { data: b } = await supabase
           .from('bids')
           .select(`id, amount, user_id, created_at, profiles(email)`)
@@ -220,18 +221,30 @@ const LotDetail = () => {
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  // Comparação direta e segura
+                  // Comparação robusta do ID do usuário
                   const isMe = user && bid.user_id === user.id;
                   
                   return (
-                    <div key={bid.id} className="flex items-center justify-between text-sm">
+                    <div key={bid.id} className={cn(
+                      "flex items-center justify-between text-sm p-2 rounded-xl transition-colors",
+                      isMe ? "bg-orange-50 border border-orange-100" : ""
+                    )}>
                       <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : isMe ? "bg-orange-600" : "bg-slate-300")} />
-                        <span className={cn("font-bold text-[11px]", isMe ? "text-orange-600" : "text-slate-700")}>
+                        <div className={cn(
+                          "w-2 h-2 rounded-full", 
+                          idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : isMe ? "bg-orange-600" : "bg-slate-300"
+                        )} />
+                        <span className={cn(
+                          "font-bold text-[11px]", 
+                          isMe ? "text-orange-600" : "text-slate-700"
+                        )}>
                           {isMe ? "Seu Lance" : maskEmail(bid.user_email)}
                         </span>
                       </div>
-                      <span className={cn("font-black", isMe ? "text-orange-600" : "text-slate-900")}>
+                      <span className={cn(
+                        "font-black",
+                        isMe ? "text-orange-600" : "text-slate-900"
+                      )}>
                         {formatCurrency(bid.amount)}
                       </span>
                     </div>

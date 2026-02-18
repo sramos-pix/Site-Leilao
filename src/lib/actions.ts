@@ -1,10 +1,10 @@
 import { supabase } from './supabase';
 
 export const placeBid = async (lotId: string, amount: number) => {
-  // 1. Obter sessão do usuário
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  // 1. Obter usuário atual de forma segura
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
   
-  if (sessionError || !session?.user) {
+  if (userError || !user) {
     throw new Error("Você precisa estar logado para dar um lance.");
   }
 
@@ -19,7 +19,7 @@ export const placeBid = async (lotId: string, amount: number) => {
     throw new Error("Lote não encontrado ou erro ao carregar dados.");
   }
 
-  // 3. Verificar se o lote está finalizado pelo STATUS (Ignora tempo para urgência)
+  // 3. Verificar se o lote está finalizado
   if (lot.status === 'finished') {
     throw new Error("Este leilão já foi encerrado oficialmente.");
   }
@@ -34,17 +34,22 @@ export const placeBid = async (lotId: string, amount: number) => {
   }
 
   // 5. Inserir o lance na tabela de bids
+  // Importante: O user_id deve ser exatamente o ID do usuário autenticado para passar no RLS
   const { error: bidError } = await supabase
     .from('bids')
     .insert({
       lot_id: lotId,
-      user_id: session.user.id,
+      user_id: user.id,
       amount: amount
     });
 
   if (bidError) {
-    console.error("Erro ao inserir lance:", bidError);
-    throw new Error("Não foi possível registrar seu lance. Tente novamente.");
+    console.error("Erro detalhado do Supabase (Bids):", bidError);
+    // Se o erro for de RLS ou violação de chave, mostramos uma mensagem mais clara
+    if (bidError.code === '42501') {
+      throw new Error("Erro de permissão: Verifique se sua conta está ativa.");
+    }
+    throw new Error(`Erro ao registrar lance: ${bidError.message}`);
   }
 
   // 6. Atualizar o valor atual no lote
@@ -56,7 +61,7 @@ export const placeBid = async (lotId: string, amount: number) => {
     .eq('id', lotId);
 
   if (updateError) {
-    console.error("Erro ao atualizar lote:", updateError);
+    console.error("Erro ao atualizar valor no lote:", updateError);
   }
 
   return { success: true };

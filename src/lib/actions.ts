@@ -1,62 +1,65 @@
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 export const placeBid = async (lotId: string, amount: number) => {
-  const { data: { session } } = await supabase.auth.getSession();
+  // 1. Obter sessão do usuário
+  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
-  if (!session) {
+  if (sessionError || !session?.user) {
     throw new Error("Você precisa estar logado para dar um lance.");
   }
 
-  // 1. Buscar dados atuais do lote
+  // 2. Buscar dados atuais do lote para validação
   const { data: lot, error: lotError } = await supabase
     .from('lots')
-    .select('*')
+    .select('id, status, current_bid, start_bid, bid_increment')
     .eq('id', lotId)
     .single();
 
   if (lotError || !lot) {
-    throw new Error("Lote não encontrado.");
+    throw new Error("Lote não encontrado ou erro ao carregar dados.");
   }
 
-  // 2. Verificar se o lote está finalizado pelo STATUS
-  // Ignoramos a verificação de tempo (ends_at) para permitir a estratégia de urgência
+  // 3. Verificar se o lote está finalizado pelo STATUS (Ignora tempo para urgência)
   if (lot.status === 'finished') {
-    throw new Error("Este leilão já foi encerrado.");
+    throw new Error("Este leilão já foi encerrado oficialmente.");
   }
 
-  // 3. Verificar se o lance é maior que o atual
-  const currentAmount = lot.current_bid || lot.start_bid;
+  // 4. Validar valor do lance
+  const currentAmount = lot.current_bid || lot.start_bid || 0;
   const minIncrement = lot.bid_increment || 500;
+  const minRequired = Number(currentAmount) + Number(minIncrement);
 
-  if (amount < currentAmount + minIncrement) {
-    throw new Error(`O lance mínimo permitido é R$ ${(currentAmount + minIncrement).toLocaleString('pt-BR')}`);
+  if (amount < minRequired) {
+    throw new Error(`O lance mínimo permitido é R$ ${minRequired.toLocaleString('pt-BR')}`);
   }
 
-  // 4. Inserir o lance
+  // 5. Inserir o lance na tabela de bids
+  // O banco de dados possui triggers que podem atualizar o lote automaticamente, 
+  // mas faremos a atualização manual para garantir a interface imediata.
   const { error: bidError } = await supabase
     .from('bids')
     .insert({
       lot_id: lotId,
       user_id: session.user.id,
-      amount: amount,
-      ip_address: '127.0.0.1' // Simplificado para o exemplo
+      amount: amount
     });
 
   if (bidError) {
-    throw bidError;
+    console.error("Erro ao inserir lance:", bidError);
+    throw new Error("Não foi possível registrar seu lance. Tente novamente.");
   }
 
-  // 5. Atualizar o lote com o novo lance atual
+  // 6. Atualizar o valor atual no lote
   const { error: updateError } = await supabase
     .from('lots')
     .update({ 
-      current_bid: amount,
-      // Se houver uma data de término, o trigger no banco cuidará da extensão (anti-sniping)
+      current_bid: amount
     })
     .eq('id', lotId);
 
   if (updateError) {
-    throw updateError;
+    console.error("Erro ao atualizar lote:", updateError);
+    // Não lançamos erro aqui pois o lance já foi registrado na tabela de bids
   }
 
   return { success: true };

@@ -57,7 +57,8 @@ const LotDetail = () => {
     
     // 2. Parâmetros para lances fictícios
     const startBid = lot.start_bid || 0;
-    const currentBid = lot.current_bid || startBid;
+    // Se não houver lances reais, o preço base para os fakes deve ser o start_bid
+    const currentBid = combined.length > 0 ? (lot.current_bid || startBid) : startBid;
     const increment = lot.bid_increment || 500;
     
     let lastAmount = combined.length > 0 
@@ -66,8 +67,10 @@ const LotDetail = () => {
 
     const fakeEmails = ["m.silva@gmail.com", "ana.p@uol.com", "carlos.v@bol.com", "fer.l@gmail.com", "rob.a@outlook.com"];
 
-    // 3. Preenchimento
+    // 3. Preenchimento (apenas se houver lances ou se quisermos simular histórico)
     let i = 0;
+    // Se você zerou os lances, talvez queira que a lista também fique limpa ou comece do zero.
+    // Aqui mantemos a lógica de preenchimento mas baseada no start_bid se realBids for vazio.
     while (combined.length < 10 && lastAmount > (startBid * 0.3)) {
       lastAmount -= increment;
       if (lastAmount <= 0) break;
@@ -85,6 +88,15 @@ const LotDetail = () => {
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id]);
 
+  // Valor atual real para exibição no destaque
+  const currentDisplayPrice = useMemo(() => {
+    if (!lot) return 0;
+    // Se não houver lances reais na lista, mostramos o valor inicial (start_bid)
+    // mesmo que a coluna current_bid no banco ainda esteja com o valor antigo.
+    if (realBids.length === 0) return lot.start_bid;
+    return lot.current_bid || lot.start_bid;
+  }, [lot, realBids]);
+
   const fetchLotData = async () => {
     try {
       // 1. Busca Usuário
@@ -101,38 +113,40 @@ const LotDetail = () => {
 
       if (lotData) {
         setLot(lotData);
-        setBidAmount((lotData.current_bid || lotData.start_bid) + (lotData.bid_increment || 500));
         
-        // Fotos
-        const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
-        setPhotos(ph || []);
-        if (!activePhoto) setActivePhoto(lotData.cover_image_url);
-
-        // 3. Busca Lances Reais (Simplificado para não perder o user_id)
+        // 3. Busca Lances Reais
         const { data: b } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at')
           .eq('lot_id', id)
           .order('amount', { ascending: false });
         
-        if (b) {
-          // Buscamos os emails dos perfis separadamente para não quebrar o user_id
+        let bidsWithEmail: any[] = [];
+        if (b && b.length > 0) {
           const userIds = [...new Set(b.map(bid => bid.user_id))];
           const { data: profiles } = await supabase
             .from('profiles')
             .select('id, email')
             .in('id', userIds);
 
-          const bidsWithEmail = b.map(bid => {
+          bidsWithEmail = b.map(bid => {
             const profile = profiles?.find(p => p.id === bid.user_id);
             return {
               ...bid,
               user_email: profile?.email || "usuario@leilao.com"
             };
           });
-          
-          setRealBids(bidsWithEmail);
         }
+        setRealBids(bidsWithEmail);
+
+        // Ajusta o valor do próximo lance sugerido
+        const basePrice = bidsWithEmail.length > 0 ? (lotData.current_bid || lotData.start_bid) : lotData.start_bid;
+        setBidAmount(basePrice + (lotData.bid_increment || 500));
+        
+        // Fotos
+        const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
+        setPhotos(ph || []);
+        if (!activePhoto) setActivePhoto(lotData.cover_image_url);
       }
     } catch (e) {
       console.error("Erro:", e);
@@ -219,7 +233,7 @@ const LotDetail = () => {
 
                 <div>
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">{isFinished ? "Vendido por" : "Lance Atual"}</p>
-                  <p className="text-4xl font-black text-white">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                  <p className="text-4xl font-black text-white">{formatCurrency(currentDisplayPrice)}</p>
                 </div>
 
                 {!isFinished ? (
@@ -238,14 +252,13 @@ const LotDetail = () => {
               </CardContent>
             </Card>
 
-            {/* LISTA DE LANCES - ONDE O DESTAQUE DEVE APARECER */}
+            {/* LISTA DE LANCES */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  // Comparação direta e segura
                   const isMe = currentUser && bid.user_id === currentUser.id;
                   
                   return (

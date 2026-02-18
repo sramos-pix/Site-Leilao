@@ -33,7 +33,7 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Busca perfil
+      // 1. Busca perfil
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
@@ -45,7 +45,7 @@ const Dashboard = () => {
         kyc_status: 'waiting'
       });
 
-      // Busca lances do usuário com dados do lote
+      // 2. Busca lances (Simplificado ao máximo para teste)
       const { data: bidsData, error: bidsError } = await supabase
         .from('bids')
         .select(`
@@ -64,42 +64,37 @@ const Dashboard = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (bidsError) throw bidsError;
+      if (bidsError) {
+        console.error("Erro ao buscar lances:", bidsError);
+      }
 
-      // Processamento robusto dos lances
-      const now = new Date();
+      // 3. Processamento sem filtros de data (para debug)
       const uniqueBidsMap = new Map();
 
-      if (bidsData) {
+      if (bidsData && bidsData.length > 0) {
         bidsData.forEach(bid => {
-          // O Supabase pode retornar 'lots' como objeto ou array dependendo da configuração
           const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
-          
           if (lot) {
-            const isExpired = new Date(lot.ends_at) < now;
-            const isFinished = lot.status === 'finished';
-
-            // Se o lote ainda está ativo, guardamos o maior lance do usuário para ele
-            if (!isExpired && !isFinished) {
-              const existing = uniqueBidsMap.get(bid.lot_id);
-              if (!existing || existing.amount < bid.amount) {
-                uniqueBidsMap.set(bid.lot_id, {
-                  ...bid,
-                  lot_data: lot // Guardamos os dados do lote explicitamente
-                });
-              }
+            // Se o lote existe, mostramos ele (mesmo que o status seja diferente de active)
+            if (!uniqueBidsMap.has(bid.lot_id) || uniqueBidsMap.get(bid.lot_id).amount < bid.amount) {
+              uniqueBidsMap.set(bid.lot_id, {
+                ...bid,
+                lot_data: lot
+              });
             }
           }
         });
       }
       
-      setActiveBids(Array.from(uniqueBidsMap.values()));
+      const processedBids = Array.from(uniqueBidsMap.values());
+      console.log("Lances processados no Dashboard:", processedBids);
+      setActiveBids(processedBids);
 
-      // Busca vitórias
+      // 4. Busca vitórias
       const { data: wins } = await supabase.rpc("get_user_wins", { p_user: user.id });
       setWinsCount(wins?.length || 0);
 
-      // Busca favoritos
+      // 5. Busca favoritos
       const { count } = await supabase
         .from('favorites')
         .select('*', { count: 'exact', head: true })
@@ -107,7 +102,7 @@ const Dashboard = () => {
       setFavoritesCount(count || 0);
 
     } catch (error) {
-      console.error("Erro Dashboard:", error);
+      console.error("Erro fatal no Dashboard:", error);
     } finally {
       setIsLoading(false);
     }
@@ -133,15 +128,6 @@ const Dashboard = () => {
 
   const kycStatus = profile?.kyc_status;
   const isVerified = kycStatus === 'verified';
-  const isPendingAnalysis = kycStatus === 'pending';
-  const isRejected = kycStatus === 'rejected';
-
-  const getKycStatusLabel = () => {
-    if (isVerified) return 'APROVADO';
-    if (isPendingAnalysis) return 'EM ANÁLISE';
-    if (isRejected) return 'REJEITADO';
-    return 'AGUARDANDO ENVIO';
-  };
 
   return (
     <AppLayout>
@@ -231,7 +217,9 @@ const Dashboard = () => {
                           <h3 className="font-bold text-slate-900 text-base line-clamp-1 mb-1">{lot?.title}</h3>
                           <div className="flex items-center gap-2 text-slate-400">
                             <Clock size={12} />
-                            <span className="text-[10px] font-bold uppercase tracking-wider">Expira em {new Date(lot?.ends_at).toLocaleDateString('pt-BR')}</span>
+                            <span className="text-[10px] font-bold uppercase tracking-wider">
+                              {lot?.ends_at ? `Expira em ${new Date(lot.ends_at).toLocaleDateString('pt-BR')}` : 'Leilão Ativo'}
+                            </span>
                           </div>
                         </div>
                         <Badge className="bg-blue-50 text-blue-600 border-none font-bold text-[10px] px-2 py-0.5 rounded-full">
@@ -273,7 +261,7 @@ const Dashboard = () => {
           
           <Card className={cn(
             "border-none shadow-lg rounded-2xl overflow-hidden transition-all duration-300 text-white",
-            kycStatus === 'verified' ? "bg-emerald-600" : kycStatus === 'pending' ? "bg-orange-500" : "bg-red-600"
+            isVerified ? "bg-emerald-600" : "bg-orange-500"
           )}>
             <CardContent className="p-8">
               <div className="flex items-center gap-4 mb-6">
@@ -283,7 +271,7 @@ const Dashboard = () => {
                 <div>
                   <h3 className="font-bold text-lg">Verificação</h3>
                   <p className="text-white/70 text-[10px] font-medium">
-                    {kycStatus === 'verified' ? 'Acesso total liberado' : 'Ação necessária para lances'}
+                    {isVerified ? 'Acesso total liberado' : 'Ação necessária para lances'}
                   </p>
                 </div>
               </div>
@@ -291,18 +279,15 @@ const Dashboard = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl backdrop-blur-sm">
                   <span className="text-xs font-bold text-white/80">Status Atual</span>
-                  <Badge className={cn(
-                    "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider bg-white",
-                    kycStatus === 'verified' ? "text-emerald-600" : kycStatus === 'pending' ? "text-orange-600" : "text-red-600"
-                  )}>
-                    {getKycStatusLabel()}
+                  <Badge className="bg-white text-slate-900 border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider">
+                    {isVerified ? 'APROVADO' : 'PENDENTE'}
                   </Badge>
                 </div>
                 
-                {kycStatus !== 'verified' && (
+                {!isVerified && (
                   <Link to="/app/verify" className="block">
                     <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold h-12 text-base shadow-md">
-                      {kycStatus === 'pending' ? 'VER DETALHES' : 'ENVIAR DOCUMENTOS'}
+                      ENVIAR DOCUMENTOS
                     </Button>
                   </Link>
                 )}

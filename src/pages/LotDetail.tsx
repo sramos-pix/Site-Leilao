@@ -8,7 +8,7 @@ import { FileText, ChevronLeft, Heart, Share2, Clock, Gavel,
   ShieldCheck, MapPin, Calendar, Gauge,
   Fuel, Settings2, Loader2, History, User,
   Trophy, Info, CheckCircle2, Lock as LockIcon,
-  TrendingUp
+  TrendingUp, CreditCard, AlertCircle
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,7 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
+  const [paymentStatus, setPaymentStatus] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -120,35 +121,29 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      const { data: bidsData, error: bidsError } = await supabase
+      // Fetch bids
+      const { data: bidsData } = await supabase
         .from('bids')
-        .select(`
-          id,
-          amount,
-          user_id,
-          created_at,
-          profiles (
-            email,
-            full_name
-          )
-        `)
+        .select(`id, amount, user_id, created_at, profiles (email, full_name)`)
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
-      if (bidsError) {
-        const { data: simpleBids } = await supabase
-          .from('bids')
-          .select('id, amount, user_id, created_at')
+      const formattedBids = (bidsData || []).map(b => ({
+        ...b,
+        user_email: (b.profiles as any)?.email || "usuario@leilao.com"
+      }));
+      setRealBids(formattedBids);
+
+      // Fetch payment status if finished and winner
+      if (lotData.status === 'finished' && currentUser && lotData.winner_id === currentUser.id) {
+        const { data: paymentData } = await supabase
+          .from('lot_payments')
+          .select('status')
           .eq('lot_id', id)
-          .order('amount', { ascending: false });
+          .eq('user_id', currentUser.id)
+          .maybeSingle();
         
-        setRealBids(simpleBids || []);
-      } else {
-        const formattedBids = (bidsData || []).map(b => ({
-          ...b,
-          user_email: (b.profiles as any)?.email || "usuario@leilao.com"
-        }));
-        setRealBids(formattedBids);
+        setPaymentStatus(paymentData?.status || 'unpaid');
       }
 
     } catch (error: any) {
@@ -222,6 +217,7 @@ const LotDetail = () => {
 
   const isWinner = user && lot.winner_id === user.id;
   const shouldApplyOverlay = isFinished && !isWinner;
+  const isPaid = paymentStatus === 'paid';
 
   return (
     <div className="bg-white min-h-screen flex flex-col">
@@ -231,25 +227,42 @@ const LotDetail = () => {
           <motion.div 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="mb-8 bg-emerald-500 text-white p-6 rounded-[2rem] shadow-lg shadow-emerald-100 flex flex-col md:flex-row items-center justify-between gap-6"
+            className={cn(
+              "mb-8 p-6 rounded-[2rem] shadow-lg flex flex-col md:flex-row items-center justify-between gap-6",
+              isPaid ? "bg-emerald-500 text-white shadow-emerald-100" : "bg-orange-500 text-white shadow-orange-100"
+            )}
           >
             <div className="flex items-center gap-4">
               <div className="bg-white/20 p-3 rounded-2xl">
-                <Trophy size={32} className="text-white" />
+                {isPaid ? <Trophy size={32} className="text-white" /> : <CreditCard size={32} className="text-white" />}
               </div>
               <div>
-                <h2 className="text-2xl font-black">Você Venceu!</h2>
-                <p className="text-emerald-50 text-sm font-medium">Parabéns! Seu lance foi o vencedor.</p>
+                <h2 className="text-2xl font-black">{isPaid ? "Arremate Confirmado!" : "Aguardando Pagamento"}</h2>
+                <p className="text-white/90 text-sm font-medium">
+                  {isPaid 
+                    ? "Pagamento identificado. Sua nota de arremate está disponível." 
+                    : "Parabéns pela vitória! Realize o pagamento para liberar sua nota de arremate."}
+                </p>
               </div>
             </div>
-            <div className="flex flex-col md:flex-row gap-3">
-              <Button
-                onClick={() => generateWinningCertificate(lot, user)}
-                variant="outline"
-                className="bg-white text-emerald-600 border-none hover:bg-emerald-50 font-black px-8 py-6 rounded-2xl shadow-sm flex items-center gap-2 w-full md:w-auto"
-              >
-                <FileText size={20} /> GERAR NOTA DE ARREMATE
-              </Button>
+            <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
+              {isPaid ? (
+                <Button
+                  onClick={() => generateWinningCertificate(lot, user)}
+                  variant="outline"
+                  className="bg-white text-emerald-600 border-none hover:bg-emerald-50 font-black px-8 py-6 rounded-2xl shadow-sm flex items-center gap-2 w-full md:w-auto"
+                >
+                  <FileText size={20} /> GERAR NOTA DE ARREMATE
+                </Button>
+              ) : (
+                <Link to={`/app/checkout/${lot.id}`} className="w-full md:w-auto">
+                  <Button
+                    className="bg-white text-orange-600 hover:bg-orange-50 font-black px-8 py-6 rounded-2xl shadow-sm flex items-center gap-2 w-full"
+                  >
+                    <CreditCard size={20} /> PAGAR AGORA
+                  </Button>
+                </Link>
+              )}
             </div>
           </motion.div>
         )}
@@ -275,7 +288,7 @@ const LotDetail = () => {
                 {isFinished && (
                   <div className="absolute inset-0 bg-slate-900/30 backdrop-blur-[1px] flex items-center justify-center z-20">
                     <Badge className="bg-white text-slate-900 px-6 py-2 text-lg font-bold rounded-full shadow-xl">
-                      {isWinner ? "ARREMATADO POR VOCÊ" : "ENCERRADO"}
+                      {isWinner ? (isPaid ? "ARREMATADO E PAGO" : "AGUARDANDO PAGAMENTO") : "ENCERRADO"}
                     </Badge>
                   </div>
                 )}
@@ -337,7 +350,7 @@ const LotDetail = () => {
           <div className="lg:col-span-4 space-y-6">
             <Card className={cn(
               "border-none shadow-xl rounded-3xl overflow-hidden text-white",
-              isFinished && isWinner ? "bg-emerald-600" : "bg-slate-900"
+              isFinished && isWinner ? (isPaid ? "bg-emerald-600" : "bg-orange-600") : "bg-slate-900"
             )}>
               <CardContent className="p-8 space-y-6">
                 <div className="flex justify-between items-center">
@@ -390,11 +403,22 @@ const LotDetail = () => {
                   </div>
                 ) : (
                   <div className="pt-2">
-                    <div className="bg-white/10 p-4 rounded-2xl border border-white/20 flex items-center gap-3">
-                      {isWinner ? <CheckCircle2 className="text-white" size={24} /> : <LockIcon className="text-white/60" size={24} />}
-                      <p className="text-xs font-bold leading-tight">
-                        {isWinner ? "Você arrematou este veículo!" : "Este leilão foi encerrado para novos lances."}
-                      </p>
+                    <div className="bg-white/10 p-4 rounded-2xl border border-white/20 flex flex-col gap-3">
+                      <div className="flex items-center gap-3">
+                        {isWinner ? (isPaid ? <CheckCircle2 className="text-white" size={24} /> : <AlertCircle className="text-white" size={24} />) : <LockIcon className="text-white/60" size={24} />}
+                        <p className="text-xs font-bold leading-tight">
+                          {isWinner 
+                            ? (isPaid ? "Veículo arrematado e pago!" : "Aguardando confirmação de pagamento.") 
+                            : "Este leilão foi encerrado para novos lances."}
+                        </p>
+                      </div>
+                      {isWinner && !isPaid && (
+                        <Link to={`/app/checkout/${lot.id}`}>
+                          <Button className="w-full bg-white text-orange-600 hover:bg-slate-100 font-bold rounded-xl h-10 text-xs">
+                            IR PARA PAGAMENTO
+                          </Button>
+                        </Link>
+                      )}
                     </div>
                   </div>
                 )}

@@ -1,5 +1,5 @@
 import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 import { formatCurrency } from "./utils";
 
 export const generateWinningCertificate = (lot: any, user: any) => {
@@ -85,7 +85,7 @@ export const generateWinningCertificate = (lot: any, user: any) => {
   const commission = finalPrice * 0.05;
   const total = finalPrice + commission;
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     startY: 170,
     margin: { left: 20, right: 20 },
     head: [['DESCRIÇÃO DOS VALORES', 'MONTANTE (BRL)']],

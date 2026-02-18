@@ -33,20 +33,15 @@ const Dashboard = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // 1. Busca perfil
       const { data: profileData } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
         .single();
       
-      setProfile(profileData || {
-        full_name: user.user_metadata?.full_name || user.email?.split('@')[0],
-        kyc_status: 'waiting'
-      });
+      setProfile(profileData);
 
-      // 2. Busca lances (Simplificado ao máximo para teste)
-      const { data: bidsData, error: bidsError } = await supabase
+      const { data: bidsData } = await supabase
         .from('bids')
         .select(`
           id, 
@@ -64,37 +59,20 @@ const Dashboard = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (bidsError) {
-        console.error("Erro ao buscar lances:", bidsError);
-      }
-
-      // 3. Processamento sem filtros de data (para debug)
       const uniqueBidsMap = new Map();
-
-      if (bidsData && bidsData.length > 0) {
+      if (bidsData) {
         bidsData.forEach(bid => {
           const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
-          if (lot) {
-            // Se o lote existe, mostramos ele (mesmo que o status seja diferente de active)
-            if (!uniqueBidsMap.has(bid.lot_id) || uniqueBidsMap.get(bid.lot_id).amount < bid.amount) {
-              uniqueBidsMap.set(bid.lot_id, {
-                ...bid,
-                lot_data: lot
-              });
-            }
+          if (lot && !uniqueBidsMap.has(bid.lot_id)) {
+            uniqueBidsMap.set(bid.lot_id, { ...bid, lot_data: lot });
           }
         });
       }
-      
-      const processedBids = Array.from(uniqueBidsMap.values());
-      console.log("Lances processados no Dashboard:", processedBids);
-      setActiveBids(processedBids);
+      setActiveBids(Array.from(uniqueBidsMap.values()));
 
-      // 4. Busca vitórias
       const { data: wins } = await supabase.rpc("get_user_wins", { p_user: user.id });
       setWinsCount(wins?.length || 0);
 
-      // 5. Busca favoritos
       const { count } = await supabase
         .from('favorites')
         .select('*', { count: 'exact', head: true })
@@ -102,7 +80,7 @@ const Dashboard = () => {
       setFavoritesCount(count || 0);
 
     } catch (error) {
-      console.error("Erro fatal no Dashboard:", error);
+      console.error("Erro Dashboard:", error);
     } finally {
       setIsLoading(false);
     }
@@ -119,15 +97,50 @@ const Dashboard = () => {
     </div>
   );
 
+  // Lógica de Status KYC
+  const kycStatus = profile?.kyc_status;
+  const hasDocument = !!profile?.document_url;
+  
+  let statusConfig = {
+    label: 'AGUARDANDO ENVIO',
+    color: 'bg-red-600',
+    badge: 'text-red-600',
+    description: 'Ação necessária para lances',
+    buttonText: 'ENVIAR DOCUMENTOS'
+  };
+
+  if (kycStatus === 'verified') {
+    statusConfig = {
+      label: 'APROVADO',
+      color: 'bg-emerald-600',
+      badge: 'text-emerald-600',
+      description: 'Acesso total liberado',
+      buttonText: ''
+    };
+  } else if (hasDocument || kycStatus === 'in_review') {
+    statusConfig = {
+      label: 'EM ANÁLISE',
+      color: 'bg-orange-500',
+      badge: 'text-orange-600',
+      description: 'Documentos em verificação',
+      buttonText: 'VER DETALHES'
+    };
+  } else if (kycStatus === 'rejected') {
+    statusConfig = {
+      label: 'REJEITADO',
+      color: 'bg-red-600',
+      badge: 'text-red-600',
+      description: 'Documento recusado. Tente novamente.',
+      buttonText: 'REENVIAR AGORA'
+    };
+  }
+
   const stats = [
     { label: 'Lances Ativos', value: activeBids.length, icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50', path: null },
     { label: 'Arremates', value: winsCount, icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50', path: null },
     { label: 'Favoritos', value: favoritesCount, icon: Heart, color: 'text-red-600', bg: 'bg-red-50', path: '/app/favorites' },
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50', path: null },
   ];
-
-  const kycStatus = profile?.kyc_status;
-  const isVerified = kycStatus === 'verified';
 
   return (
     <AppLayout>
@@ -137,7 +150,7 @@ const Dashboard = () => {
             <h1 className="text-3xl font-bold text-slate-900 tracking-tight">
               Olá, {profile?.full_name || 'Usuário'}
             </h1>
-            {isVerified && (
+            {kycStatus === 'verified' && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -261,7 +274,7 @@ const Dashboard = () => {
           
           <Card className={cn(
             "border-none shadow-lg rounded-2xl overflow-hidden transition-all duration-300 text-white",
-            isVerified ? "bg-emerald-600" : "bg-orange-500"
+            statusConfig.color
           )}>
             <CardContent className="p-8">
               <div className="flex items-center gap-4 mb-6">
@@ -271,7 +284,7 @@ const Dashboard = () => {
                 <div>
                   <h3 className="font-bold text-lg">Verificação</h3>
                   <p className="text-white/70 text-[10px] font-medium">
-                    {isVerified ? 'Acesso total liberado' : 'Ação necessária para lances'}
+                    {statusConfig.description}
                   </p>
                 </div>
               </div>
@@ -279,15 +292,18 @@ const Dashboard = () => {
               <div className="space-y-4">
                 <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl backdrop-blur-sm">
                   <span className="text-xs font-bold text-white/80">Status Atual</span>
-                  <Badge className="bg-white text-slate-900 border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider">
-                    {isVerified ? 'APROVADO' : 'PENDENTE'}
+                  <Badge className={cn(
+                    "bg-white border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
+                    statusConfig.badge
+                  )}>
+                    {statusConfig.label}
                   </Badge>
                 </div>
                 
-                {!isVerified && (
+                {statusConfig.buttonText && (
                   <Link to="/app/verify" className="block">
                     <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold h-12 text-base shadow-md">
-                      ENVIAR DOCUMENTOS
+                      {statusConfig.buttonText}
                     </Button>
                   </Link>
                 )}

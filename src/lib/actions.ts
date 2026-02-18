@@ -1,14 +1,12 @@
 import { supabase } from './supabase';
 
 export const placeBid = async (lotId: string, amount: number) => {
-  // 1. Obter usuário atual de forma segura
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   
   if (userError || !user) {
     throw new Error("Você precisa estar logado para dar um lance.");
   }
 
-  // 2. Buscar dados atuais do lote para validação
   const { data: lot, error: lotError } = await supabase
     .from('lots')
     .select('id, status, current_bid, start_bid, bid_increment')
@@ -16,25 +14,22 @@ export const placeBid = async (lotId: string, amount: number) => {
     .single();
 
   if (lotError || !lot) {
-    throw new Error("Lote não encontrado ou erro ao carregar dados.");
+    throw new Error("Lote não encontrado.");
   }
 
-  // 3. Verificar se o lote está finalizado
   if (lot.status === 'finished') {
-    throw new Error("Este leilão já foi encerrado oficialmente.");
+    throw new Error("Este leilão já foi encerrado.");
   }
 
-  // 4. Validar valor do lance
   const currentAmount = lot.current_bid || lot.start_bid || 0;
   const minIncrement = lot.bid_increment || 500;
   const minRequired = Number(currentAmount) + Number(minIncrement);
 
   if (amount < minRequired) {
-    throw new Error(`O lance mínimo permitido é R$ ${minRequired.toLocaleString('pt-BR')}`);
+    throw new Error(`O lance mínimo é R$ ${minRequired.toLocaleString('pt-BR')}`);
   }
 
-  // 5. Inserir o lance na tabela de bids
-  // Importante: O user_id deve ser exatamente o ID do usuário autenticado para passar no RLS
+  // 1. Inserir o lance
   const { error: bidError } = await supabase
     .from('bids')
     .insert({
@@ -44,24 +39,24 @@ export const placeBid = async (lotId: string, amount: number) => {
     });
 
   if (bidError) {
-    console.error("Erro detalhado do Supabase (Bids):", bidError);
-    // Se o erro for de RLS ou violação de chave, mostramos uma mensagem mais clara
+    console.error("Erro ao inserir lance:", bidError);
     if (bidError.code === '42501') {
-      throw new Error("Erro de permissão: Verifique se sua conta está ativa.");
+      throw new Error("Permissão negada na tabela de lances. Verifique as políticas de RLS.");
     }
-    throw new Error(`Erro ao registrar lance: ${bidError.message}`);
+    throw new Error(`Erro no lance: ${bidError.message}`);
   }
 
-  // 6. Atualizar o valor atual no lote
+  // 2. Atualizar o lote (Aqui é onde o erro 42501 costuma ocorrer se não houver política de UPDATE)
   const { error: updateError } = await supabase
     .from('lots')
-    .update({ 
-      current_bid: amount
-    })
+    .update({ current_bid: amount })
     .eq('id', lotId);
 
   if (updateError) {
-    console.error("Erro ao atualizar valor no lote:", updateError);
+    console.error("Erro ao atualizar lote:", updateError);
+    if (updateError.code === '42501') {
+      throw new Error("Lance registrado, mas sem permissão para atualizar o preço do lote. Contate o administrador.");
+    }
   }
 
   return { success: true };

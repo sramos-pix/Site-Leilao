@@ -38,31 +38,34 @@ const LotDetail = () => {
 
   const maskEmail = (email: string) => {
     if (!email) return "Licitante Oculto";
-    const [name, domain] = email.split('@');
-    const maskedName = name.substring(0, 2) + "**";
-    const [domainName, domainExt] = domain.split('.');
-    const maskedDomain = domainName.substring(0, 2) + "**." + domainExt;
-    return `${maskedName}@${maskedDomain}`;
+    try {
+      const [name, domain] = email.split('@');
+      const maskedName = name.substring(0, 2) + "***";
+      const [domainName, domainExt] = domain.split('.');
+      const maskedDomain = domainName.substring(0, 2) + "***." + domainExt;
+      return `${maskedName}@${maskedDomain}`;
+    } catch (e) {
+      return "Licitante Oculto";
+    }
   };
 
-  // Gera lances fictícios baseados no valor do lote para criar urgência
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
     const bids = [...realBids];
     
-    // Se tivermos menos de 5 lances, adicionamos lances fictícios
-    if (bids.length < 5 && !lot.status?.includes('finished')) {
+    if (bids.length < 6 && !lot.status?.includes('finished')) {
       const fakeEmails = [
         "marcos.silva@gmail.com", "ana.paula88@outlook.com", 
         "carlos_vendas@hotmail.com", "fernanda.luz@yahoo.com.br",
-        "roberto.auto@gmail.com", "juliana_m@uol.com.br"
+        "roberto.auto@gmail.com", "juliana_m@uol.com.br",
+        "ricardo.oliveira@gmail.com", "beatriz.santos@hotmail.com"
       ];
       
       let currentFakeAmount = lot.current_bid || lot.start_bid;
       const increment = lot.bid_increment || 500;
 
-      for (let i = bids.length; i < 6; i++) {
+      for (let i = bids.length; i < 8; i++) {
         currentFakeAmount -= (increment * (Math.floor(Math.random() * 2) + 1));
         if (currentFakeAmount < lot.start_bid) break;
         
@@ -110,7 +113,6 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      // Buscamos os lances e os perfis para mostrar o email/nome
       const { data: bidsData } = await supabase
         .from('bids')
         .select('*, profiles(email, full_name)')
@@ -123,7 +125,7 @@ const LotDetail = () => {
       
       const formattedBids = (bidsData || []).map(b => ({
         ...b,
-        user_email: b.profiles?.email || "usuário@leilao.com"
+        user_email: b.profiles?.email || "usuario@leilao.com"
       }));
 
       setRealBids(formattedBids);
@@ -399,30 +401,36 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 <AnimatePresence initial={false}>
-                  {displayBids.slice(0, 6).map((bid, idx) => (
-                    <motion.div 
-                      key={bid.id}
-                      initial={{ opacity: 0, x: -10 }}
-                      animate={{ opacity: 1, x: 0 }}
-                      className="flex items-center justify-between text-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "w-2 h-2 rounded-full", 
-                          idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300"
-                        )} />
-                        <div className="flex flex-col">
-                          <span className="font-bold text-slate-700 text-[11px]">
-                            {bid.user_id === user?.id ? "Seu Lance" : maskEmail(bid.user_email)}
-                          </span>
-                          {isFinished && idx === 0 && (
-                            <span className="text-[9px] text-emerald-600 font-black uppercase tracking-tighter">Vencedor</span>
-                          )}
+                  {displayBids.slice(0, 8).map((bid, idx) => {
+                    const isCurrentUser = user && bid.user_id === user.id;
+                    return (
+                      <motion.div 
+                        key={bid.id}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        className="flex items-center justify-between text-sm"
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className={cn(
+                            "w-2 h-2 rounded-full", 
+                            idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300"
+                          )} />
+                          <div className="flex flex-col">
+                            <span className={cn(
+                              "font-bold text-[11px]",
+                              isCurrentUser ? "text-orange-600" : "text-slate-700"
+                            )}>
+                              {isCurrentUser ? "Seu Lance" : maskEmail(bid.user_email)}
+                            </span>
+                            {isFinished && idx === 0 && (
+                              <span className="text-[9px] text-emerald-600 font-black uppercase tracking-tighter">Vencedor</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
-                    </motion.div>
-                  ))}
+                        <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
+                      </motion.div>
+                    );
+                  })}
                 </AnimatePresence>
                 {displayBids.length === 0 && <p className="text-xs text-slate-400 italic text-center">Nenhum lance registrado.</p>}
               </div>

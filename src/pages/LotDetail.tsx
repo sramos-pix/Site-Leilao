@@ -54,11 +54,17 @@ const LotDetail = () => {
     }
   };
 
+  // Lógica de encerramento corrigida:
   const isFinished = useMemo(() => {
     if (!lot) return false;
-    if (lot.status === 'finished') return true;
-    if (!lot.ends_at) return false; 
     
+    // 1. Se o status for explicitamente 'finished', está encerrado.
+    if (lot.status === 'finished') return true;
+    
+    // 2. Se NÃO houver data de término, o leilão está ATIVO (indeterminado).
+    if (!lot.ends_at) return false;
+    
+    // 3. Se houver data, verifica se o tempo atual já passou dela.
     const endTime = new Date(lot.ends_at).getTime();
     return endTime <= now.getTime();
   }, [lot, now]);
@@ -150,12 +156,8 @@ const LotDetail = () => {
   }, [id]);
 
   const handleBid = async () => {
-    console.log("[LotDetail] Iniciando processo de lance...");
-    
-    // Verifica sessão atualizada antes de dar o lance
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      console.warn("[LotDetail] Usuário não autenticado.");
       toast({ title: "Acesso restrito", description: "Faça login para dar lances.", variant: "destructive" });
       return;
     }
@@ -168,12 +170,10 @@ const LotDetail = () => {
 
     setIsSubmitting(true);
     try {
-      console.log("[LotDetail] Chamando placeBid para o lote:", lot.id, "valor:", bidAmount);
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance efetuado com sucesso!" });
       fetchLotData();
     } catch (error: any) {
-      console.error("[LotDetail] Erro ao dar lance:", error);
       toast({ variant: "destructive", title: "Erro no lance", description: error.message });
     } finally {
       setIsSubmitting(false);

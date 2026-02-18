@@ -1,11 +1,11 @@
 "use client";
 
 import React from "react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Gavel, ExternalLink, CheckCircle2 } from "lucide-react";
+import { Loader2, Gavel, ExternalLink, CheckCircle2, FileText } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import { useNavigate, Link } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
@@ -111,12 +111,22 @@ const History = () => {
                       <p className="font-black text-slate-900 text-xl">{formatCurrency(lot.final_price)}</p>
                     </div>
 
-                    <div className="flex gap-3 w-full sm:w-auto">
+                    <div className="flex flex-wrap gap-3 w-full sm:w-auto justify-end">
                       <Link to={`/lots/${lot.id}`} className="flex-1 sm:flex-none">
                         <Button variant="outline" className="w-full rounded-xl border-slate-200 font-bold gap-2">
                           <ExternalLink size={16} /> Detalhes
                         </Button>
                       </Link>
+
+                      {paid && (
+                        <Button 
+                          variant="secondary"
+                          className="rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-900 gap-2"
+                          onClick={() => window.print()} // Placeholder para ação da nota
+                        >
+                          <FileText size={16} /> Nota de Arremate
+                        </Button>
+                      )}
 
                       {!paid && (
                         <Button 
@@ -126,8 +136,9 @@ const History = () => {
                           PAGAR AGORA
                         </Button>
                       )}
+                      
                       {paid && (
-                        <div className="flex items-center gap-2 text-emerald-600 font-bold px-4">
+                        <div className="flex items-center gap-2 text-emerald-600 font-bold px-2">
                           <CheckCircle2 size={20} /> Pago
                         </div>
                       )}

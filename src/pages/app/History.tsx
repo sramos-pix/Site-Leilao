@@ -103,7 +103,6 @@ const History = () => {
                     </div>
 
                     <div className="flex flex-wrap gap-3 w-full sm:w-auto justify-end">
-                      {/* Lógica de botões sequenciais */}
                       {!lot.vehicle_paid ? (
                         <Button 
                           className="rounded-xl font-black bg-slate-900 hover:bg-slate-800 text-white px-6 shadow-lg"
@@ -129,8 +128,11 @@ const History = () => {
                       )}
 
                       {!isFullyPaid && (
-                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold bg-slate-50 px-4 py-2 rounded-xl border border-dashed">
-                          <AlertCircle size={14} /> {!lot.vehicle_paid ? "Aguardando pagamento do veículo" : "Aguardando comissão"}
+                        <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold bg-slate-50 px-4 py-2 rounded-xl border border-dashed border-slate-200">
+                          <AlertCircle size={14} className="text-orange-500" /> 
+                          {!lot.vehicle_paid 
+                            ? "Aguardando pagamento do veículo para liberação da Nota de Arremate" 
+                            : "Aguardando pagamento da comissão para liberação da Nota de Arremate"}
                         </div>
                       )}
                     </div>

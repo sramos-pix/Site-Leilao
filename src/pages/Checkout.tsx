@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, CheckCircle2, Copy, QrCode, ShieldCheck, ArrowLeft, AlertCircle, RefreshCw, Info } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { useToast } from '@/components/ui/use-toast';
 import { generatePixPayment } from '@/services/connectPay';
@@ -15,9 +15,11 @@ import PaymentCountdown from '@/components/PaymentCountdown';
 
 const Checkout = () => {
   const { id } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { toast } = useToast();
   
+  const isCommission = searchParams.get('type') === 'commission';
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [lot, setLot] = useState<any>(null);
@@ -46,40 +48,19 @@ const Checkout = () => {
 
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
-      const name = profile?.full_name || user.user_metadata?.full_name || user.email?.split('@')[0] || "";
-      const email = profile?.email || user.email || "";
-      const document = String(profile?.document_id || "").replace(/\D/g, "");
-      const phone = String(profile?.phone || "").replace(/\D/g, "");
-
-      if (!name || !email) {
-        setError("Seu nome e e-mail são obrigatórios para gerar o PIX.");
-        toast({ variant: "destructive", title: "Dados incompletos", description: "Atualize seu perfil e tente novamente." });
-        setProcessing(false);
-        return;
-      }
-
-      if (!document || document.length !== 11) {
-        setError("CPF inválido ou ausente. Atualize seu perfil.");
-        toast({ variant: "destructive", title: "CPF inválido", description: "Informe um CPF válido no seu perfil." });
-        setProcessing(false);
-        return;
-      }
-
-      if (!phone || phone.length < 10) {
-        setError("Telefone inválido ou ausente. Atualize seu perfil.");
-        toast({ variant: "destructive", title: "Telefone inválido", description: "Informe um telefone válido no seu perfil." });
-        setProcessing(false);
-        return;
-      }
+      const amount = isCommission ? (lot.final_price || lot.current_bid) * 0.05 : (lot.final_price || lot.current_bid);
+      const description = isCommission 
+        ? `Comissão Leiloeiro (5%) - Lote ${lot.lot_number}` 
+        : `Pagamento Veículo - Lote ${lot.lot_number}`;
 
       const res = await generatePixPayment({
-        amount: lot.final_price || lot.current_bid,
-        description: `Arremate Lote ${lot.lot_number}: ${lot.title}`,
+        amount,
+        description,
         customer: {
-          name,
-          document,
-          email,
-          phone
+          name: profile?.full_name || user.email?.split('@')[0] || "",
+          document: String(profile?.document_id || "").replace(/\D/g, ""),
+          email: profile?.email || user.email || "",
+          phone: String(profile?.phone || "").replace(/\D/g, "")
         }
       });
 
@@ -89,26 +70,17 @@ const Checkout = () => {
         toast({ title: "PIX Gerado!", description: "Aguardando pagamento." });
       } else {
         setError(res.error);
-        toast({ variant: "destructive", title: "Erro ao gerar PIX", description: res.error });
       }
     } catch (err: any) {
-      setError(err.message || "Erro ao conectar com o servidor de pagamentos.");
-      toast({ variant: "destructive", title: "Erro", description: err.message });
+      setError(err.message);
     } finally {
       setProcessing(false);
     }
   };
 
-  const copyToClipboard = () => {
-    if (paymentData?.pix_code) {
-      navigator.clipboard.writeText(paymentData.pix_code);
-      setCopied(true);
-      toast({ title: "Copiado!", description: "Código PIX copiado para a área de transferência." });
-      setTimeout(() => setCopied(false), 2000);
-    }
-  };
-
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
+
+  const displayAmount = isCommission ? (lot.final_price || lot.current_bid) * 0.05 : (lot.final_price || lot.current_bid);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -121,25 +93,23 @@ const Checkout = () => {
         <Card className="border-none shadow-2xl rounded-[2.5rem] overflow-hidden bg-white">
           <CardHeader className="bg-slate-900 text-white p-8">
             <CardTitle className="text-2xl font-bold flex items-center gap-3">
-              <ShieldCheck className="text-orange-500" /> Pagamento Seguro
+              <ShieldCheck className="text-orange-500" /> {isCommission ? 'Pagamento de Comissão' : 'Pagamento do Veículo'}
             </CardTitle>
           </CardHeader>
 
           <CardContent className="p-8 space-y-6">
-            <div className="p-6 bg-slate-50 rounded-2xl border border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total do Arremate</p>
-              <p className="text-3xl font-black text-slate-900">{formatCurrency(lot?.final_price || lot?.current_bid)}</p>
-              <p className="text-xs text-slate-500 mt-2">{lot?.title}</p>
+            <div className="p-6 bg-orange-50 rounded-2xl border border-orange-100">
+              <p className="text-[10px] font-bold text-orange-400 uppercase mb-1">Valor a Pagar</p>
+              <p className="text-3xl font-black text-orange-600">{formatCurrency(displayAmount)}</p>
+              <p className="text-xs text-slate-500 mt-2">{lot?.title} • Lote #{lot?.lot_number}</p>
             </div>
 
-            {error && (
-              <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex flex-col gap-3">
-                <div className="flex items-center gap-3 text-red-600 text-sm font-bold">
-                  <AlertCircle size={18} /> {error}
-                </div>
-                <Button onClick={handleGeneratePix} variant="outline" className="w-full border-red-200 text-red-600 hover:bg-red-100 rounded-xl">
-                  <RefreshCw size={14} className="mr-2" /> Tentar Novamente
-                </Button>
+            {isCommission && (
+              <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3">
+                <Info className="text-blue-500 shrink-0" size={20} />
+                <p className="text-xs text-blue-700 leading-relaxed">
+                  A comissão de 5% é obrigatória para a liberação da Nota de Arremate e agendamento da retirada do veículo.
+                </p>
               </div>
             )}
 
@@ -147,37 +117,18 @@ const Checkout = () => {
               <Button 
                 onClick={handleGeneratePix}
                 disabled={processing}
-                className="w-full h-16 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold text-lg shadow-lg shadow-orange-100"
+                className="w-full h-16 bg-slate-900 hover:bg-orange-600 text-white rounded-2xl font-bold text-lg shadow-lg"
               >
                 {processing ? <Loader2 className="animate-spin mr-2" /> : <QrCode className="mr-2" />}
-                GERAR PIX CONNECTPAY
+                GERAR PIX AGORA
               </Button>
             ) : (
               <div className="space-y-8 animate-in fade-in duration-500">
-                <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="space-y-1">
-                    <p className="text-sm font-black text-slate-900">PIX gerado com sucesso</p>
-                  </div>
-
-                  {expiresAtMs && (
-                    <PaymentCountdown
-                      expiresAtMs={expiresAtMs}
-                      onExpire={() => {
-                        toast({
-                          variant: "destructive",
-                          title: "Tempo sugerido encerrado",
-                          description: "Se ainda não pagou, gere um novo PIX para evitar divergências.",
-                        });
-                      }}
-                    />
-                  )}
-                </div>
-
                 <div className="flex flex-col items-center gap-4">
                   <div className="bg-white p-4 rounded-3xl shadow-inner border-2 border-slate-100">
                     <img src={paymentData.qr_code_url} alt="QR Code PIX" className="w-48 h-48" />
                   </div>
-                  <p className="text-xs font-bold text-slate-400 uppercase">Escaneie para pagar instantaneamente</p>
+                  {expiresAtMs && <PaymentCountdown expiresAtMs={expiresAtMs} />}
                 </div>
 
                 <div className="space-y-2">
@@ -186,33 +137,15 @@ const Checkout = () => {
                     <div className="flex-1 bg-slate-50 p-4 rounded-xl text-[10px] font-mono break-all border border-slate-200 text-slate-500 max-h-24 overflow-y-auto">
                       {paymentData.pix_code}
                     </div>
-                    <Button 
-                      onClick={copyToClipboard} 
-                      className="bg-slate-900 h-auto px-6 rounded-xl"
-                    >
+                    <Button onClick={() => { navigator.clipboard.writeText(paymentData.pix_code); setCopied(true); setTimeout(() => setCopied(false), 2000); }} className="bg-slate-900 h-auto px-6 rounded-xl">
                       {copied ? <CheckCircle2 size={20} /> : <Copy size={20} />}
                     </Button>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <Button 
-                    onClick={handleGeneratePix}
-                    variant="outline"
-                    disabled={processing}
-                    className="w-full h-12 rounded-xl font-black border-slate-200"
-                  >
-                    {processing ? <Loader2 className="animate-spin mr-2" /> : <RefreshCw size={16} className="mr-2" />}
-                    GERAR NOVO PIX
-                  </Button>
-
-                  <Button 
-                    onClick={() => navigate('/app/history')}
-                    className="w-full h-12 bg-slate-900 text-white hover:bg-orange-600 rounded-xl font-black"
-                  >
-                    JÁ REALIZEI O PAGAMENTO
-                  </Button>
-                </div>
+                <Button onClick={() => navigate('/app/wins')} className="w-full h-12 bg-emerald-600 text-white hover:bg-emerald-700 rounded-xl font-black">
+                  JÁ REALIZEI O PAGAMENTO
+                </Button>
               </div>
             )}
           </CardContent>

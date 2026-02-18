@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { FileText, ChevronLeft, Heart, Share2, Clock, Gavel,
   ShieldCheck, MapPin, Calendar, Gauge,
   Fuel, Settings2, Loader2, History, User,
-  Trophy, Info, CheckCircle2, Lock as LockIcon
+  Trophy, Info, CheckCircle2, Lock as LockIcon,
+  TrendingUp
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -54,8 +55,6 @@ const LotDetail = () => {
     }
   };
 
-  // MODIFICADO: O leilão só é considerado encerrado se o status for 'finished' no banco.
-  // Ignoramos o tempo do cronômetro para permitir lances infinitos/urgência.
   const isFinished = useMemo(() => {
     if (!lot) return false;
     return lot.status === 'finished';
@@ -328,6 +327,12 @@ const LotDetail = () => {
                   <p className="text-4xl font-black text-white">
                     {formatCurrency(lot.current_bid || lot.start_bid)}
                   </p>
+                  {!isFinished && (
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[11px] mt-1">
+                      <TrendingUp size={14} />
+                      <span>Incremento mínimo: {formatCurrency(lot.bid_increment || 500)}</span>
+                    </div>
+                  )}
                 </div>
 
                 {!isFinished ? (

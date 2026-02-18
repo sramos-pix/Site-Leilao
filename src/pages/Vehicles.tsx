@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Car, Calendar, Gauge, MapPin, Loader2, Lock, Heart } from 'lucide-react';
+import { Search, Filter, Car, Calendar, Gauge, MapPin, Loader2, Lock, Heart, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useToast } from '@/components/ui/use-toast';
+import CountdownTimer from '@/components/CountdownTimer';
 
 const Vehicles = () => {
   const [lots, setLots] = useState<any[]>([]);
@@ -161,11 +162,24 @@ const Vehicles = () => {
                           </span>
                         </div>
                       ) : (
-                        <div className="absolute top-3 left-3">
-                          <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none font-bold">
-                            Lote #{lot.lot_number}
-                          </Badge>
-                        </div>
+                        <>
+                          <div className="absolute top-3 left-3">
+                            <Badge className="bg-white/90 backdrop-blur-md text-slate-900 border-none font-bold">
+                              Lote #{lot.lot_number}
+                            </Badge>
+                          </div>
+                          {/* Relógio de Contagem Regressiva / Urgência */}
+                          <div className="absolute bottom-3 left-3 right-3">
+                            <Badge className="bg-red-500/90 backdrop-blur-md text-white border-none font-black flex items-center justify-center gap-2 py-1.5 shadow-lg">
+                              <Clock size={14} className="animate-pulse" />
+                              <CountdownTimer 
+                                endsAt={lot.ends_at} 
+                                randomScarcity={!lot.ends_at} 
+                                lotId={lot.id} 
+                              />
+                            </Badge>
+                          </div>
+                        </>
                       )}
                     </div>
                     

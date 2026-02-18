@@ -48,16 +48,10 @@ const LotDetail = () => {
 
   const isFinished = lot?.status === 'finished';
 
-  // Lógica de lances unificada e robusta
   const displayBids = useMemo(() => {
     if (!lot) return [];
-    
-    // 1. Lances reais
     const combined = [...realBids];
-    
-    // 2. Parâmetros para lances fictícios
     const startBid = lot.start_bid || 0;
-    // Se não houver lances reais, o preço base para os fakes deve ser o start_bid
     const currentBid = combined.length > 0 ? (lot.current_bid || startBid) : startBid;
     const increment = lot.bid_increment || 500;
     
@@ -67,10 +61,7 @@ const LotDetail = () => {
 
     const fakeEmails = ["m.silva@gmail.com", "ana.p@uol.com", "carlos.v@bol.com", "fer.l@gmail.com", "rob.a@outlook.com"];
 
-    // 3. Preenchimento (apenas se houver lances ou se quisermos simular histórico)
     let i = 0;
-    // Se você zerou os lances, talvez queira que a lista também fique limpa ou comece do zero.
-    // Aqui mantemos a lógica de preenchimento mas baseada no start_bid se realBids for vazio.
     while (combined.length < 10 && lastAmount > (startBid * 0.3)) {
       lastAmount -= increment;
       if (lastAmount <= 0) break;
@@ -88,23 +79,18 @@ const LotDetail = () => {
     return combined.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id]);
 
-  // Valor atual real para exibição no destaque
   const currentDisplayPrice = useMemo(() => {
     if (!lot) return 0;
-    // Se não houver lances reais na lista, mostramos o valor inicial (start_bid)
-    // mesmo que a coluna current_bid no banco ainda esteja com o valor antigo.
     if (realBids.length === 0) return lot.start_bid;
     return lot.current_bid || lot.start_bid;
   }, [lot, realBids]);
 
   const fetchLotData = async () => {
     try {
-      // 1. Busca Usuário
       const { data: { session } } = await supabase.auth.getSession();
       const loggedUser = session?.user || null;
       setCurrentUser(loggedUser);
 
-      // 2. Busca Lote
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -114,7 +100,6 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        // 3. Busca Lances Reais
         const { data: b } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at')
@@ -139,11 +124,9 @@ const LotDetail = () => {
         }
         setRealBids(bidsWithEmail);
 
-        // Ajusta o valor do próximo lance sugerido
         const basePrice = bidsWithEmail.length > 0 ? (lotData.current_bid || lotData.start_bid) : lotData.start_bid;
         setBidAmount(basePrice + (lotData.bid_increment || 500));
         
-        // Fotos
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
         if (!activePhoto) setActivePhoto(lotData.cover_image_url);
@@ -188,7 +171,6 @@ const LotDetail = () => {
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Esquerda */}
           <div className="lg:col-span-8 space-y-6">
             <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border">
               <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover" alt={lot.title} />
@@ -211,7 +193,7 @@ const LotDetail = () => {
               ))}
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-6">
               <h1 className="text-3xl font-bold text-slate-900">{lot.title}</h1>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div className="bg-slate-50 p-4 rounded-2xl border"><Gauge size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">KM</p><p className="text-sm font-bold">{lot.mileage_km?.toLocaleString()} km</p></div>
@@ -219,10 +201,19 @@ const LotDetail = () => {
                 <div className="bg-slate-50 p-4 rounded-2xl border"><Settings2 size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Câmbio</p><p className="text-sm font-bold">{lot.transmission || 'Automático'}</p></div>
                 <div className="bg-slate-50 p-4 rounded-2xl border"><Fuel size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Motor</p><p className="text-sm font-bold">{lot.fuel_type || 'Flex'}</p></div>
               </div>
+
+              {/* DESCRIÇÃO DETALHADA - CORRIGIDA */}
+              <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
+                  <Info size={20} className="text-orange-500" /> Detalhes do Veículo
+                </h3>
+                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {lot.description || "Nenhuma descrição detalhada fornecida para este veículo."}
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Direita */}
           <div className="lg:col-span-4 space-y-6">
             <Card className={cn("border-none shadow-xl rounded-3xl overflow-hidden text-white", isFinished ? "bg-slate-800" : "bg-slate-900")}>
               <CardContent className="p-8 space-y-6">
@@ -252,7 +243,6 @@ const LotDetail = () => {
               </CardContent>
             </Card>
 
-            {/* LISTA DE LANCES */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <History size={16} className="text-orange-500" /> Últimos Lances
@@ -260,30 +250,13 @@ const LotDetail = () => {
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
                   const isMe = currentUser && bid.user_id === currentUser.id;
-                  
                   return (
-                    <div key={bid.id} className={cn(
-                      "flex items-center justify-between text-sm p-3 rounded-2xl transition-all",
-                      isMe ? "bg-orange-50 border border-orange-200 shadow-sm" : "bg-white/50"
-                    )}>
+                    <div key={bid.id} className={cn("flex items-center justify-between text-sm p-3 rounded-2xl transition-all", isMe ? "bg-orange-50 border border-orange-200 shadow-sm" : "bg-white/50")}>
                       <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "w-2 h-2 rounded-full", 
-                          idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : isMe ? "bg-orange-600" : "bg-slate-300"
-                        )} />
-                        <span className={cn(
-                          "font-bold text-[11px]", 
-                          isMe ? "text-orange-600" : "text-slate-700"
-                        )}>
-                          {isMe ? "Seu Lance" : maskEmail(bid.user_email)}
-                        </span>
+                        <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : isMe ? "bg-orange-600" : "bg-slate-300")} />
+                        <span className={cn("font-bold text-[11px]", isMe ? "text-orange-600" : "text-slate-700")}>{isMe ? "Seu Lance" : maskEmail(bid.user_email)}</span>
                       </div>
-                      <span className={cn(
-                        "font-black",
-                        isMe ? "text-orange-600" : "text-slate-900"
-                      )}>
-                        {formatCurrency(bid.amount)}
-                      </span>
+                      <span className={cn("font-black", isMe ? "text-orange-600" : "text-slate-900")}>{formatCurrency(bid.amount)}</span>
                     </div>
                   );
                 })}

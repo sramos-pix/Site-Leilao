@@ -27,7 +27,7 @@ const HowItWorks = () => {
     {
       icon: Trophy,
       title: "4. Arremate e Pagamento",
-      description: "Se o seu lance for o vencedor, você receberá as instruções para pagamento via boleto ou transferência bancária judicial."
+      description: "Se o seu lance for o vencedor, você receberá as instruções para pagamento via Pix bancário judicial."
     }
   ];
 

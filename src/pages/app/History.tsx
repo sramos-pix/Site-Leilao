@@ -9,21 +9,24 @@ import { Loader2, Gavel, ExternalLink, CheckCircle2, FileText } from "lucide-rea
 import { formatCurrency } from "@/lib/utils";
 import { useNavigate, Link } from "react-router-dom";
 import AppLayout from "@/components/layout/AppLayout";
+import { generateWinningCertificate } from "@/lib/pdf-generator";
 
 type PaymentStatus = "paid" | "unpaid";
 
 const History = () => {
   const [wins, setWins] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
+  const [user, setUser] = React.useState<any>(null);
   const navigate = useNavigate();
 
   const fetchWins = React.useCallback(async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) return;
+      setUser(currentUser);
 
       const { data, error } = await supabase
-        .rpc("get_user_wins", { p_user: user.id });
+        .rpc("get_user_wins", { p_user: currentUser.id });
 
       if (error) {
         console.error("Erro RPC:", error);
@@ -40,7 +43,7 @@ const History = () => {
       const { data: payments } = await supabase
         .from("lot_payments")
         .select("lot_id, status, paid_at")
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .in("lot_id", base.map(l => l.id));
 
       const merged = base.map((lot) => {
@@ -100,7 +103,7 @@ const History = () => {
                       <p className="text-sm text-slate-400">Encerrado em {new Date(lot.ends_at).toLocaleDateString('pt-BR')}</p>
                     </div>
 
-                    <Badge className={paid ? "bg-emerald-500 text-white" : "bg-orange-500 text-white"}>
+                    <Badge className={paid ? "bg-emerald-500 text-white border-none font-bold" : "bg-orange-500 text-white border-none font-bold"}>
                       {paid ? "PAGO" : "PAGAMENTO PENDENTE"}
                     </Badge>
                   </div>
@@ -122,7 +125,7 @@ const History = () => {
                         <Button 
                           variant="secondary"
                           className="rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-900 gap-2"
-                          onClick={() => window.print()}
+                          onClick={() => generateWinningCertificate(lot, user)}
                         >
                           <FileText size={16} /> Nota de Arremate
                         </Button>

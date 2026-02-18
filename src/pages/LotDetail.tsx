@@ -35,6 +35,13 @@ const LotDetail = () => {
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
   const [lastBidId, setLastBidId] = useState<string | null>(null);
+  const [now, setNow] = useState(new Date());
+
+  // Atualiza o 'agora' a cada segundo para checar expiração em tempo real
+  useEffect(() => {
+    const timer = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(timer);
+  }, []);
 
   const maskEmail = (email: string) => {
     if (!email) return "Licitante Oculto";
@@ -51,15 +58,17 @@ const LotDetail = () => {
 
   const displayBids = useMemo(() => {
     if (!lot) return [];
-    
     const bids = [...realBids];
     
-    if (bids.length < 6 && !lot.status?.includes('finished')) {
+    // Só mostra lances fictícios se o leilão NÃO estiver encerrado
+    const isTimeUp = lot.ends_at ? new Date(lot.ends_at) <= now : false;
+    const isFinished = lot.status === 'finished' || isTimeUp;
+
+    if (bids.length < 6 && !isFinished) {
       const fakeEmails = [
         "marcos.silva@gmail.com", "ana.paula88@outlook.com", 
         "carlos_vendas@hotmail.com", "fernanda.luz@yahoo.com.br",
-        "roberto.auto@gmail.com", "juliana_m@uol.com.br",
-        "ricardo.oliveira@gmail.com", "beatriz.santos@hotmail.com"
+        "roberto.auto@gmail.com", "juliana_m@uol.com.br"
       ];
       
       let currentFakeAmount = lot.current_bid || lot.start_bid;
@@ -80,7 +89,7 @@ const LotDetail = () => {
     }
     
     return bids.sort((a, b) => b.amount - a.amount);
-  }, [realBids, lot]);
+  }, [realBids, lot, now]);
 
   const fetchLotData = async () => {
     try {
@@ -174,7 +183,9 @@ const LotDetail = () => {
 
   if (!lot) return null;
 
-  const isFinished = lot.status === 'finished';
+  // Lógica de encerramento: Status 'finished' OU tempo expirado
+  const isTimeUp = lot.ends_at ? new Date(lot.ends_at) <= now : false;
+  const isFinished = lot.status === 'finished' || isTimeUp;
   const isWinner = user && lot.winner_id === user.id;
   const shouldApplyOverlay = isFinished && !isWinner;
 

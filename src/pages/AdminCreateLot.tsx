@@ -55,6 +55,7 @@ const AdminCreateLot = () => {
           start_bid: parseFloat(formData.start_bid),
           bid_increment: parseFloat(formData.bid_increment),
           current_bid: parseFloat(formData.start_bid),
+          ends_at: formData.ends_at ? new Date(formData.ends_at).toISOString() : null,
           status: 'active'
         }]);
 
@@ -212,11 +213,10 @@ const AdminCreateLot = () => {
                 </div>
                 <div className="space-y-2">
                   <Label className="font-bold text-slate-700 flex items-center gap-2">
-                    <Calendar size={14} /> Data de Término
+                    <Calendar size={14} /> Data de Término (Opcional)
                   </Label>
                   <Input 
                     type="datetime-local" 
-                    required 
                     value={formData.ends_at}
                     onChange={e => setFormData({...formData, ends_at: e.target.value})}
                     className="rounded-2xl border-slate-200 h-12"

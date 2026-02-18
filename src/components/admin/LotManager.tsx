@@ -101,6 +101,8 @@ const LotManager = () => {
     setIsSubmitting(true);
     const formData = new FormData(e.currentTarget);
     
+    const endsAtValue = formData.get('ends_at') as string;
+
     const lotData: any = {
       auction_id: formData.get('auction_id'),
       lot_number: parseInt(formData.get('lot_number') as string),
@@ -114,7 +116,7 @@ const LotManager = () => {
       start_bid: parseFloat(formData.get('start_bid') as string),
       bid_increment: parseFloat(formData.get('bid_increment') as string) || 500,
       description: formData.get('description'),
-      ends_at: new Date(formData.get('ends_at') as string).toISOString(),
+      ends_at: endsAtValue ? new Date(endsAtValue).toISOString() : null,
       is_featured: formData.get('is_featured') === 'on',
       is_weekly_highlight: formData.get('is_weekly_highlight') === 'on',
     };
@@ -234,7 +236,11 @@ const LotManager = () => {
                 />
               </div>
 
-              <div className="col-span-2 space-y-2"><Label>Encerramento</Label><Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} className="rounded-xl" required /></div>
+              <div className="col-span-2 space-y-2">
+                <Label>Encerramento (Opcional)</Label>
+                <Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} className="rounded-xl" />
+                <p className="text-[10px] text-slate-400 italic">Deixe em branco para usar o tempo aleatório de até 24h.</p>
+              </div>
               
               <div className="col-span-2 space-y-2">
                 <Label>Descrição Detalhada</Label>

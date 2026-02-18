@@ -54,14 +54,13 @@ export default function AdminPayments() {
         const p = payments?.find(pay => pay.lot_id === r.id);
         return {
           ...r,
-          // Usamos o campo 'status' para mapear: 'unpaid', 'partial' (só veículo), 'paid' (tudo)
           payment_status: p?.status || "unpaid"
         };
       });
       
       setRows(merged);
     } catch (err) {
-      console.error(err);
+      console.error("Erro ao buscar dados:", err);
     } finally {
       setIsLoading(false);
     }
@@ -73,21 +72,36 @@ export default function AdminPayments() {
     setIsRefreshing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("Sessão não encontrada. Faça login novamente.");
+
       const res = await fetch(FUNCTION_URL, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${session?.access_token}`,
+          "Authorization": `Bearer ${session.access_token}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ lot_id: row.id, user_id: row.winner_id, status: newStatus }),
+        body: JSON.stringify({ 
+          lot_id: row.id, 
+          user_id: row.winner_id, 
+          status: newStatus 
+        }),
       });
 
-      if (!res.ok) throw new Error("Erro ao atualizar status");
+      const result = await res.json();
 
-      toast({ title: "Status atualizado!" });
-      fetchRows();
+      if (!res.ok) {
+        throw new Error(result.error || "Erro ao atualizar status no servidor");
+      }
+
+      toast({ title: "Status atualizado com sucesso!" });
+      await fetchRows();
     } catch (err: any) {
-      toast({ variant: "destructive", title: "Erro", description: err.message });
+      console.error("Erro na atualização:", err);
+      toast({ 
+        variant: "destructive", 
+        title: "Falha na atualização", 
+        description: err.message 
+      });
     } finally {
       setIsRefreshing(false);
     }
@@ -129,7 +143,6 @@ export default function AdminPayments() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-8 flex-1 lg:flex-none">
-                    {/* Coluna Veículo */}
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-slate-400 uppercase">Valor Veículo</p>
                       <p className="font-black text-slate-900">{formatCurrency(r.final_price)}</p>
@@ -145,7 +158,6 @@ export default function AdminPayments() {
                       </Button>
                     </div>
 
-                    {/* Coluna Comissão */}
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-slate-400 uppercase">Comissão (5%)</p>
                       <p className="font-black text-orange-600">{formatCurrency(commission)}</p>
@@ -154,7 +166,7 @@ export default function AdminPayments() {
                         variant={isCommissionPaid ? "outline" : "default"}
                         className={cn("w-full rounded-lg gap-2 h-9", isCommissionPaid ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "bg-orange-500 hover:bg-orange-600")}
                         onClick={() => updateStatus(r, isCommissionPaid ? 'partial' : 'paid')}
-                        disabled={isRefreshing || !isVehiclePaid} // Só libera comissão se veículo estiver pago
+                        disabled={isRefreshing || !isVehiclePaid}
                         title={!isVehiclePaid ? "Pague o veículo primeiro" : ""}
                       >
                         {isCommissionPaid ? <Undo2 size={14} /> : <Wallet size={14} />}

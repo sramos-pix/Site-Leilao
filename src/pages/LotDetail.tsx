@@ -101,7 +101,7 @@ const LotDetail = () => {
             amount: currentFakeAmount,
             user_email: fakeEmails[(seed + i) % fakeEmails.length],
             is_fake: true,
-            created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString() // Horas atrás
+            created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString()
           });
         }
       }

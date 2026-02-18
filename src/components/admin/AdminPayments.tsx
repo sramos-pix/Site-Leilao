@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { formatCurrency } from "@/lib/utils";
-import { CheckCircle2, Loader2, RefreshCw, Car, Wallet, Undo2 } from "lucide-react";
+import { Loader2, RefreshCw, Car, Wallet, Undo2, CheckCircle2 } from "lucide-react";
 
 const FUNCTION_URL = "https://tedinonjoqlhmuclyrfg.supabase.co/functions/v1/mark-lot-payment";
 
@@ -72,7 +72,7 @@ export default function AdminPayments() {
     setIsRefreshing(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session) throw new Error("Sessão não encontrada. Faça login novamente.");
+      if (!session) throw new Error("Sessão não encontrada.");
 
       const res = await fetch(FUNCTION_URL, {
         method: "POST",
@@ -88,19 +88,16 @@ export default function AdminPayments() {
       });
 
       const result = await res.json();
+      if (!res.ok) throw new Error(result.error || "Erro no servidor");
 
-      if (!res.ok) {
-        throw new Error(result.error || "Erro ao atualizar status no servidor");
-      }
-
-      toast({ title: "Status atualizado com sucesso!" });
+      toast({ title: "Status atualizado!" });
       await fetchRows();
     } catch (err: any) {
-      console.error("Erro na atualização:", err);
+      console.error("Erro:", err);
       toast({ 
         variant: "destructive", 
-        title: "Falha na atualização", 
-        description: "O banco de dados não aceitou este status. Verifique as permissões." 
+        title: "Erro na atualização", 
+        description: "Verifique se o status 'partial' é permitido no banco de dados." 
       });
     } finally {
       setIsRefreshing(false);
@@ -114,7 +111,7 @@ export default function AdminPayments() {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-2xl font-black text-slate-900">Gestão Financeira</h2>
-          <p className="text-slate-500 text-sm">Confirme recebimentos de veículos e comissões.</p>
+          <p className="text-slate-500 text-sm">Confirme recebimentos de veículos e comissões separadamente.</p>
         </div>
         <div className="flex gap-2">
           <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar veículo..." className="w-64 rounded-xl" />
@@ -126,8 +123,8 @@ export default function AdminPayments() {
         <div className="divide-y divide-slate-100">
           {isLoading ? <div className="p-20 flex justify-center"><Loader2 className="animate-spin text-orange-500" /></div> : 
             filtered.map((r) => {
-              // Simplificando a lógica para usar apenas 'paid' e 'unpaid' conforme a restrição do banco
-              const isPaid = r.payment_status === 'paid';
+              const isVehiclePaid = r.payment_status === 'partial' || r.payment_status === 'paid';
+              const isCommissionPaid = r.payment_status === 'paid';
               const commission = r.final_price * 0.05;
 
               return (
@@ -148,33 +145,44 @@ export default function AdminPayments() {
                       <p className="font-black text-slate-900">{formatCurrency(r.final_price)}</p>
                       <Button 
                         size="sm"
-                        variant={isPaid ? "outline" : "default"}
-                        className={cn("w-full rounded-lg gap-2 h-9", isPaid ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "bg-slate-900")}
-                        onClick={() => updateStatus(r, isPaid ? 'unpaid' : 'paid')}
+                        variant={isVehiclePaid ? "outline" : "default"}
+                        className={cn("w-full rounded-lg gap-2 h-9", isVehiclePaid ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "bg-slate-900")}
+                        onClick={() => updateStatus(r, isVehiclePaid ? 'unpaid' : 'partial')}
                         disabled={isRefreshing}
                       >
-                        {isPaid ? <Undo2 size={14} /> : <Car size={14} />}
-                        {isPaid ? 'Estornar' : 'Confirmar Tudo'}
+                        {isVehiclePaid ? <Undo2 size={14} /> : <Car size={14} />}
+                        {isVehiclePaid ? 'Estornar Veículo' : 'Confirmar Veículo'}
                       </Button>
                     </div>
 
                     <div className="space-y-2">
                       <p className="text-[10px] font-black text-slate-400 uppercase">Comissão (5%)</p>
                       <p className="font-black text-orange-600">{formatCurrency(commission)}</p>
-                      <div className="h-9 flex items-center justify-center">
-                        <Badge variant="outline" className={cn("border-none font-bold", isPaid ? "text-emerald-600" : "text-slate-300")}>
-                          {isPaid ? "PAGO" : "PENDENTE"}
-                        </Badge>
-                      </div>
+                      <Button 
+                        size="sm"
+                        variant={isCommissionPaid ? "outline" : "default"}
+                        className={cn("w-full rounded-lg gap-2 h-9", isCommissionPaid ? "text-emerald-600 border-emerald-200 bg-emerald-50" : "bg-orange-500 hover:bg-orange-600")}
+                        onClick={() => updateStatus(r, isCommissionPaid ? 'partial' : 'paid')}
+                        disabled={isRefreshing || !isVehiclePaid}
+                      >
+                        {isCommissionPaid ? <Undo2 size={14} /> : <Wallet size={14} />}
+                        {isCommissionPaid ? 'Estornar Comissão' : 'Confirmar Comissão'}
+                      </Button>
                     </div>
+                  </div>
+
+                  <div className="flex flex-col items-center justify-center min-w-[100px]">
+                    <Badge variant="outline" className={cn("border-none font-bold text-[10px]", 
+                      isCommissionPaid ? "text-emerald-600 bg-emerald-50" : 
+                      isVehiclePaid ? "text-orange-600 bg-orange-50" : "text-slate-300 bg-slate-50")}>
+                      {isCommissionPaid ? "TOTAL PAGO" : isVehiclePaid ? "AGUARD. COMISSÃO" : "PENDENTE"}
+                    </Badge>
+                    {isCommissionPaid && <CheckCircle2 size={16} className="text-emerald-500 mt-1" />}
                   </div>
                 </div>
               );
             })
           }
-          {!isLoading && filtered.length === 0 && (
-            <div className="p-20 text-center text-slate-400 italic">Nenhum arremate finalizado encontrado.</div>
-          )}
         </div>
       </Card>
     </div>

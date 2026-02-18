@@ -34,7 +34,6 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [user, setUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
-  const [lastBidId, setLastBidId] = useState<string | null>(null);
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -55,12 +54,20 @@ const LotDetail = () => {
     }
   };
 
-  // Lógica de encerramento centralizada
+  // Lógica de encerramento simplificada
   const isFinished = useMemo(() => {
     if (!lot) return false;
+    
+    // 1. Se o status for explicitamente 'finished', está encerrado.
     if (lot.status === 'finished') return true;
-    // Só encerra por tempo se ends_at existir e for no passado
-    if (lot.ends_at && new Date(lot.ends_at) <= now) return true;
+    
+    // 2. Se houver uma data de término E ela for no passado, está encerrado.
+    if (lot.ends_at) {
+      const endTime = new Date(lot.ends_at).getTime();
+      if (endTime <= now.getTime()) return true;
+    }
+    
+    // 3. Caso contrário (incluindo ends_at nulo), está ATIVO.
     return false;
   }, [lot, now]);
 
@@ -68,36 +75,24 @@ const LotDetail = () => {
     if (!lot) return [];
     const bids = [...realBids];
     
-    // Se o leilão não estiver encerrado e tivermos poucos lances, geramos fictícios estáveis
     if (bids.length < 6 && !isFinished) {
-      const fakeEmails = [
-        "marcos.silva@gmail.com", "ana.paula88@outlook.com", 
-        "carlos_vendas@hotmail.com", "fernanda.luz@yahoo.com.br",
-        "roberto.auto@gmail.com", "juliana_m@uol.com.br"
-      ];
-      
+      const fakeEmails = ["marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", "fernanda.l@yahoo.com", "roberto.a@gmail.com"];
       let currentFakeAmount = lot.current_bid || lot.start_bid;
       const increment = lot.bid_increment || 500;
-
-      // Usamos o ID do lote para que os lances fictícios sejam sempre os mesmos para este carro
       const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
 
       for (let i = bids.length; i < 8; i++) {
-        // O valor fictício é baseado no valor atual menos incrementos fixos
         currentFakeAmount -= (increment * ((seed + i) % 3 + 1));
         if (currentFakeAmount < lot.start_bid) break;
-        
         bids.push({
           id: `fake-${i}-${id}`,
           amount: currentFakeAmount,
           user_email: fakeEmails[(seed + i) % fakeEmails.length],
           is_fake: true,
-          // Data fixa no passado para não mudar a cada segundo
           created_at: new Date(2024, 0, 1).toISOString() 
         });
       }
     }
-    
     return bids.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, isFinished, id]);
 
@@ -208,7 +203,7 @@ const LotDetail = () => {
               </div>
               <div>
                 <h2 className="text-2xl font-black">Você Venceu!</h2>
-                <p className="text-emerald-50 text-sm font-medium">Parabéns! Seu lance foi o vencedor. Verifique suas notificações para os próximos passos.</p>
+                <p className="text-emerald-50 text-sm font-medium">Parabéns! Seu lance foi o vencedor.</p>
               </div>
             </div>
             <div className="flex flex-col md:flex-row gap-3">
@@ -232,10 +227,6 @@ const LotDetail = () => {
           <Link to="/auctions" className="inline-flex items-center text-sm font-bold text-slate-500 hover:text-orange-600 transition-colors">
             <ChevronLeft size={18} className="mr-1" /> VOLTAR PARA LEILÕES
           </Link>
-          <div className="flex gap-2">
-            <Button variant="outline" size="icon" className="rounded-full border-slate-200"><Share2 size={18} /></Button>
-            <Button variant="outline" size="icon" className="rounded-full border-slate-200"><Heart size={18} /></Button>
-          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
@@ -288,14 +279,7 @@ const LotDetail = () => {
             </div>
 
             <div className="space-y-6">
-              <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">{lot.title}</h1>
-                <div className="flex items-center gap-4 text-slate-500 text-sm font-medium">
-                  <span className="flex items-center gap-1"><MapPin size={14} /> Pátio: São Paulo, SP</span>
-                  <span className="flex items-center gap-1"><Calendar size={14} /> Lote: #{lot.lot_number}</span>
-                </div>
-              </div>
-
+              <h1 className="text-3xl font-bold text-slate-900">{lot.title}</h1>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 {[
                   { icon: Gauge, label: 'KM', value: `${lot.mileage_km?.toLocaleString()} km` },
@@ -310,13 +294,12 @@ const LotDetail = () => {
                   </div>
                 ))}
               </div>
-
               <div className="space-y-4 pt-4">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
                   <Info size={20} className="text-orange-500" /> Descrição do Lote
                 </h3>
                 <p className="text-slate-600 leading-relaxed text-sm whitespace-pre-wrap">
-                  {lot.description || "Veículo em excelente estado de conservação, periciado e com documentação garantida pela AutoBid. Ideal para quem busca qualidade e procedência em leilões online."}
+                  {lot.description || "Veículo em excelente estado de conservação."}
                 </p>
               </div>
             </div>
@@ -347,27 +330,9 @@ const LotDetail = () => {
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">
                     {isFinished ? "Valor de Arremate" : "Lance Atual"}
                   </p>
-                  <AnimatePresence mode="wait">
-                    <motion.p 
-                      key={lot.current_bid}
-                      initial={{ scale: 1.1, color: "#f97316" }}
-                      animate={{ scale: 1, color: "#ffffff" }}
-                      className="text-4xl font-black text-white"
-                    >
-                      {formatCurrency(lot.current_bid || lot.start_bid)}
-                    </motion.p>
-                  </AnimatePresence>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4 py-4 border-y border-white/10">
-                  <div>
-                    <p className="text-[10px] font-bold text-white/60 uppercase">Inicial</p>
-                    <p className="text-sm font-bold">{formatCurrency(lot.start_bid)}</p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[10px] font-bold text-white/60 uppercase">Incremento</p>
-                    <p className="text-sm font-bold text-orange-400">+{formatCurrency(lot.bid_increment || 500)}</p>
-                  </div>
+                  <p className="text-4xl font-black text-white">
+                    {formatCurrency(lot.current_bid || lot.start_bid)}
+                  </p>
                 </div>
 
                 {!isFinished ? (
@@ -391,23 +356,14 @@ const LotDetail = () => {
                   </div>
                 ) : (
                   <div className="pt-2">
-                    {isWinner ? (
-                      <div className="bg-white/10 p-4 rounded-2xl border border-white/20 flex items-center gap-3">
-                        <CheckCircle2 className="text-white" size={24} />
-                        <p className="text-xs font-bold leading-tight">Você arrematou este veículo! Siga para o pagamento.</p>
-                      </div>
-                    ) : (
-                      <div className="bg-white/10 p-4 rounded-2xl border border-white/20 flex items-center gap-3">
-                        <LockIcon className="text-white/60" size={24} />
-                        <p className="text-xs font-bold text-white/60 leading-tight">Este leilão foi encerrado para novos lances.</p>
-                      </div>
-                    )}
+                    <div className="bg-white/10 p-4 rounded-2xl border border-white/20 flex items-center gap-3">
+                      {isWinner ? <CheckCircle2 className="text-white" size={24} /> : <LockIcon className="text-white/60" size={24} />}
+                      <p className="text-xs font-bold leading-tight">
+                        {isWinner ? "Você arrematou este veículo!" : "Este leilão foi encerrado para novos lances."}
+                      </p>
+                    </div>
                   </div>
                 )}
-
-                <div className="flex items-center justify-center gap-2 text-[10px] font-bold text-white/40 uppercase">
-                  <ShieldCheck size={14} className="text-emerald-400" /> Leilão Seguro & Auditado
-                </div>
               </CardContent>
             </Card>
 
@@ -416,39 +372,20 @@ const LotDetail = () => {
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
-                <AnimatePresence initial={false}>
-                  {displayBids.slice(0, 8).map((bid, idx) => {
-                    const isCurrentUser = user && bid.user_id === user.id;
-                    return (
-                      <motion.div 
-                        key={bid.id}
-                        initial={{ opacity: 0, x: -10 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        className="flex items-center justify-between text-sm"
-                      >
-                        <div className="flex items-center gap-2">
-                          <div className={cn(
-                            "w-2 h-2 rounded-full", 
-                            idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300"
-                          )} />
-                          <div className="flex flex-col">
-                            <span className={cn(
-                              "font-bold text-[11px]",
-                              isCurrentUser ? "text-orange-600" : "text-slate-700"
-                            )}>
-                              {isCurrentUser ? "Seu Lance" : maskEmail(bid.user_email)}
-                            </span>
-                            {isFinished && idx === 0 && (
-                              <span className="text-[9px] text-emerald-600 font-black uppercase tracking-tighter">Vencedor</span>
-                            )}
-                          </div>
-                        </div>
-                        <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-                {displayBids.length === 0 && <p className="text-xs text-slate-400 italic text-center">Nenhum lance registrado.</p>}
+                {displayBids.slice(0, 8).map((bid, idx) => {
+                  const isCurrentUser = user && bid.user_id === user.id;
+                  return (
+                    <div key={bid.id} className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
+                        <span className={cn("font-bold text-[11px]", isCurrentUser ? "text-orange-600" : "text-slate-700")}>
+                          {isCurrentUser ? "Seu Lance" : maskEmail(bid.user_email)}
+                        </span>
+                      </div>
+                      <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           </div>

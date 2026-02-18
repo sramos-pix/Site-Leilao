@@ -54,21 +54,14 @@ const LotDetail = () => {
     }
   };
 
-  // Lógica de encerramento simplificada
+  // Lógica de encerramento: Se ends_at for nulo, NUNCA encerra por tempo.
   const isFinished = useMemo(() => {
     if (!lot) return false;
-    
-    // 1. Se o status for explicitamente 'finished', está encerrado.
     if (lot.status === 'finished') return true;
+    if (!lot.ends_at) return false; // Se não tem data, está sempre aberto
     
-    // 2. Se houver uma data de término E ela for no passado, está encerrado.
-    if (lot.ends_at) {
-      const endTime = new Date(lot.ends_at).getTime();
-      if (endTime <= now.getTime()) return true;
-    }
-    
-    // 3. Caso contrário (incluindo ends_at nulo), está ATIVO.
-    return false;
+    const endTime = new Date(lot.ends_at).getTime();
+    return endTime <= now.getTime();
   }, [lot, now]);
 
   const displayBids = useMemo(() => {

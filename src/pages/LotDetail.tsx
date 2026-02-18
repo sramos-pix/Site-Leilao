@@ -48,11 +48,11 @@ const LotDetail = () => {
 
   const isFinished = lot?.status === 'finished';
 
-  // Lógica de lances com dependência explícita do currentUser
+  // Lógica de lances unificada e robusta
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Lances reais do banco
+    // 1. Lances reais
     const combined = [...realBids];
     
     // 2. Parâmetros para lances fictícios
@@ -64,22 +64,19 @@ const LotDetail = () => {
       ? Math.min(...combined.map(b => b.amount)) 
       : currentBid;
 
-    const fakeEmails = [
-      "m.silva@gmail.com", "ana.p@uol.com", "carlos.v@bol.com", 
-      "fer.l@gmail.com", "rob.a@outlook.com", "j.oliveira@gmail.com"
-    ];
+    const fakeEmails = ["m.silva@gmail.com", "ana.p@uol.com", "carlos.v@bol.com", "fer.l@gmail.com", "rob.a@outlook.com"];
 
-    // 3. Preenchimento até 10 lances
+    // 3. Preenchimento
     let i = 0;
-    while (combined.length < 10 && lastAmount > (startBid * 0.5)) {
+    while (combined.length < 10 && lastAmount > (startBid * 0.3)) {
       lastAmount -= increment;
       if (lastAmount <= 0) break;
 
       combined.push({
-        id: `fake-${i}-${id}`,
+        id: `fake-${i}`,
         amount: lastAmount,
         user_email: fakeEmails[i % fakeEmails.length],
-        user_id: 'system-fake-id',
+        user_id: 'fake-system-id',
         is_fake: true
       });
       i++;
@@ -90,56 +87,55 @@ const LotDetail = () => {
 
   const fetchLotData = async () => {
     try {
-      // Busca usuário logado primeiro
+      // 1. Busca Usuário
       const { data: { session } } = await supabase.auth.getSession();
-      if (session?.user) {
-        setCurrentUser(session.user);
-      }
+      const loggedUser = session?.user || null;
+      setCurrentUser(loggedUser);
 
-      // Busca dados do lote
-      const { data: lotData, error: lotError } = await supabase
+      // 2. Busca Lote
+      const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
         .eq('id', id)
         .single();
 
-      if (lotError) throw lotError;
-
       if (lotData) {
         setLot(lotData);
-        const currentVal = lotData.current_bid || lotData.start_bid;
-        setBidAmount(currentVal + (lotData.bid_increment || 500));
+        setBidAmount((lotData.current_bid || lotData.start_bid) + (lotData.bid_increment || 500));
         
         // Fotos
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
         if (!activePhoto) setActivePhoto(lotData.cover_image_url);
 
-        // Lances Reais - Buscando user_id e e-mail do perfil
-        const { data: b, error: bError } = await supabase
+        // 3. Busca Lances Reais (Simplificado para não perder o user_id)
+        const { data: b } = await supabase
           .from('bids')
-          .select(`
-            id, 
-            amount, 
-            user_id, 
-            created_at, 
-            profiles:user_id (email)
-          `)
+          .select('id, amount, user_id, created_at')
           .eq('lot_id', id)
           .order('amount', { ascending: false });
         
         if (b) {
-          setRealBids(b.map((item: any) => ({
-            id: item.id,
-            amount: item.amount,
-            user_id: item.user_id,
-            user_email: item.profiles?.email || "usuario@leilao.com",
-            created_at: item.created_at
-          })));
+          // Buscamos os emails dos perfis separadamente para não quebrar o user_id
+          const userIds = [...new Set(b.map(bid => bid.user_id))];
+          const { data: profiles } = await supabase
+            .from('profiles')
+            .select('id, email')
+            .in('id', userIds);
+
+          const bidsWithEmail = b.map(bid => {
+            const profile = profiles?.find(p => p.id === bid.user_id);
+            return {
+              ...bid,
+              user_email: profile?.email || "usuario@leilao.com"
+            };
+          });
+          
+          setRealBids(bidsWithEmail);
         }
       }
     } catch (e) {
-      console.error("Erro ao carregar dados do lote:", e);
+      console.error("Erro:", e);
     } finally {
       setIsLoading(false);
     }
@@ -147,29 +143,25 @@ const LotDetail = () => {
 
   useEffect(() => {
     fetchLotData();
-    
-    const channel = supabase.channel(`lot-realtime-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => fetchLotData())
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => fetchLotData())
+    const channel = supabase.channel(`lot-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [id]);
 
   const handleBid = async () => {
     if (!currentUser) {
-      toast({ title: "Login necessário", description: "Você precisa estar logado para dar lances.", variant: "destructive" });
+      toast({ title: "Login necessário", variant: "destructive" });
       return;
     }
-    
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
-      toast({ title: "Lance realizado com sucesso!" });
-      // Forçamos a atualização imediata
-      await fetchLotData();
+      toast({ title: "Lance realizado!" });
+      fetchLotData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro no lance", description: error.message });
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -182,9 +174,9 @@ const LotDetail = () => {
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Coluna Esquerda */}
+          {/* Esquerda */}
           <div className="lg:col-span-8 space-y-6">
-            <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border border-slate-100">
+            <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border">
               <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover" alt={lot.title} />
               {!isFinished && (
                 <div className="absolute top-6 left-6 flex gap-3">
@@ -197,17 +189,10 @@ const LotDetail = () => {
               )}
             </div>
             
-            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+            <div className="flex gap-3 overflow-x-auto pb-2">
               {[lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean).map((url, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => setActivePhoto(url)} 
-                  className={cn(
-                    "shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2 transition-all", 
-                    activePhoto === url ? 'border-orange-500 scale-95' : 'border-transparent opacity-70'
-                  )}
-                >
-                  <img src={url} className="w-full h-full object-cover" alt="thumbnail" />
+                <button key={i} onClick={() => setActivePhoto(url)} className={cn("shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2", activePhoto === url ? 'border-orange-500' : 'border-transparent')}>
+                  <img src={url} className="w-full h-full object-cover" alt="thumb" />
                 </button>
               ))}
             </div>
@@ -215,38 +200,20 @@ const LotDetail = () => {
             <div className="space-y-4">
               <h1 className="text-3xl font-bold text-slate-900">{lot.title}</h1>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <Gauge size={18} className="text-orange-500 mb-2" />
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">KM</p>
-                  <p className="text-sm font-bold">{lot.mileage_km?.toLocaleString()} km</p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <Calendar size={18} className="text-orange-500 mb-2" />
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Ano</p>
-                  <p className="text-sm font-bold">{lot.year}</p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <Settings2 size={18} className="text-orange-500 mb-2" />
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Câmbio</p>
-                  <p className="text-sm font-bold">{lot.transmission || 'Automático'}</p>
-                </div>
-                <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
-                  <Fuel size={18} className="text-orange-500 mb-2" />
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Motor</p>
-                  <p className="text-sm font-bold">{lot.fuel_type || 'Flex'}</p>
-                </div>
+                <div className="bg-slate-50 p-4 rounded-2xl border"><Gauge size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">KM</p><p className="text-sm font-bold">{lot.mileage_km?.toLocaleString()} km</p></div>
+                <div className="bg-slate-50 p-4 rounded-2xl border"><Calendar size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Ano</p><p className="text-sm font-bold">{lot.year}</p></div>
+                <div className="bg-slate-50 p-4 rounded-2xl border"><Settings2 size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Câmbio</p><p className="text-sm font-bold">{lot.transmission || 'Automático'}</p></div>
+                <div className="bg-slate-50 p-4 rounded-2xl border"><Fuel size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Motor</p><p className="text-sm font-bold">{lot.fuel_type || 'Flex'}</p></div>
               </div>
             </div>
           </div>
 
-          {/* Coluna Direita */}
+          {/* Direita */}
           <div className="lg:col-span-4 space-y-6">
             <Card className={cn("border-none shadow-xl rounded-3xl overflow-hidden text-white", isFinished ? "bg-slate-800" : "bg-slate-900")}>
               <CardContent className="p-8 space-y-6">
                 <div className="flex justify-between items-center">
-                  <Badge className={cn("text-white border-none px-3 py-1 rounded-full text-[10px] font-bold", isFinished ? "bg-white/20" : "bg-orange-500")}>
-                    {isFinished ? "ENCERRADO" : "AO VIVO"}
-                  </Badge>
+                  <Badge className={cn("text-white border-none px-3 py-1 rounded-full text-[10px] font-bold", isFinished ? "bg-white/20" : "bg-orange-500")}>{isFinished ? "ENCERRADO" : "AO VIVO"}</Badge>
                   {!isFinished && <div className="text-orange-500 font-bold text-sm"><CountdownTimer endsAt={lot.ends_at} lotId={lot.id} /></div>}
                 </div>
 
@@ -259,38 +226,27 @@ const LotDetail = () => {
                   <div className="space-y-4">
                     <div className="relative">
                       <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">R$</span>
-                      <Input 
-                        type="number" 
-                        value={bidAmount} 
-                        onChange={(e) => setBidAmount(Number(e.target.value))} 
-                        className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl focus:ring-orange-500" 
-                      />
+                      <Input type="number" value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))} className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl" />
                     </div>
-                    <Button 
-                      onClick={handleBid} 
-                      disabled={isSubmitting} 
-                      className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95"
-                    >
+                    <Button onClick={handleBid} disabled={isSubmitting} className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold shadow-lg">
                       {isSubmitting ? <Loader2 className="animate-spin" /> : "DAR LANCE AGORA"}
                     </Button>
                   </div>
                 ) : (
-                  <div className="bg-white/10 p-4 rounded-2xl text-center text-xs font-bold border border-white/5">
-                    Leilão encerrado para este lote.
-                  </div>
+                  <div className="bg-white/10 p-4 rounded-2xl text-center text-xs font-bold">Leilão encerrado.</div>
                 )}
               </CardContent>
             </Card>
 
-            {/* LISTA DE LANCES */}
+            {/* LISTA DE LANCES - ONDE O DESTAQUE DEVE APARECER */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  // Comparação rigorosa de ID
-                  const isMe = currentUser && String(bid.user_id) === String(currentUser.id);
+                  // Comparação direta e segura
+                  const isMe = currentUser && bid.user_id === currentUser.id;
                   
                   return (
                     <div key={bid.id} className={cn(

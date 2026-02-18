@@ -69,7 +69,7 @@ const AdminOverview = () => {
 
         const [profilesRes, lotsRes] = await Promise.all([
           supabase.from('profiles').select('id, full_name, email').in('id', userIds),
-          supabase.from('lots').select('id, title, status, winner_id').in('id', lotIds)
+          supabase.from('lots').select('id, title, status, winner_id, start_bid').in('id', lotIds)
         ]);
 
         const profilesMap = (profilesRes.data || []).reduce((acc: any, p) => ({ ...acc, [p.id]: p }), {});
@@ -148,7 +148,7 @@ const AdminOverview = () => {
   };
 
   const handleDeleteBid = async (bidId: string, lotId: string, amount: number) => {
-    if (!confirm(`Deseja realmente EXCLUIR este lance de ${formatCurrency(amount)}? Se este for o lance vencedor, o veículo será resetado para ATIVO.`)) return;
+    if (!confirm(`Deseja realmente EXCLUIR este lance de ${formatCurrency(amount)}?`)) return;
     
     setIsProcessing(bidId);
 
@@ -159,10 +159,13 @@ const AdminOverview = () => {
         .delete()
         .eq('id', bidId);
 
-      if (deleteError) throw deleteError;
+      if (deleteError) {
+        console.error("Erro ao deletar lance:", deleteError);
+        throw new Error("Não foi possível excluir o lance. Verifique as permissões.");
+      }
 
-      // 2. Busca o próximo maior lance
-      const { data: nextHighestBid } = await supabase
+      // 2. Busca o próximo maior lance para este lote
+      const { data: nextHighestBid, error: nextBidError } = await supabase
         .from('bids')
         .select('amount')
         .eq('lot_id', lotId)
@@ -170,10 +173,22 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
-      const newCurrentBid = nextHighestBid?.amount || 0;
+      if (nextBidError) console.error("Erro ao buscar próximo lance:", nextBidError);
 
-      // 3. Reseta o lote para 'active' e limpa o vencedor, atualizando o valor atual
-      await supabase
+      // 3. Busca o valor inicial do lote caso não haja mais lances
+      let newCurrentBid = nextHighestBid?.amount;
+      
+      if (!newCurrentBid) {
+        const { data: lotData } = await supabase
+          .from('lots')
+          .select('start_bid')
+          .eq('id', lotId)
+          .single();
+        newCurrentBid = lotData?.start_bid || 0;
+      }
+
+      // 4. Atualiza o lote
+      const { error: updateError } = await supabase
         .from('lots')
         .update({ 
           status: 'active', 
@@ -183,10 +198,14 @@ const AdminOverview = () => {
         })
         .eq('id', lotId);
 
-      toast({ title: "Lance excluído", description: "O veículo foi resetado para o status ativo." });
+      if (updateError) {
+        console.error("Erro ao atualizar lote após exclusão:", updateError);
+      }
+
+      toast({ title: "Lance excluído", description: "O sistema foi atualizado com o próximo maior lance." });
       await fetchStats(true);
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
     } finally {
       setIsProcessing(null);
     }

@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Routes, Route, Navigate } from "react-router-dom";
 import Index from "./pages/Index";
 import LotDetail from "./pages/LotDetail";
 import Login from "./pages/Login";
@@ -29,36 +29,34 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
-        <Routes>
-          {/* Public Routes */}
-          <Route path="/" element={<Index />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/auctions" element={<Auctions />} />
-          <Route path="/auctions/:id" element={<AuctionDetails />} />
-          <Route path="/lots/:id" element={<LotDetail />} />
-          <Route path="/vehicles" element={<Vehicles />} />
-          <Route path="/how-it-works" element={<HowItWorks />} />
-          <Route path="/contact" element={<Contact />} />
-          
-          {/* App / User Routes */}
-          <Route path="/app/dashboard" element={<Dashboard />} />
-          <Route path="/app/profile" element={<Profile />} />
-          <Route path="/app/favorites" element={<Favorites />} />
-          <Route path="/app/wins" element={<History />} />
-          <Route path="/app/notifications" element={<Notifications />} />
-          <Route path="/app/checkout/:id" element={<Checkout />} />
-          <Route path="/app/verify" element={<Verify />} />
-          
-          {/* Admin Routes */}
-          <Route path="/admin" element={<Admin />} />
-          <Route path="/admin/lots/create" element={<AdminCreateLot />} />
-          
-          {/* Fallback */}
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </BrowserRouter>
+      <Routes>
+        {/* Public Routes */}
+        <Route path="/" element={<Index />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/auctions" element={<Auctions />} />
+        <Route path="/auctions/:id" element={<AuctionDetails />} />
+        <Route path="/lots/:id" element={<LotDetail />} />
+        <Route path="/vehicles" element={<Vehicles />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/contact" element={<Contact />} />
+        
+        {/* App / User Routes */}
+        <Route path="/app/dashboard" element={<Dashboard />} />
+        <Route path="/app/profile" element={<Profile />} />
+        <Route path="/app/favorites" element={<Favorites />} />
+        <Route path="/app/wins" element={<History />} />
+        <Route path="/app/notifications" element={<Notifications />} />
+        <Route path="/app/checkout/:id" element={<Checkout />} />
+        <Route path="/app/verify" element={<Verify />} />
+        
+        {/* Admin Routes */}
+        <Route path="/admin" element={<Admin />} />
+        <Route path="/admin/lots/create" element={<AdminCreateLot />} />
+        
+        {/* Fallback */}
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </TooltipProvider>
   </QueryClientProvider>
 );

@@ -66,24 +66,32 @@ const Dashboard = () => {
 
       if (bidsError) throw bidsError;
 
-      // Filtra apenas o lance mais recente por lote e que ainda esteja ativo
+      // Processamento robusto dos lances
       const now = new Date();
       const uniqueBidsMap = new Map();
 
-      (bidsData || []).forEach(bid => {
-        const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
-        if (!lot) return;
+      if (bidsData) {
+        bidsData.forEach(bid => {
+          // O Supabase pode retornar 'lots' como objeto ou array dependendo da configuração
+          const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
+          
+          if (lot) {
+            const isExpired = new Date(lot.ends_at) < now;
+            const isFinished = lot.status === 'finished';
 
-        const isExpired = new Date(lot.ends_at) < now;
-        const isFinished = lot.status === 'finished';
-
-        if (!isExpired && !isFinished) {
-          // Mantém apenas o lance de maior valor/mais recente para cada lote
-          if (!uniqueBidsMap.has(bid.lot_id) || uniqueBidsMap.get(bid.lot_id).amount < bid.amount) {
-            uniqueBidsMap.set(bid.lot_id, bid);
+            // Se o lote ainda está ativo, guardamos o maior lance do usuário para ele
+            if (!isExpired && !isFinished) {
+              const existing = uniqueBidsMap.get(bid.lot_id);
+              if (!existing || existing.amount < bid.amount) {
+                uniqueBidsMap.set(bid.lot_id, {
+                  ...bid,
+                  lot_data: lot // Guardamos os dados do lote explicitamente
+                });
+              }
+            }
           }
-        }
-      });
+        });
+      }
       
       setActiveBids(Array.from(uniqueBidsMap.values()));
 
@@ -133,18 +141,6 @@ const Dashboard = () => {
     if (isPendingAnalysis) return 'EM ANÁLISE';
     if (isRejected) return 'REJEITADO';
     return 'AGUARDANDO ENVIO';
-  };
-
-  const getCardBgColor = () => {
-    if (isVerified) return "bg-emerald-600";
-    if (isPendingAnalysis) return "bg-orange-500";
-    return "bg-red-600";
-  };
-
-  const getBadgeColor = () => {
-    if (isVerified) return "bg-white text-emerald-600";
-    if (isPendingAnalysis) return "bg-white text-orange-600";
-    return "bg-white text-red-600";
   };
 
   return (
@@ -218,7 +214,7 @@ const Dashboard = () => {
           
           <div className="grid gap-4">
             {activeBids.length > 0 ? activeBids.map((bid) => {
-              const lot = Array.isArray(bid.lots) ? bid.lots[0] : bid.lots;
+              const lot = bid.lot_data;
               return (
                 <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden bg-white hover:shadow-md transition-all group">
                   <CardContent className="p-0 flex flex-col sm:flex-row">
@@ -277,7 +273,7 @@ const Dashboard = () => {
           
           <Card className={cn(
             "border-none shadow-lg rounded-2xl overflow-hidden transition-all duration-300 text-white",
-            getCardBgColor()
+            kycStatus === 'verified' ? "bg-emerald-600" : kycStatus === 'pending' ? "bg-orange-500" : "bg-red-600"
           )}>
             <CardContent className="p-8">
               <div className="flex items-center gap-4 mb-6">
@@ -287,7 +283,7 @@ const Dashboard = () => {
                 <div>
                   <h3 className="font-bold text-lg">Verificação</h3>
                   <p className="text-white/70 text-[10px] font-medium">
-                    {isVerified ? 'Acesso total liberado' : 'Ação necessária para lances'}
+                    {kycStatus === 'verified' ? 'Acesso total liberado' : 'Ação necessária para lances'}
                   </p>
                 </div>
               </div>
@@ -296,17 +292,17 @@ const Dashboard = () => {
                 <div className="flex justify-between items-center bg-white/10 p-3 rounded-xl backdrop-blur-sm">
                   <span className="text-xs font-bold text-white/80">Status Atual</span>
                   <Badge className={cn(
-                    "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
-                    getBadgeColor()
+                    "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider bg-white",
+                    kycStatus === 'verified' ? "text-emerald-600" : kycStatus === 'pending' ? "text-orange-600" : "text-red-600"
                   )}>
                     {getKycStatusLabel()}
                   </Badge>
                 </div>
                 
-                {!isVerified && (
+                {kycStatus !== 'verified' && (
                   <Link to="/app/verify" className="block">
                     <Button className="w-full bg-white text-slate-900 hover:bg-slate-100 rounded-xl font-bold h-12 text-base shadow-md">
-                      {isPendingAnalysis ? 'VER DETALHES' : 'ENVIAR DOCUMENTOS'}
+                      {kycStatus === 'pending' ? 'VER DETALHES' : 'ENVIAR DOCUMENTOS'}
                     </Button>
                   </Link>
                 )}

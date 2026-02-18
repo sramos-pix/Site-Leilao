@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase } from "@/lib/supabase";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -122,7 +122,7 @@ const History = () => {
                         <Button 
                           variant="secondary"
                           className="rounded-xl font-bold bg-slate-100 hover:bg-slate-200 text-slate-900 gap-2"
-                          onClick={() => window.print()} // Placeholder para ação da nota
+                          onClick={() => window.print()}
                         >
                           <FileText size={16} /> Nota de Arremate
                         </Button>

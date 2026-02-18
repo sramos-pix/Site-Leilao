@@ -48,6 +48,16 @@ const LotDetail = () => {
 
   const isFinished = lot?.status === 'finished';
 
+  // SEO: Atualiza o título da aba com o nome do veículo
+  useEffect(() => {
+    if (lot?.title) {
+      document.title = `${lot.title} | Lote #${lot.lot_number} | AutoBid Leilões`;
+    }
+    return () => {
+      document.title = "AutoBid | Leilões de Veículos Online";
+    };
+  }, [lot]);
+
   const displayBids = useMemo(() => {
     if (!lot) return [];
     const combined = [...realBids];
@@ -202,7 +212,6 @@ const LotDetail = () => {
                 <div className="bg-slate-50 p-4 rounded-2xl border"><Fuel size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Motor</p><p className="text-sm font-bold">{lot.fuel_type || 'Flex'}</p></div>
               </div>
 
-              {/* DESCRIÇÃO DETALHADA - CORRIGIDA */}
               <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
                   <Info size={20} className="text-orange-500" /> Detalhes do Veículo

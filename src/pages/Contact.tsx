@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { 
-  Mail, Phone, MapPin, MessageSquare, 
+  Mail, Phone, MessageSquare, 
   Clock, Send, Loader2, ShieldCheck, 
   Gavel, CheckCircle2, Building2, Award
 } from 'lucide-react';
@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
@@ -39,7 +40,9 @@ const Contact = () => {
         <section className="bg-slate-900 text-white py-20 relative overflow-hidden">
           <div className="container mx-auto px-4 relative z-10">
             <div className="max-w-3xl">
-              <Badge className="bg-orange-500 mb-6 px-4 py-1 rounded-full font-bold">INSTITUCIONAL</Badge>
+              <span className="inline-block bg-orange-500 mb-6 px-4 py-1 rounded-full font-bold text-[10px] tracking-widest uppercase">
+                INSTITUCIONAL
+              </span>
               <h1 className="text-4xl md:text-6xl font-black mb-6">Transparência e <span className="text-orange-500">Segurança</span> em cada lance.</h1>
               <p className="text-xl text-slate-400 leading-relaxed">
                 A AutoBid nasceu com o propósito de democratizar o acesso a leilões de veículos, unindo tecnologia de ponta com processos auditados e seguros.
@@ -160,11 +163,5 @@ const Contact = () => {
     </div>
   );
 };
-
-const Badge = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-  <span className={cn("inline-block text-[10px] tracking-widest text-white px-3 py-1 rounded-full", className)}>
-    {children}
-  </span>
-);
 
 export default Contact;

@@ -64,11 +64,10 @@ const LotDetail = () => {
   const displayBids = useMemo(() => {
     if (!lot) return [];
     
-    // 1. Começamos com os lances REAIS vindos do banco de dados
-    // MANTEMOS todos os campos (id, user_id, amount, etc)
+    // 1. Começamos com os lances REAIS (preservando user_id)
     const combinedBids = [...realBids];
     
-    // 2. Geramos lances fictícios apenas para preencher a lista se houver poucos lances reais
+    // 2. Geramos lances fictícios apenas para preencher a lista
     const fakeEmails = [
       "marcos.s@gmail.com", "ana.p@outlook.com", "carlos.v@hotmail.com", 
       "fernanda.l@yahoo.com", "roberto.a@gmail.com", "juliana.m@gmail.com",
@@ -81,32 +80,29 @@ const LotDetail = () => {
     const increment = lot.bid_increment || 500;
     const seed = id?.split('').reduce((a, b) => a + b.charCodeAt(0), 0) || 0;
 
-    // Pegamos o menor valor entre os lances reais ou o valor atual para começar a gerar fictícios abaixo
+    // Valor base para os fictícios (abaixo do menor lance real ou do atual)
     let minVal = combinedBids.length > 0 
       ? Math.min(...combinedBids.map(b => b.amount)) 
       : currentVal;
     
     let tempAmount = minVal;
 
-    // Preenchemos até ter pelo menos 12 lances na lista
+    // Preenchemos até ter pelo menos 12 lances
     while (combinedBids.length < 12) {
       tempAmount -= (increment * ((seed + combinedBids.length) % 2 + 1));
-      
-      // Não deixamos o valor ficar muito baixo
       if (tempAmount < (startVal * 0.1)) break;
 
       combinedBids.push({
         id: `fake-${combinedBids.length}-${id}`,
         amount: tempAmount,
         user_email: fakeEmails[(seed + combinedBids.length) % fakeEmails.length],
-        user_id: 'fake-user', // ID que nunca baterá com o do usuário logado
+        user_id: 'fake-user-id', // Nunca baterá com o ID do usuário real
         is_fake: true,
         created_at: new Date(Date.now() - (combinedBids.length + 1) * 3600000).toISOString()
       });
     }
     
     // 3. Ordenamos do maior para o menor
-    // O lance real do usuário (se for o maior) estará no topo e manterá seu user_id original
     return combinedBids.sort((a, b) => b.amount - a.amount);
   }, [realBids, lot, id]);
 
@@ -142,7 +138,7 @@ const LotDetail = () => {
       const currentVal = lotData.current_bid || lotData.start_bid;
       setBidAmount(currentVal + (lotData.bid_increment || 1000));
 
-      // BUSCA LANCES REAIS - Crucial: Pegar o user_id para a comparação no displayBids
+      // BUSCA LANCES REAIS - Crucial: Pegar o user_id para a comparação
       const { data: bidsData } = await supabase
         .from('bids')
         .select(`id, amount, user_id, created_at, profiles (email, full_name)`)

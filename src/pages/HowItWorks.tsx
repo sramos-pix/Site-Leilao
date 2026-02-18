@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Gavel, UserPlus, ShieldCheck, Trophy, ArrowRight, HelpCircle } from 'lucide-react';
+import { Gavel, UserPlus, ShieldCheck, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
@@ -65,12 +65,12 @@ const HowItWorks = () => {
             <h2 className="text-3xl md:text-4xl font-black mb-8">Pronto para começar sua jornada?</h2>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link to="/auth?mode=signup">
-                <Button size="lg" className="bg-white text-orange-600 hover:bg-slate-100 px-10 py-7 rounded-2xl font-bold text-lg">
+                <Button size="lg" className="bg-white text-orange-600 hover:bg-slate-100 px-10 py-7 rounded-2xl font-bold text-lg w-full sm:w-auto">
                   Criar Conta Agora
                 </Button>
               </Link>
               <Link to="/contact">
-                <Button size="lg" variant="outline" className="border-2 border-white text-white hover:bg-white/10 px-10 py-7 rounded-2xl font-bold text-lg">
+                <Button size="lg" variant="outline" className="border-2 border-white bg-white/10 text-white hover:bg-white hover:text-orange-600 px-10 py-7 rounded-2xl font-bold text-lg w-full sm:w-auto transition-all">
                   Tirar Dúvidas
                 </Button>
               </Link>

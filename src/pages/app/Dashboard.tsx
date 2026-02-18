@@ -5,7 +5,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { 
   Gavel, Wallet, Heart, 
   Trophy, Bell, ShieldCheck, Loader2,
-  ArrowUpRight, Clock
+  ArrowUpRight, Clock, CheckCircle2
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -53,7 +53,8 @@ const Dashboard = () => {
             title, 
             cover_image_url, 
             status, 
-            ends_at 
+            ends_at,
+            winner_id
           )
         `)
         .eq('user_id', user.id)
@@ -97,7 +98,6 @@ const Dashboard = () => {
     </div>
   );
 
-  // Lógica de Status KYC
   const kycStatus = profile?.kyc_status;
   const hasDocument = !!profile?.document_url;
   
@@ -136,7 +136,7 @@ const Dashboard = () => {
   }
 
   const stats = [
-    { label: 'Lances Ativos', value: activeBids.length, icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50', path: null },
+    { label: 'Lances Ativos', value: activeBids.filter(b => b.lot_data?.status !== 'finished').length, icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50', path: null },
     { label: 'Arremates', value: winsCount, icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50', path: null },
     { label: 'Favoritos', value: favoritesCount, icon: Heart, color: 'text-red-600', bg: 'bg-red-50', path: '/app/favorites' },
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50', path: null },
@@ -205,7 +205,7 @@ const Dashboard = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         <div className="lg:col-span-8 space-y-5">
           <div className="flex items-center justify-between px-1">
-            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Lances em Andamento</h2>
+            <h2 className="text-xl font-bold text-slate-900 tracking-tight">Seus Lances e Arremates</h2>
             <Link to="/auctions" className="text-orange-500 font-bold text-sm flex items-center gap-1 hover:underline">
               Ver todos <ArrowUpRight size={14} />
             </Link>
@@ -214,15 +214,26 @@ const Dashboard = () => {
           <div className="grid gap-4">
             {activeBids.length > 0 ? activeBids.map((bid) => {
               const lot = bid.lot_data;
+              const isWinner = lot?.status === 'finished' && lot?.winner_id === profile?.id;
+              const isFinished = lot?.status === 'finished';
+
               return (
-                <Card key={bid.id} className="border-none shadow-sm rounded-2xl overflow-hidden bg-white hover:shadow-md transition-all group">
+                <Card key={bid.id} className={cn(
+                  "border-none shadow-sm rounded-2xl overflow-hidden bg-white hover:shadow-md transition-all group",
+                  isWinner && "ring-2 ring-emerald-500/20"
+                )}>
                   <CardContent className="p-0 flex flex-col sm:flex-row">
-                    <div className="w-full sm:w-48 h-32 bg-slate-100 overflow-hidden">
+                    <div className="w-full sm:w-48 h-32 bg-slate-100 overflow-hidden relative">
                       <img 
                         src={lot?.cover_image_url || "https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=400"} 
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
                         alt={lot?.title} 
                       />
+                      {isWinner && (
+                        <div className="absolute inset-0 bg-emerald-600/20 flex items-center justify-center">
+                          <Trophy className="text-white drop-shadow-md" size={32} />
+                        </div>
+                      )}
                     </div>
                     <div className="flex-1 p-5 flex flex-col justify-between">
                       <div className="flex justify-between items-start gap-4">
@@ -231,22 +242,41 @@ const Dashboard = () => {
                           <div className="flex items-center gap-2 text-slate-400">
                             <Clock size={12} />
                             <span className="text-[10px] font-bold uppercase tracking-wider">
-                              {lot?.ends_at ? `Expira em ${new Date(lot.ends_at).toLocaleDateString('pt-BR')}` : 'Leilão Ativo'}
+                              {isFinished ? 'Leilão Encerrado' : (lot?.ends_at ? `Expira em ${new Date(lot.ends_at).toLocaleDateString('pt-BR')}` : 'Leilão Ativo')}
                             </span>
                           </div>
                         </div>
-                        <Badge className="bg-blue-50 text-blue-600 border-none font-bold text-[10px] px-2 py-0.5 rounded-full">
-                          EM DISPUTA
-                        </Badge>
+                        {isWinner ? (
+                          <Badge className="bg-emerald-50 text-emerald-600 border-none font-bold text-[10px] px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <CheckCircle2 size={10} /> ARREMATADO
+                          </Badge>
+                        ) : isFinished ? (
+                          <Badge className="bg-slate-100 text-slate-500 border-none font-bold text-[10px] px-2 py-0.5 rounded-full">
+                            FINALIZADO
+                          </Badge>
+                        ) : (
+                          <Badge className="bg-blue-50 text-blue-600 border-none font-bold text-[10px] px-2 py-0.5 rounded-full">
+                            EM DISPUTA
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex justify-between items-end mt-4">
                         <div>
-                          <p className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">Seu Lance Atual</p>
-                          <p className="font-bold text-slate-900 text-xl">{formatCurrency(bid.amount)}</p>
+                          <p className="text-[10px] uppercase font-bold text-slate-400 mb-0.5">
+                            {isWinner ? 'Valor de Arremate' : 'Seu Lance Atual'}
+                          </p>
+                          <p className={cn("font-bold text-xl", isWinner ? "text-emerald-600" : "text-slate-900")}>
+                            {formatCurrency(bid.amount)}
+                          </p>
                         </div>
                         <Link to={`/lots/${bid.lot_id}`}>
-                          <Button className="rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold px-5 h-10 text-sm">
-                            Aumentar Lance
+                          <Button className={cn(
+                            "rounded-xl font-bold px-5 h-10 text-sm transition-all",
+                            isWinner 
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white" 
+                              : "bg-slate-900 hover:bg-slate-800 text-white"
+                          )}>
+                            {isWinner ? "Ver Detalhes" : "Aumentar Lance"}
                           </Button>
                         </Link>
                       </div>

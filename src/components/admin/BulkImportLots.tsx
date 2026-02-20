@@ -48,22 +48,25 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
     setIsImporting(true);
     try {
       for (const row of previewData) {
+        // Limpeza e normalização da URL da capa
+        const rawCover = String(row.FotoCapa || row.foto_capa || "").trim();
+        
         const lotData = {
           auction_id: selectedAuctionId,
           lot_number: parseInt(row.Lote || row.lote || 0),
-          title: row.Titulo || row.titulo || row.Title || "",
-          brand: row.Marca || row.marca || "",
-          model: row.Modelo || row.modelo || "",
+          title: String(row.Titulo || row.titulo || row.Title || "").trim(),
+          brand: String(row.Marca || row.marca || "").trim(),
+          model: String(row.Modelo || row.modelo || "").trim(),
           year: parseInt(row.Ano || row.ano || 2024),
           mileage_km: parseInt(row.KM || row.km || 0),
           start_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
           current_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
           bid_increment: parseFloat(row.Incremento || row.incremento || 500),
-          description: row.Descricao || row.descricao || "",
-          cover_image_url: row.FotoCapa || row.foto_capa || null,
+          description: String(row.Descricao || row.descricao || "").trim(),
+          cover_image_url: rawCover || null,
           status: 'active',
-          transmission: row.Cambio || row.cambio || "Automático",
-          fuel_type: row.Combustivel || row.combustivel || "Flex"
+          transmission: String(row.Cambio || row.cambio || "Automático").trim(),
+          fuel_type: String(row.Combustivel || row.combustivel || "Flex").trim()
         };
 
         const { data: newLot, error: lotError } = await supabase
@@ -74,15 +77,20 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
         if (lotError) throw lotError;
 
-        const galleryString = row.Galeria || row.galeria || "";
+        // Processamento robusto da Galeria
+        const galleryString = String(row.Galeria || row.galeria || "");
         if (galleryString && newLot) {
-          const photoUrls = galleryString.split(/[;,]+/).map((url: string) => url.trim()).filter(Boolean);
+          // Divide por vírgula ou ponto e vírgula, remove espaços e filtra vazios
+          const photoUrls = galleryString
+            .split(/[;,]+/)
+            .map((url: string) => url.trim())
+            .filter(url => url.length > 10); // Garante que é um link mínimo
           
           if (photoUrls.length > 0) {
             const photosToInsert = photoUrls.map((url: string) => ({
               lot_id: newLot.id,
               public_url: url,
-              is_cover: url === newLot.cover_image_url
+              is_cover: url === lotData.cover_image_url
             }));
 
             await supabase.from('lot_photos').insert(photosToInsert);
@@ -95,6 +103,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
       setPreviewData([]);
       onSuccess();
     } catch (error: any) {
+      console.error("Erro na importação:", error);
       toast({ variant: "destructive", title: "Erro na importação", description: error.message });
     } finally {
       setIsImporting(false);
@@ -102,23 +111,22 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
   };
 
   const downloadTemplate = () => {
-    // Criando o cabeçalho manualmente para garantir a ordem
     const header = ["Lote", "Titulo", "Marca", "Modelo", "Ano", "KM", "LanceInicial", "Incremento", "Cambio", "Combustivel", "FotoCapa", "Galeria", "Descricao"];
     
     const exampleRow = { 
       "Lote": 1, 
-      "Titulo": "Toyota Corolla XEi 2.0", 
-      "Marca": "Toyota", 
-      "Modelo": "Corolla", 
-      "Ano": 2023, 
-      "KM": 15000, 
-      "LanceInicial": 85000, 
-      "Incremento": 1000, 
-      "Cambio": "Automático",
+      "Titulo": "Fiat Punto SPORTING 1.8", 
+      "Marca": "Fiat", 
+      "Modelo": "Punto", 
+      "Ano": 2011, 
+      "KM": 120000, 
+      "LanceInicial": 15000, 
+      "Incremento": 500, 
+      "Cambio": "Manual",
       "Combustivel": "Flex",
-      "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/principal_1727218923294_882070.jpg",
-      "Galeria": "https://site.com/foto2.jpg, https://site.com/foto3.jpg, https://site.com/foto4.jpg",
-      "Descricao": "Veículo em excelente estado." 
+      "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/img8_1727377758954_959499.PNG",
+      "Galeria": "https://guimaraeslimaleiloes.com/web/fotos/img8_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG",
+      "Descricao": "Veículo em bom estado de conservação." 
     };
 
     const ws = XLSX.utils.json_to_sheet([exampleRow], { header });
@@ -143,10 +151,10 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         <div className="space-y-6 py-4">
           <Alert className="bg-blue-50 border-blue-100 rounded-2xl">
             <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-900 font-bold">Instruções de Fotos</AlertTitle>
+            <AlertTitle className="text-blue-900 font-bold">Suporte a Fotos .PNG</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs">
-              • <b>FotoCapa:</b> Link da imagem principal.<br/>
-              • <b>Galeria:</b> Outros links separados por vírgula (ex: link1.jpg, link2.jpg).
+              O sistema agora aceita links do site Guimarães Lima (incluindo extensões .PNG em maiúsculo). 
+              Basta colar os links diretos das imagens na coluna Galeria separados por vírgula.
             </AlertDescription>
           </Alert>
 

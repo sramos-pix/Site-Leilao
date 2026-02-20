@@ -47,29 +47,50 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
     setIsImporting(true);
     try {
-      const lotsToInsert = previewData.map((row: any) => ({
-        auction_id: selectedAuctionId,
-        lot_number: parseInt(row.Lote || row.lote || 0),
-        title: row.Titulo || row.titulo || row.Title || "",
-        brand: row.Marca || row.marca || "",
-        model: row.Modelo || row.modelo || "",
-        year: parseInt(row.Ano || row.ano || 2024),
-        mileage_km: parseInt(row.KM || row.km || 0),
-        start_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
-        current_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
-        bid_increment: parseFloat(row.Incremento || row.incremento || 500),
-        description: row.Descricao || row.descricao || "",
-        cover_image_url: row.FotoCapa || row.foto_capa || row.Image || null,
-        status: 'active',
-        transmission: row.Cambio || row.cambio || "Automático",
-        fuel_type: row.Combustivel || row.combustivel || "Flex"
-      }));
+      for (const row of previewData) {
+        const lotData = {
+          auction_id: selectedAuctionId,
+          lot_number: parseInt(row.Lote || row.lote || 0),
+          title: row.Titulo || row.titulo || row.Title || "",
+          brand: row.Marca || row.marca || "",
+          model: row.Modelo || row.modelo || "",
+          year: parseInt(row.Ano || row.ano || 2024),
+          mileage_km: parseInt(row.KM || row.km || 0),
+          start_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
+          current_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
+          bid_increment: parseFloat(row.Incremento || row.incremento || 500),
+          description: row.Descricao || row.descricao || "",
+          cover_image_url: row.FotoCapa || row.foto_capa || null,
+          status: 'active',
+          transmission: row.Cambio || row.cambio || "Automático",
+          fuel_type: row.Combustivel || row.combustivel || "Flex"
+        };
 
-      const { error } = await supabase.from('lots').insert(lotsToInsert);
+        const { data: newLot, error: lotError } = await supabase
+          .from('lots')
+          .insert(lotData)
+          .select()
+          .single();
 
-      if (error) throw error;
+        if (lotError) throw lotError;
 
-      toast({ title: "Importação concluída!", description: `${lotsToInsert.length} veículos cadastrados.` });
+        const galleryString = row.Galeria || row.galeria || "";
+        if (galleryString && newLot) {
+          const photoUrls = galleryString.split(/[;,]+/).map((url: string) => url.trim()).filter(Boolean);
+          
+          if (photoUrls.length > 0) {
+            const photosToInsert = photoUrls.map((url: string) => ({
+              lot_id: newLot.id,
+              public_url: url,
+              is_cover: url === newLot.cover_image_url
+            }));
+
+            await supabase.from('lot_photos').insert(photosToInsert);
+          }
+        }
+      }
+
+      toast({ title: "Importação concluída!", description: `${previewData.length} veículos cadastrados.` });
       setIsOpen(false);
       setPreviewData([]);
       onSuccess();
@@ -81,14 +102,30 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
   };
 
   const downloadTemplate = () => {
-    const template = [
-      { Lote: 1, Titulo: "Toyota Corolla XEi", Marca: "Toyota", Modelo: "Corolla", Ano: 2023, KM: 15000, LanceInicial: 85000, Incremento: 1000, Cambio: "Automático", Combustivel: "Flex", FotoCapa: "https://link-da-foto.com/foto.jpg", Descricao: "Veículo impecável" },
-      { Lote: 2, Titulo: "Honda Civic Touring", Marca: "Honda", Modelo: "Civic", Ano: 2022, KM: 22000, LanceInicial: 95000, Incremento: 1000, Cambio: "Automático", Combustivel: "Gasolina", FotoCapa: "", Descricao: "Único dono" }
-    ];
-    const ws = XLSX.utils.json_to_sheet(template);
+    // Criando o cabeçalho manualmente para garantir a ordem
+    const header = ["Lote", "Titulo", "Marca", "Modelo", "Ano", "KM", "LanceInicial", "Incremento", "Cambio", "Combustivel", "FotoCapa", "Galeria", "Descricao"];
+    
+    const exampleRow = { 
+      "Lote": 1, 
+      "Titulo": "Toyota Corolla XEi 2.0", 
+      "Marca": "Toyota", 
+      "Modelo": "Corolla", 
+      "Ano": 2023, 
+      "KM": 15000, 
+      "LanceInicial": 85000, 
+      "Incremento": 1000, 
+      "Cambio": "Automático",
+      "Combustivel": "Flex",
+      "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/principal_1727218923294_882070.jpg",
+      "Galeria": "https://site.com/foto2.jpg, https://site.com/foto3.jpg, https://site.com/foto4.jpg",
+      "Descricao": "Veículo em excelente estado." 
+    };
+
+    const ws = XLSX.utils.json_to_sheet([exampleRow], { header });
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Template");
-    XLSX.writeFile(wb, "modelo_importacao_autobid.xlsx");
+    XLSX.utils.book_append_sheet(wb, ws, "Importar Veiculos");
+    
+    XLSX.writeFile(wb, "modelo_importacao_FINAL.xlsx");
   };
 
   return (
@@ -106,9 +143,10 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         <div className="space-y-6 py-4">
           <Alert className="bg-blue-50 border-blue-100 rounded-2xl">
             <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-900 font-bold">Instruções</AlertTitle>
+            <AlertTitle className="text-blue-900 font-bold">Instruções de Fotos</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs">
-              Use os nomes das colunas exatamente como no modelo. A coluna <b>FotoCapa</b> aceita links diretos de imagens (opcional).
+              • <b>FotoCapa:</b> Link da imagem principal.<br/>
+              • <b>Galeria:</b> Outros links separados por vírgula (ex: link1.jpg, link2.jpg).
             </AlertDescription>
           </Alert>
 
@@ -128,7 +166,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase">2. Baixar Modelo</label>
               <Button variant="secondary" onClick={downloadTemplate} className="w-full h-12 rounded-xl font-bold gap-2">
-                <Upload size={16} className="rotate-180" /> Download Excel
+                <Upload size={16} className="rotate-180" /> Download Modelo Final
               </Button>
             </div>
           </div>
@@ -148,29 +186,6 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
               </p>
             </div>
           </div>
-
-          {previewData.length > 0 && (
-            <div className="max-h-40 overflow-y-auto border rounded-xl p-2 bg-slate-50">
-              <table className="w-full text-[10px]">
-                <thead className="sticky top-0 bg-slate-100">
-                  <tr>
-                    <th className="p-1 text-left">Lote</th>
-                    <th className="p-1 text-left">Título</th>
-                    <th className="p-1 text-left">Foto (Link)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {previewData.slice(0, 5).map((row, i) => (
-                    <tr key={i} className="border-t">
-                      <td className="p-1">{row.Lote || row.lote}</td>
-                      <td className="p-1">{row.Titulo || row.titulo}</td>
-                      <td className="p-1 truncate max-w-[100px]">{row.FotoCapa || "N/A"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
 
           <Button 
             onClick={processImport} 

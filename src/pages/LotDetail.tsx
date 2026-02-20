@@ -2,20 +2,17 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { generateWinningCertificate } from '@/lib/pdf-generator';
-import { motion, AnimatePresence } from 'framer-motion';
-import { FileText, ChevronLeft, Heart, Share2, Clock, Gavel,
-  ShieldCheck, MapPin, Calendar, Gauge,
-  Fuel, Settings2, Loader2, History, User,
-  Trophy, Info, CheckCircle2, Lock as LockIcon,
-  TrendingUp, CreditCard, AlertCircle
+import { motion } from 'framer-motion';
+import { 
+  ChevronLeft, Clock, Gavel, Gauge, Calendar, 
+  Settings2, Fuel, Loader2, History, Info, 
+  CheckCircle2, Lock as LockIcon, AlertCircle
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { formatCurrency, cn } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
@@ -36,70 +33,12 @@ const LotDetail = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [realBids, setRealBids] = useState<any[]>([]);
 
-  const maskEmail = (email: string) => {
-    if (!email || email === "usuario@leilao.com") return "Licitante Oculto";
-    try {
-      const [name, domain] = email.split('@');
-      return `${name.substring(0, 2)}***@${domain.substring(0, 2)}***`;
-    } catch (e) {
-      return "Licitante Oculto";
-    }
-  };
-
   const isFinished = lot?.status === 'finished';
-
-  // SEO: Atualiza o título da aba com o nome do veículo
-  useEffect(() => {
-    if (lot?.title) {
-      document.title = `${lot.title} | Lote #${lot.lot_number} | AutoBid Leilões`;
-    }
-    return () => {
-      document.title = "AutoBid | Leilões de Veículos Online";
-    };
-  }, [lot]);
-
-  const displayBids = useMemo(() => {
-    if (!lot) return [];
-    const combined = [...realBids];
-    const startBid = lot.start_bid || 0;
-    const currentBid = combined.length > 0 ? (lot.current_bid || startBid) : startBid;
-    const increment = lot.bid_increment || 500;
-    
-    let lastAmount = combined.length > 0 
-      ? Math.min(...combined.map(b => b.amount)) 
-      : currentBid;
-
-    const fakeEmails = ["m.silva@gmail.com", "ana.p@uol.com", "carlos.v@bol.com", "fer.l@gmail.com", "rob.a@outlook.com"];
-
-    let i = 0;
-    while (combined.length < 10 && lastAmount > (startBid * 0.3)) {
-      lastAmount -= increment;
-      if (lastAmount <= 0) break;
-
-      combined.push({
-        id: `fake-${i}`,
-        amount: lastAmount,
-        user_email: fakeEmails[i % fakeEmails.length],
-        user_id: 'fake-system-id',
-        is_fake: true
-      });
-      i++;
-    }
-    
-    return combined.sort((a, b) => b.amount - a.amount);
-  }, [realBids, lot, id]);
-
-  const currentDisplayPrice = useMemo(() => {
-    if (!lot) return 0;
-    if (realBids.length === 0) return lot.start_bid;
-    return lot.current_bid || lot.start_bid;
-  }, [lot, realBids]);
 
   const fetchLotData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      const loggedUser = session?.user || null;
-      setCurrentUser(loggedUser);
+      setCurrentUser(session?.user || null);
 
       const { data: lotData } = await supabase
         .from('lots')
@@ -116,30 +55,18 @@ const LotDetail = () => {
           .eq('lot_id', id)
           .order('amount', { ascending: false });
         
-        let bidsWithEmail: any[] = [];
-        if (b && b.length > 0) {
-          const userIds = [...new Set(b.map(bid => bid.user_id))];
-          const { data: profiles } = await supabase
-            .from('profiles')
-            .select('id, email')
-            .in('id', userIds);
+        setRealBids(b || []);
 
-          bidsWithEmail = b.map(bid => {
-            const profile = profiles?.find(p => p.id === bid.user_id);
-            return {
-              ...bid,
-              user_email: profile?.email || "usuario@leilao.com"
-            };
-          });
-        }
-        setRealBids(bidsWithEmail);
-
-        const basePrice = bidsWithEmail.length > 0 ? (lotData.current_bid || lotData.start_bid) : lotData.start_bid;
+        const basePrice = b && b.length > 0 ? (lotData.current_bid || lotData.start_bid) : lotData.start_bid;
         setBidAmount(basePrice + (lotData.bid_increment || 500));
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
-        if (!activePhoto) setActivePhoto(lotData.cover_image_url);
+        
+        // Define a foto ativa inicial
+        if (!activePhoto) {
+          setActivePhoto(lotData.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=1200');
+        }
       }
     } catch (e) {
       console.error("Erro:", e);
@@ -152,7 +79,6 @@ const LotDetail = () => {
     fetchLotData();
     const channel = supabase.channel(`lot-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
@@ -176,14 +102,30 @@ const LotDetail = () => {
 
   if (isLoading || !lot) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
 
+  // Lista de todas as imagens disponíveis (capa + galeria)
+  const allImages = [lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean);
+
   return (
     <div className="bg-white min-h-screen flex flex-col">
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-6">
-            <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border">
-              <img src={activePhoto || lot.cover_image_url} className="w-full h-full object-cover" alt={lot.title} />
+            {/* Visualizador de Imagem Principal */}
+            <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border shadow-inner">
+              <img 
+                src={activePhoto} 
+                className="w-full h-full object-cover transition-opacity duration-300" 
+                alt={lot.title}
+                onError={(e) => {
+                  // Se a imagem falhar, tenta a capa ou um placeholder
+                  if (activePhoto !== lot.cover_image_url) {
+                    setActivePhoto(lot.cover_image_url);
+                  } else {
+                    e.currentTarget.src = 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=1200';
+                  }
+                }}
+              />
               {!isFinished && (
                 <div className="absolute top-6 left-6 flex gap-3">
                   <Badge className="bg-slate-900/90 text-white border-none px-4 py-1.5 rounded-full font-bold text-xs">LOTE #{lot.lot_number}</Badge>
@@ -195,10 +137,26 @@ const LotDetail = () => {
               )}
             </div>
             
-            <div className="flex gap-3 overflow-x-auto pb-2">
-              {[lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean).map((url, i) => (
-                <button key={i} onClick={() => setActivePhoto(url)} className={cn("shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2", activePhoto === url ? 'border-orange-500' : 'border-transparent')}>
-                  <img src={url} className="w-full h-full object-cover" alt="thumb" />
+            {/* Miniaturas da Galeria */}
+            <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+              {allImages.map((url, i) => (
+                <button 
+                  key={i} 
+                  onClick={() => setActivePhoto(url)} 
+                  className={cn(
+                    "shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2 transition-all", 
+                    activePhoto === url ? 'border-orange-500 scale-95 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
+                  )}
+                >
+                  <img 
+                    src={url} 
+                    className="w-full h-full object-cover" 
+                    alt={`Miniatura ${i}`}
+                    onError={(e) => {
+                      // Esconde miniaturas que não carregam
+                      e.currentTarget.parentElement?.style.setProperty('display', 'none');
+                    }}
+                  />
                 </button>
               ))}
             </div>
@@ -233,7 +191,7 @@ const LotDetail = () => {
 
                 <div>
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">{isFinished ? "Vendido por" : "Lance Atual"}</p>
-                  <p className="text-4xl font-black text-white">{formatCurrency(currentDisplayPrice)}</p>
+                  <p className="text-4xl font-black text-white">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
                 </div>
 
                 {!isFinished ? (
@@ -257,18 +215,17 @@ const LotDetail = () => {
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
-                {displayBids.map((bid, idx) => {
-                  const isMe = currentUser && bid.user_id === currentUser.id;
-                  return (
-                    <div key={bid.id} className={cn("flex items-center justify-between text-sm p-3 rounded-2xl transition-all", isMe ? "bg-orange-50 border border-orange-200 shadow-sm" : "bg-white/50")}>
-                      <div className="flex items-center gap-2">
-                        <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : isMe ? "bg-orange-600" : "bg-slate-300")} />
-                        <span className={cn("font-bold text-[11px]", isMe ? "text-orange-600" : "text-slate-700")}>{isMe ? "Seu Lance" : maskEmail(bid.user_email)}</span>
-                      </div>
-                      <span className={cn("font-black", isMe ? "text-orange-600" : "text-slate-900")}>{formatCurrency(bid.amount)}</span>
+                {realBids.length > 0 ? realBids.slice(0, 5).map((bid, idx) => (
+                  <div key={bid.id} className="flex items-center justify-between text-sm p-3 rounded-2xl bg-white/50">
+                    <div className="flex items-center gap-2">
+                      <div className={cn("w-2 h-2 rounded-full", idx === 0 ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
+                      <span className="font-bold text-[11px] text-slate-700">Licitante Oculto</span>
                     </div>
-                  );
-                })}
+                    <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
+                  </div>
+                )) : (
+                  <p className="text-xs text-slate-400 text-center py-4 italic">Nenhum lance registrado.</p>
+                )}
               </div>
             </div>
           </div>

@@ -48,7 +48,6 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
     setIsImporting(true);
     try {
       for (const row of previewData) {
-        // Limpeza e normalização da URL da capa
         const rawCover = String(row.FotoCapa || row.foto_capa || "").trim();
         
         const lotData = {
@@ -77,14 +76,12 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
         if (lotError) throw lotError;
 
-        // Processamento robusto da Galeria
         const galleryString = String(row.Galeria || row.galeria || "");
         if (galleryString && newLot) {
-          // Divide por vírgula ou ponto e vírgula, remove espaços e filtra vazios
           const photoUrls = galleryString
             .split(/[;,]+/)
             .map((url: string) => url.trim())
-            .filter(url => url.length > 10); // Garante que é um link mínimo
+            .filter(url => url.length > 10);
           
           if (photoUrls.length > 0) {
             const photosToInsert = photoUrls.map((url: string) => ({
@@ -113,9 +110,10 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
   const downloadTemplate = () => {
     const header = ["Lote", "Titulo", "Marca", "Modelo", "Ano", "KM", "LanceInicial", "Incremento", "Cambio", "Combustivel", "FotoCapa", "Galeria", "Descricao"];
     
+    // Exemplo real baseado no link que você enviou
     const exampleRow = { 
-      "Lote": 1, 
-      "Titulo": "Fiat Punto SPORTING 1.8", 
+      "Lote": 70, 
+      "Titulo": "Fiat Punto SPORTING 1.8 2011", 
       "Marca": "Fiat", 
       "Modelo": "Punto", 
       "Ano": 2011, 
@@ -124,16 +122,16 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
       "Incremento": 500, 
       "Cambio": "Manual",
       "Combustivel": "Flex",
-      "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/img8_1727377758954_959499.PNG",
-      "Galeria": "https://guimaraeslimaleiloes.com/web/fotos/img8_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG",
-      "Descricao": "Veículo em bom estado de conservação." 
+      "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG",
+      "Galeria": "https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img2_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img3_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img4_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img5_1727377758954_959499.PNG",
+      "Descricao": "Veículo em bom estado de conservação. Ar condicionado, direção hidráulica." 
     };
 
     const ws = XLSX.utils.json_to_sheet([exampleRow], { header });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Importar Veiculos");
     
-    XLSX.writeFile(wb, "modelo_importacao_FINAL.xlsx");
+    XLSX.writeFile(wb, "modelo_importacao_GUIMARAES.xlsx");
   };
 
   return (
@@ -151,10 +149,10 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         <div className="space-y-6 py-4">
           <Alert className="bg-blue-50 border-blue-100 rounded-2xl">
             <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-900 font-bold">Suporte a Fotos .PNG</AlertTitle>
+            <AlertTitle className="text-blue-900 font-bold">Como pegar as fotos</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs">
-              O sistema agora aceita links do site Guimarães Lima (incluindo extensões .PNG em maiúsculo). 
-              Basta colar os links diretos das imagens na coluna Galeria separados por vírgula.
+              No site do leilão, clique com o botão direito na foto e escolha <b>"Copiar endereço da imagem"</b>. 
+              Cole na coluna Galeria separando por vírgula. O sistema aceita links .PNG e .JPG.
             </AlertDescription>
           </Alert>
 
@@ -174,7 +172,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase">2. Baixar Modelo</label>
               <Button variant="secondary" onClick={downloadTemplate} className="w-full h-12 rounded-xl font-bold gap-2">
-                <Upload size={16} className="rotate-180" /> Download Modelo Final
+                <Upload size={16} className="rotate-180" /> Download Modelo Guimarães
               </Button>
             </div>
           </div>

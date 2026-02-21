@@ -31,6 +31,7 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [displayBids, setDisplayBids] = useState<any[]>([]);
+  const [myBids, setMyBids] = useState<any[]>([]); // Estado para persistir SEUS lances
 
   const isFinished = lot?.status === 'finished';
 
@@ -65,6 +66,7 @@ const LotDetail = () => {
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
+        // Lances reais do banco
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
@@ -74,10 +76,20 @@ const LotDetail = () => {
           is_fake: false
         }));
 
-        const finalBids = [...formattedReals];
+        // Mesclar com lances que você acabou de dar (otimistas)
+        const allRealBids = [...formattedReals];
+        myBids.forEach(myBid => {
+          if (!allRealBids.find(b => b.amount === myBid.amount)) {
+            allRealBids.push(myBid);
+          }
+        });
+
+        const finalBids = [...allRealBids];
+        
+        // Preencher com fakes apenas se necessário
         if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
-          const basePrice = finalBids.length > 0 ? finalBids[finalBids.length - 1].amount : currentPrice;
+          const basePrice = finalBids.length > 0 ? Math.min(...finalBids.map(b => b.amount)) : currentPrice;
           const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
 
           for (let i = 0; i < needed; i++) {
@@ -95,7 +107,7 @@ const LotDetail = () => {
         }
 
         setDisplayBids(finalBids.sort((a, b) => b.amount - a.amount));
-        setBidAmount(currentPrice + increment);
+        setBidAmount((lotData.current_bid || lotData.start_bid) + increment);
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
@@ -106,7 +118,7 @@ const LotDetail = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id, activePhoto]);
+  }, [id, activePhoto, myBids]);
 
   useEffect(() => {
     fetchLotData();
@@ -124,28 +136,28 @@ const LotDetail = () => {
 
     const newBidAmount = Number(bidAmount);
     
-    // ATUALIZAÇÃO OTIMISTA: Inserir o lance na lista IMEDIATAMENTE
-    const optimisticBid = {
-      id: `temp-${Date.now()}`,
+    // Criar o objeto do seu lance
+    const newMyBid = {
+      id: `my-bid-${Date.now()}`,
       amount: newBidAmount,
       created_at: new Date().toISOString(),
       email: currentUser.email,
       user_id: currentUser.id,
-      is_fake: false,
-      is_optimistic: true
+      is_fake: false
     };
 
-    setDisplayBids(prev => [optimisticBid, ...prev].sort((a, b) => b.amount - a.amount));
-    setLot(prev => ({ ...prev, current_bid: newBidAmount }));
+    // Salvar no estado persistente de "meus lances" para não sumir
+    setMyBids(prev => [newMyBid, ...prev]);
     
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, newBidAmount);
       toast({ title: "Lance confirmado!" });
-      await fetchLotData(); 
+      // fetchLotData será chamado pelo useEffect/realtime
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
-      fetchLotData(); // Reverte em caso de erro
+      // Remove o lance do estado se deu erro no banco
+      setMyBids(prev => prev.filter(b => b.id !== newMyBid.id));
     } finally {
       setIsSubmitting(false);
     }
@@ -228,7 +240,6 @@ const LotDetail = () => {
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  // Verificação de ID robusta
                   const isMyBid = currentUser && (bid.user_id === currentUser.id || bid.email === currentUser.email);
                   
                   return (

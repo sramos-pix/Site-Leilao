@@ -45,14 +45,26 @@ const Auctions = () => {
   }
 
   const getStatusInfo = (status: string) => {
-    switch (status) {
+    const normalizedStatus = (status || '').toLowerCase().trim();
+    
+    switch (normalizedStatus) {
       case 'active':
+      case 'ativo':
+      case 'ao vivo':
         return { label: 'AO VIVO', class: 'bg-red-500 text-white animate-pulse' };
       case 'finished':
+      case 'finalizado':
+      case 'encerrado':
         return { label: 'FINALIZADO', class: 'bg-slate-500 text-white' };
       case 'scheduled':
-      default:
+      case 'agendado':
         return { label: 'AGENDADO', class: 'bg-blue-500 text-white' };
+      default:
+        // Se for um status não mapeado, exibe o próprio texto que veio do banco
+        return { 
+          label: status ? status.toUpperCase() : 'AGENDADO', 
+          class: 'bg-slate-800 text-white' 
+        };
     }
   };
 
@@ -120,12 +132,12 @@ const Auctions = () => {
                     <Button 
                       className={cn(
                         "w-full rounded-xl h-11 font-bold group/btn transition-all",
-                        auction.status === 'finished' 
+                        statusInfo.label === 'FINALIZADO'
                           ? "bg-slate-200 text-slate-500 hover:bg-slate-300" 
                           : "bg-slate-900 hover:bg-orange-600 text-white"
                       )}
                     >
-                      {auction.status === 'finished' ? 'Ver Resultados' : 'Ver Veículos'} 
+                      {statusInfo.label === 'FINALIZADO' ? 'Ver Resultados' : 'Ver Veículos'} 
                       <ChevronRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
                     </Button>
                   </Link>

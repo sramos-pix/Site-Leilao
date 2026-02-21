@@ -48,21 +48,37 @@ const LotDetail = () => {
     return Math.max(Number(lot.current_bid) || 0, Number(lot.start_bid) || 0);
   }, [lot]);
 
-  // Gerencia o estado de autenticação de forma independente e robusta
+  // Gerenciamento de sessão robusto e independente
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setCurrentUser(session?.user || null);
-    });
+    let mounted = true;
+
+    const checkSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (mounted) {
+        setCurrentUser(session?.user || null);
+      }
+    };
+
+    checkSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setCurrentUser(session?.user || null);
+      if (mounted) {
+        setCurrentUser(session?.user || null);
+      }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchLotData = useCallback(async () => {
     try {
+      // Pega a sessão atual apenas para preencher o email caso seja o próprio usuário
+      const { data: { session } } = await supabase.auth.getSession();
+      const activeUser = session?.user || null;
+
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -80,10 +96,6 @@ const LotDetail = () => {
       
       const increment = lotData.bid_increment || 500;
       const currentVal = lotData.current_bid || lotData.start_bid || 0;
-
-      // Pega o usuário atual do estado (se já estiver carregado) ou tenta pegar da sessão
-      const { data: { session } } = await supabase.auth.getSession();
-      const activeUser = session?.user || currentUser;
 
       const formattedReals = (realBids || []).map(b => ({
         id: b.id,
@@ -105,19 +117,15 @@ const LotDetail = () => {
 
         const fakeEmails = ["m***@gmail.com", "a***@uol.com.br", "r***@hotmail.com", "c***@outlook.com", "j***@yahoo.com", "p***@icloud.com", "f***@bol.com.br"];
         
-        // Cria um seed baseado no ID do lote para que os dados sejam sempre os mesmos para este lote
         const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 123;
         const random = mulberry32(seed);
-
-        // Usa a data de criação do lote como base, ou uma data fixa no passado se não existir
         const baseDate = lotData.created_at ? new Date(lotData.created_at).getTime() : Date.now() - (7 * 24 * 60 * 60 * 1000);
 
         for (let i = 0; i < needed; i++) {
           if (nextFakeAmount <= 0) break;
           
-          // Gera um tempo fixo no passado para cada lance, baseado no seed
-          const timeOffset = Math.floor(random() * 48 * 60 * 60 * 1000); // Até 48h após a criação
-          const fakeDate = new Date(baseDate + timeOffset + (i * 3600000)); // Garante ordem cronológica
+          const timeOffset = Math.floor(random() * 48 * 60 * 60 * 1000);
+          const fakeDate = new Date(baseDate + timeOffset + (i * 3600000));
           
           finalBids.push({
             id: `fake-${i}-${id}`,
@@ -149,7 +157,7 @@ const LotDetail = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id, currentUser]);
+  }, [id]); // Removido currentUser das dependências para evitar re-fetches desnecessários
 
   useEffect(() => {
     fetchLotData();
@@ -346,9 +354,13 @@ const LotDetail = () => {
               </div>
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {displayBids.map((bid, idx) => {
-                  // Verificação robusta para garantir que o lance do usuário seja sempre destacado
-                  const isMyBid = currentUser && bid.user_id && (bid.user_id === currentUser.id);
-                  const displayName = isMyBid ? "SEU LANCE" : (bid.is_fake ? bid.email : maskEmail(bid.email));
+                  // Verificação à prova de falhas: compara o ID do usuário logado com o dono do lance
+                  const isMyBid = Boolean(currentUser?.id && bid.user_id && bid.user_id === currentUser.id);
+                  
+                  // Se for o lance do usuário, mostra "SEU LANCE". Se não, mostra o email mascarado.
+                  const displayName = isMyBid 
+                    ? "SEU LANCE" 
+                    : (bid.is_fake ? bid.email : maskEmail(bid.email || 'usuario@leilao.com'));
                   
                   return (
                     <div key={bid.id} className={cn(

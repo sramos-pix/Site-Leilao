@@ -34,7 +34,7 @@ const LotDetail = () => {
   
   const isFinished = lot?.status === 'finished';
 
-  // Preço atual calculado com base no estado mais recente do lote
+  // O preço atual sempre reflete o estado mais recente do lote
   const currentPrice = useMemo(() => {
     if (!lot) return 0;
     return Math.max(Number(lot.current_bid) || 0, Number(lot.start_bid) || 0);
@@ -46,130 +46,148 @@ const LotDetail = () => {
       const user = session?.user || null;
       setCurrentUser(user);
 
-      const { data: lotData, error: lotError } = await supabase
+      const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
         .eq('id', id)
         .single();
 
-      if (lotData) {
-        setLot(lotData);
-        
-        const { data: realBids } = await supabase
-          .from('bids')
-          .select('id, amount, user_id, created_at, profiles(email)')
-          .eq('lot_id', id)
-          .order('amount', { ascending: false });
-        
-        const increment = lotData.bid_increment || 500;
+      if (!lotData) return;
 
-        const formattedReals = (realBids || []).map(b => ({
-          id: b.id,
-          amount: b.amount,
-          created_at: b.created_at,
-          email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@leilao.com'),
-          user_id: b.user_id,
-          is_fake: false
-        }));
+      setLot(lotData);
+      
+      // Busca lances reais
+      const { data: realBids } = await supabase
+        .from('bids')
+        .select('id, amount, user_id, created_at, profiles(email)')
+        .eq('lot_id', id)
+        .order('amount', { ascending: false });
+      
+      const increment = lotData.bid_increment || 500;
+      const currentVal = lotData.current_bid || lotData.start_bid || 0;
 
-        let finalBids = [...formattedReals];
-        
-        if (finalBids.length < 10) {
-          const needed = 10 - finalBids.length;
-          const baseForFakes = finalBids.length > 0 
-            ? finalBids[finalBids.length - 1].amount 
-            : lotData.start_bid;
+      // Formata lances reais
+      const formattedReals = (realBids || []).map(b => ({
+        id: b.id,
+        amount: b.amount,
+        created_at: b.created_at,
+        email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@leilao.com'),
+        user_id: b.user_id,
+        is_fake: false
+      }));
 
-          const fakeEmails = ["m***@gmail.com", "a***@uol.com.br", "r***@hotmail.com", "c***@outlook.com", "j***@yahoo.com"];
+      let finalBids = [...formattedReals];
+      
+      // Se tivermos menos de 10 lances, preenchemos com fictícios
+      if (finalBids.length < 10) {
+        const needed = 10 - finalBids.length;
+        let nextFakeAmount;
 
-          for (let i = 0; i < needed; i++) {
-            const fAmount = baseForFakes - ((i + 1) * increment);
-            if (fAmount <= 0) continue;
-            
-            finalBids.push({
-              id: `fake-${i}-${id}`,
-              amount: fAmount,
-              created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString(),
-              email: fakeEmails[i % fakeEmails.length],
-              user_id: 'system-fake',
-              is_fake: true
-            });
-          }
+        if (finalBids.length > 0) {
+          // Se já existem lances reais, os fictícios continuam ABAIXO do menor lance real
+          nextFakeAmount = finalBids[finalBids.length - 1].amount - increment;
+        } else {
+          // Se NÃO existem lances reais, o primeiro fictício DEVE SER o valor atual do lote
+          nextFakeAmount = currentVal;
         }
 
-        setDisplayBids(finalBids.sort((a, b) => b.amount - a.amount));
-        
-        // Atualiza o input de lance apenas se o usuário não estiver digitando
-        setBidAmount(prev => {
-          const nextMin = (Number(lotData.current_bid) || Number(lotData.start_bid)) + increment;
-          return prev < nextMin ? nextMin : prev;
-        });
-        
-        const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
-        setPhotos(ph || []);
-        if (!activePhoto) setActivePhoto(lotData.cover_image_url);
+        const fakeEmails = ["m***@gmail.com", "a***@uol.com.br", "r***@hotmail.com", "c***@outlook.com", "j***@yahoo.com"];
+
+        for (let i = 0; i < needed; i++) {
+          if (nextFakeAmount <= 0) break;
+          
+          finalBids.push({
+            id: `fake-${i}-${id}`,
+            amount: nextFakeAmount,
+            created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString(),
+            email: fakeEmails[i % fakeEmails.length],
+            user_id: 'system-fake',
+            is_fake: true
+          });
+
+          nextFakeAmount -= increment;
+        }
       }
+
+      // Ordena do maior para o menor
+      finalBids.sort((a, b) => b.amount - a.amount);
+      setDisplayBids(finalBids);
+      
+      // Atualiza o input de lance sugerido
+      setBidAmount(prev => {
+        const nextMin = currentVal + increment;
+        return prev < nextMin ? nextMin : prev;
+      });
+      
+      const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
+      setPhotos(ph || []);
+      setActivePhoto(prev => prev || lotData.cover_image_url);
+      
     } catch (e) {
       console.error("Erro ao buscar dados:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [id, activePhoto]);
+  }, [id]);
 
   useEffect(() => {
     fetchLotData();
     
-    // Canal Realtime otimizado para escutar mudanças de lances e do lote simultaneamente
-    const channel = supabase.channel(`lot-update-${id}`)
-      .on('postgres_changes', { 
-        event: '*', 
-        schema: 'public', 
-        table: 'bids', 
-        filter: `lot_id=eq.${id}` 
-      }, () => {
-        fetchLotData();
-      })
-      .on('postgres_changes', { 
-        event: 'UPDATE', 
-        schema: 'public', 
-        table: 'lots', 
-        filter: `id=eq.${id}` 
-      }, (payload) => {
-        // Atualização atômica do estado do lote para refletir o novo current_bid imediatamente
-        setLot(prev => ({ ...prev, ...payload.new }));
-        fetchLotData();
-      })
+    // Realtime para manter a tela sincronizada se outra pessoa der lance
+    const channel = supabase.channel(`lot-realtime-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
       .subscribe();
-
+      
     return () => { supabase.removeChannel(channel); };
   }, [id, fetchLotData]);
 
   const handleBid = async () => {
     if (!currentUser) {
-      toast({ title: "Login necessário", variant: "destructive" });
+      toast({ title: "Login necessário", description: "Faça login para dar lances.", variant: "destructive" });
       return;
     }
 
-    const minBid = currentPrice + (lot.bid_increment || 500);
-    if (Number(bidAmount) < minBid) {
+    const increment = lot.bid_increment || 500;
+    const minBid = currentPrice + increment;
+    const bidValue = Number(bidAmount);
+
+    if (bidValue < minBid) {
       toast({ title: "Lance inválido", description: `Mínimo: ${formatCurrency(minBid)}`, variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
     try {
-      // Realiza o lance
-      await placeBid(lot.id, Number(bidAmount));
+      // 1. ATUALIZAÇÃO OTIMISTA (A tela muda na mesma hora, antes do banco responder)
+      setLot(prev => ({ ...prev, current_bid: bidValue }));
       
-      // Otimismo: Atualiza o estado local imediatamente para o usuário ver a mudança
-      setLot(prev => ({ ...prev, current_bid: Number(bidAmount) }));
+      const optimisticBid = {
+        id: `temp-${Date.now()}`,
+        amount: bidValue,
+        created_at: new Date().toISOString(),
+        email: currentUser.email,
+        user_id: currentUser.id,
+        is_fake: false
+      };
+
+      setDisplayBids(prev => {
+        const newBids = [optimisticBid, ...prev];
+        return newBids.sort((a, b) => b.amount - a.amount).slice(0, Math.max(10, newBids.length));
+      });
+
+      setBidAmount(bidValue + increment);
+
+      // 2. Envia para o banco de dados
+      await placeBid(lot.id, bidValue);
+      toast({ title: "Lance registrado com sucesso!" });
       
-      toast({ title: "Lance registrado!" });
-      
-      // Recarrega os dados para garantir sincronia total
-      await fetchLotData();
+      // Não chamamos fetchLotData() aqui propositalmente. 
+      // O Realtime vai cuidar de sincronizar os dados oficiais logo em seguida.
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
+      // Se der erro, revertemos buscando os dados reais do banco novamente
+      fetchLotData();
     } finally {
       setIsSubmitting(false);
     }

@@ -34,9 +34,10 @@ const LotDetail = () => {
   
   const isFinished = lot?.status === 'finished';
 
+  // Preço atual calculado com base no estado mais recente do lote
   const currentPrice = useMemo(() => {
     if (!lot) return 0;
-    return Math.max(lot.current_bid || 0, lot.start_bid || 0);
+    return Math.max(Number(lot.current_bid) || 0, Number(lot.start_bid) || 0);
   }, [lot]);
 
   const fetchLotData = useCallback(async () => {
@@ -45,7 +46,7 @@ const LotDetail = () => {
       const user = session?.user || null;
       setCurrentUser(user);
 
-      const { data: lotData } = await supabase
+      const { data: lotData, error: lotError } = await supabase
         .from('lots')
         .select('*, auctions(title)')
         .eq('id', id)
@@ -97,25 +98,49 @@ const LotDetail = () => {
         }
 
         setDisplayBids(finalBids.sort((a, b) => b.amount - a.amount));
-        setBidAmount(currentPrice + increment);
+        
+        // Atualiza o input de lance apenas se o usuário não estiver digitando
+        setBidAmount(prev => {
+          const nextMin = (Number(lotData.current_bid) || Number(lotData.start_bid)) + increment;
+          return prev < nextMin ? nextMin : prev;
+        });
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
         if (!activePhoto) setActivePhoto(lotData.cover_image_url);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Erro ao buscar dados:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [id, activePhoto, currentPrice]);
+  }, [id, activePhoto]);
 
   useEffect(() => {
     fetchLotData();
-    const channel = supabase.channel(`lot-realtime-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
+    
+    // Canal Realtime otimizado para escutar mudanças de lances e do lote simultaneamente
+    const channel = supabase.channel(`lot-update-${id}`)
+      .on('postgres_changes', { 
+        event: '*', 
+        schema: 'public', 
+        table: 'bids', 
+        filter: `lot_id=eq.${id}` 
+      }, () => {
+        fetchLotData();
+      })
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'lots', 
+        filter: `id=eq.${id}` 
+      }, (payload) => {
+        // Atualização atômica do estado do lote para refletir o novo current_bid imediatamente
+        setLot(prev => ({ ...prev, ...payload.new }));
+        fetchLotData();
+      })
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
   }, [id, fetchLotData]);
 
@@ -133,8 +158,16 @@ const LotDetail = () => {
 
     setIsSubmitting(true);
     try {
+      // Realiza o lance
       await placeBid(lot.id, Number(bidAmount));
+      
+      // Otimismo: Atualiza o estado local imediatamente para o usuário ver a mudança
+      setLot(prev => ({ ...prev, current_bid: Number(bidAmount) }));
+      
       toast({ title: "Lance registrado!" });
+      
+      // Recarrega os dados para garantir sincronia total
+      await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
@@ -196,7 +229,6 @@ const LotDetail = () => {
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Lance Atual</p>
                   <p className="text-4xl font-black text-white">{formatCurrency(currentPrice)}</p>
                   
-                  {/* RESTAURADO: INCREMENTO MÍNIMO */}
                   {!isFinished && (
                     <div className="flex items-center gap-1.5 text-orange-400 font-bold text-[11px] mt-1">
                       <TrendingUp size={12} />

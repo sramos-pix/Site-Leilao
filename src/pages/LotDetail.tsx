@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-import { 
-  Clock, Gavel, Gauge, Calendar, 
-  Settings2, Fuel, Loader2, History, Info, ShieldCheck, TrendingUp, FileText, MapPin, CheckCircle2
+import {
+  Clock, Gavel, Gauge, Calendar,
+  Settings2, Fuel, Loader2, History, Info, ShieldCheck, TrendingUp, FileText, MapPin, CheckCircle2,
+  ChevronLeft, ChevronRight
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -246,6 +247,26 @@ const LotDetail = () => {
     }
   };
 
+  const handlePrevPhoto = () => {
+    const allPhotos = [lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean);
+    const currentIndex = allPhotos.indexOf(activePhoto);
+    if (currentIndex > 0) {
+      setActivePhoto(allPhotos[currentIndex - 1]);
+    } else {
+      setActivePhoto(allPhotos[allPhotos.length - 1]);
+    }
+  };
+
+  const handleNextPhoto = () => {
+    const allPhotos = [lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean);
+    const currentIndex = allPhotos.indexOf(activePhoto);
+    if (currentIndex < allPhotos.length - 1) {
+      setActivePhoto(allPhotos[currentIndex + 1]);
+    } else {
+      setActivePhoto(allPhotos[0]);
+    }
+  };
+
   if (isLoading || !lot) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
 
   return (
@@ -256,8 +277,23 @@ const LotDetail = () => {
           
           {/* Coluna Esquerda: Fotos e Detalhes */}
           <div className="lg:col-span-8 space-y-6">
-            <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-white relative border shadow-sm">
+            <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-white relative border shadow-sm group">
               <img src={activePhoto} className="w-full h-full object-cover" alt={lot.title} />
+              
+              {/* Navigation Arrows */}
+              <button
+                onClick={handlePrevPhoto}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
+              >
+                <ChevronLeft size={24} />
+              </button>
+              <button
+                onClick={handleNextPhoto}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
+              >
+                <ChevronRight size={24} />
+              </button>
+
               {!isFinished && (
                 <div className="absolute top-6 left-6 flex gap-3">
                   <Badge className="bg-slate-900/90 backdrop-blur-md text-white border-none px-4 py-1.5 rounded-full font-bold text-xs">LOTE #{lot.lot_number}</Badge>

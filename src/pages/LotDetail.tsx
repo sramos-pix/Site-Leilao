@@ -269,7 +269,7 @@ const LotDetail = () => {
 
           {/* Coluna Direita: Lances */}
           <div className="lg:col-span-4 space-y-6">
-            <Card className={cn("border-none shadow-2xl rounded-[2.5rem] overflow-hidden text-white sticky top-24", isFinished ? "bg-slate-800" : "bg-slate-900")}>
+            <Card className={cn("border-none shadow-2xl rounded-[2.5rem] overflow-hidden text-white", isFinished ? "bg-slate-800" : "bg-slate-900")}>
               <CardContent className="p-8 space-y-6">
                 <div className="flex justify-between items-center">
                   <Badge className={cn("text-white border-none px-3 py-1 rounded-full text-[10px] font-bold", isFinished ? "bg-white/20" : "bg-orange-500")}>{isFinished ? "LEILÃO ENCERRADO" : "LEILÃO AO VIVO"}</Badge>

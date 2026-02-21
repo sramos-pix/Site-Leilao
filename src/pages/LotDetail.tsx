@@ -39,12 +39,6 @@ const LotDetail = () => {
     return Math.max(lot.current_bid || 0, lot.start_bid || 0);
   }, [lot]);
 
-  const fakeEmails = [
-    "marcos.silva@gmail.com", "ana.oliveira@hotmail.com", "carlos_edu@outlook.com",
-    "fernanda.vendas@yahoo.com.br", "roberto.lances@gmail.com", "juliana.m@uol.com.br",
-    "ricardo.auto@gmail.com", "patricia.leiloes@gmail.com"
-  ];
-
   const fetchLotData = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -60,7 +54,7 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        // Busca lances REAIS
+        // Busca lances REAIS - Garantindo que pegamos o user_id explicitamente
         const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at, profiles(email)')
@@ -69,22 +63,20 @@ const LotDetail = () => {
         
         const increment = lotData.bid_increment || 500;
 
-        // Mapeia lances reais garantindo identificação do usuário atual
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
           created_at: b.created_at,
-          email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@autobid.com'),
+          email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@leilao.com'),
           user_id: b.user_id,
           is_fake: false
         }));
 
         let finalBids = [...formattedReals];
         
-        // Só adiciona lances fictícios se houver espaço na lista (limite de 10)
+        // Lances fictícios apenas se necessário
         if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
-          // O ponto de partida para lances fictícios é o menor lance real ou o preço inicial
           const baseForFakes = finalBids.length > 0 
             ? finalBids[finalBids.length - 1].amount 
             : lotData.start_bid;
@@ -97,18 +89,14 @@ const LotDetail = () => {
               id: `fake-${i}-${id}`,
               amount: fAmount,
               created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString(),
-              email: fakeEmails[i % fakeEmails.length],
+              email: `user${i}@exemplo.com`,
               user_id: 'system-fake',
               is_fake: true
             });
           }
         }
 
-        // Ordena por valor decrescente
-        const sortedBids = finalBids.sort((a, b) => b.amount - a.amount);
-        setDisplayBids(sortedBids);
-        
-        // Sugere o próximo lance baseado no valor real do banco
+        setDisplayBids(finalBids.sort((a, b) => b.amount - a.amount));
         setBidAmount(currentPrice + increment);
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
@@ -116,7 +104,7 @@ const LotDetail = () => {
         if (!activePhoto) setActivePhoto(lotData.cover_image_url);
       }
     } catch (e) {
-      console.error("Erro ao carregar dados do lote:", e);
+      console.error(e);
     } finally {
       setIsLoading(false);
     }
@@ -124,17 +112,10 @@ const LotDetail = () => {
 
   useEffect(() => {
     fetchLotData();
-    
-    // Escuta mudanças em tempo real
-    const channel = supabase.channel(`lot-detail-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => {
-        fetchLotData();
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => {
-        fetchLotData();
-      })
+    const channel = supabase.channel(`lot-sync-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [id, fetchLotData]);
 
@@ -144,21 +125,15 @@ const LotDetail = () => {
       return;
     }
 
-    const minRequired = currentPrice + (lot.bid_increment || 500);
-    if (Number(bidAmount) < minRequired) {
-      toast({ 
-        title: "Lance insuficiente", 
-        description: `O lance mínimo deve ser ${formatCurrency(minRequired)}`,
-        variant: "destructive" 
-      });
+    if (Number(bidAmount) < currentPrice + (lot.bid_increment || 500)) {
+      toast({ title: "Lance muito baixo", variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, Number(bidAmount));
-      toast({ title: "Lance enviado com sucesso!" });
-      // O fetchLotData será chamado via Realtime
+      toast({ title: "Lance realizado!" });
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
@@ -167,8 +142,6 @@ const LotDetail = () => {
   };
 
   if (isLoading || !lot) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
-
-  const allImages = [lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean);
 
   return (
     <div className="bg-white min-h-screen flex flex-col">
@@ -190,7 +163,7 @@ const LotDetail = () => {
             </div>
             
             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
-              {allImages.map((url, i) => (
+              {[lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean).map((url, i) => (
                 <button key={i} onClick={() => setActivePhoto(url)} className={cn("shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2 transition-all", activePhoto === url ? 'border-orange-500 scale-95 shadow-md' : 'border-transparent opacity-70')}>
                   <img src={url} className="w-full h-full object-cover" alt="" />
                 </button>
@@ -221,12 +194,6 @@ const LotDetail = () => {
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Lance Atual</p>
                   <p className="text-4xl font-black text-white">{formatCurrency(currentPrice)}</p>
-                  {!isFinished && (
-                    <div className="flex items-center gap-1.5 text-orange-400 font-bold text-[11px] mt-1">
-                      <TrendingUp size={12} />
-                      <span>Incremento Mínimo: {formatCurrency(lot.bid_increment || 500)}</span>
-                    </div>
-                  )}
                 </div>
                 {!isFinished && (
                   <div className="space-y-4">
@@ -255,9 +222,8 @@ const LotDetail = () => {
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               </div>
               <div className="space-y-3">
-                {displayBids.length > 0 ? displayBids.map((bid, idx) => {
-                  const isMyBid = currentUser && (bid.user_id === currentUser.id || bid.email === currentUser.email);
-                  
+                {displayBids.map((bid, idx) => {
+                  const isMyBid = currentUser && (bid.user_id === currentUser.id);
                   return (
                     <div key={bid.id} className={cn(
                       "flex items-center justify-between text-sm p-3 rounded-2xl transition-all",
@@ -272,9 +238,7 @@ const LotDetail = () => {
                       <span className={cn("font-black", isMyBid ? "text-orange-600" : "text-slate-900")}>{formatCurrency(bid.amount)}</span>
                     </div>
                   );
-                }) : (
-                  <div className="text-center py-4 text-xs text-slate-400 italic">Nenhum lance registrado.</div>
-                )}
+                })}
               </div>
             </div>
           </div>

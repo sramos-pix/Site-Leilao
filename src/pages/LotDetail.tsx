@@ -43,12 +43,10 @@ const LotDetail = () => {
 
   const fetchLotData = useCallback(async () => {
     try {
-      // 1. Obter sessão atual de forma síncrona para garantir o ID
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user || null;
       setCurrentUser(user);
 
-      // 2. Obter dados do lote
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -58,7 +56,6 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        // 3. Obter lances REAIS
         const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at, profiles(email)')
@@ -72,12 +69,11 @@ const LotDetail = () => {
           id: b.id,
           amount: b.amount,
           created_at: b.created_at,
-          email: b.profiles?.email || 'usuario@autobid.com',
+          email: b.profiles?.email || user?.email || 'voce@leilao.com',
           user_id: b.user_id,
           is_fake: false
         }));
 
-        // 4. Gerar fakes apenas se necessário para completar 10 itens
         const finalBids = [...formattedReals];
         if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
@@ -87,7 +83,6 @@ const LotDetail = () => {
           for (let i = 0; i < needed; i++) {
             const fAmount = basePrice - ((i + 1) * increment);
             if (fAmount <= 0) continue;
-            
             finalBids.push({
               id: `fake-${i}-${id}`,
               amount: fAmount,
@@ -126,13 +121,31 @@ const LotDetail = () => {
       toast({ title: "Login necessário", variant: "destructive" });
       return;
     }
+
+    const newBidAmount = Number(bidAmount);
+    
+    // ATUALIZAÇÃO OTIMISTA: Inserir o lance na lista IMEDIATAMENTE
+    const optimisticBid = {
+      id: `temp-${Date.now()}`,
+      amount: newBidAmount,
+      created_at: new Date().toISOString(),
+      email: currentUser.email,
+      user_id: currentUser.id,
+      is_fake: false,
+      is_optimistic: true
+    };
+
+    setDisplayBids(prev => [optimisticBid, ...prev].sort((a, b) => b.amount - a.amount));
+    setLot(prev => ({ ...prev, current_bid: newBidAmount }));
+    
     setIsSubmitting(true);
     try {
-      await placeBid(lot.id, bidAmount);
-      toast({ title: "Lance realizado!" });
-      await fetchLotData(); // Atualiza tudo imediatamente
+      await placeBid(lot.id, newBidAmount);
+      toast({ title: "Lance confirmado!" });
+      await fetchLotData(); 
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
+      fetchLotData(); // Reverte em caso de erro
     } finally {
       setIsSubmitting(false);
     }
@@ -215,8 +228,8 @@ const LotDetail = () => {
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  // COMPARAÇÃO DIRETA: Se o user_id do lance for igual ao ID do usuário logado
-                  const isMyBid = currentUser && bid.user_id === currentUser.id;
+                  // Verificação de ID robusta
+                  const isMyBid = currentUser && (bid.user_id === currentUser.id || bid.email === currentUser.email);
                   
                   return (
                     <div key={bid.id} className={cn(

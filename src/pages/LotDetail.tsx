@@ -4,13 +4,14 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Clock, Gavel, Gauge, Calendar, 
-  Settings2, Fuel, Loader2, History, Info
+  Settings2, Fuel, Loader2, History, Info, ShieldCheck
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { formatCurrency, cn, maskEmail } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
@@ -92,7 +93,6 @@ const LotDetail = () => {
           is_fake: false
         }));
 
-        // Garante entre 3 e 10 lances no total
         const totalDesired = Math.max(3, Math.min(10, formattedReals.length + 5));
         const neededFakes = Math.max(0, totalDesired - formattedReals.length);
         
@@ -222,13 +222,29 @@ const LotDetail = () => {
 
                 {!isFinished ? (
                   <div className="space-y-4">
-                    <div className="relative">
-                      <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">R$</span>
-                      <Input type="number" value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))} className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl" />
+                    <div className="grid grid-cols-2 gap-3 mb-2">
+                      <div className="bg-white/5 p-3 rounded-xl border border-white/10">
+                        <p className="text-[9px] font-bold text-white/40 uppercase">Inicial</p>
+                        <p className="text-xs font-bold">{formatCurrency(lot.start_bid)}</p>
+                      </div>
+                      <div className="bg-orange-500/10 p-3 rounded-xl border border-orange-500/20">
+                        <p className="text-[9px] font-bold text-orange-400 uppercase">Incremento</p>
+                        <p className="text-xs font-bold text-orange-500">+{formatCurrency(lot.bid_increment || 500)}</p>
+                      </div>
                     </div>
-                    <Button onClick={handleBid} disabled={isSubmitting} className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold shadow-lg">
-                      {isSubmitting ? <Loader2 className="animate-spin" /> : "DAR LANCE AGORA"}
+                    <div className="space-y-2">
+                      <Label className="text-[10px] font-bold text-white/40 uppercase ml-1">Seu Lance</Label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">R$</span>
+                        <Input type="number" value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))} className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl focus:border-orange-500 transition-all" />
+                      </div>
+                    </div>
+                    <Button onClick={handleBid} disabled={isSubmitting} className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95">
+                      {isSubmitting ? <Loader2 className="animate-spin" /> : <><Gavel size={18} className="mr-2" /> DAR LANCE AGORA</>}
                     </Button>
+                    <div className="flex items-center justify-center gap-2 text-[9px] font-bold text-white/30 uppercase tracking-tighter">
+                      <ShieldCheck size={12} className="text-emerald-500" /> Ambiente Seguro & Criptografado
+                    </div>
                   </div>
                 ) : (
                   <div className="bg-white/10 p-4 rounded-2xl text-center text-xs font-bold">Leilão encerrado.</div>

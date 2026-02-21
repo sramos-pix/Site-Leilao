@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Clock, Gavel, Gauge, Calendar, 
-  Settings2, Fuel, Loader2, History, Info, ShieldCheck
+  Settings2, Fuel, Loader2, History, Info, ShieldCheck, Trash2
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ const LotDetail = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [displayBids, setDisplayBids] = useState<any[]>([]);
   
   const [myBids, setMyBids] = useState<any[]>(() => {
@@ -39,7 +40,6 @@ const LotDetail = () => {
 
   const isFinished = lot?.status === 'finished';
 
-  // Cálculo dinâmico do lance atual baseado em todos os lances visíveis
   const currentDisplayPrice = useMemo(() => {
     if (!lot) return 0;
     const highestBid = displayBids.length > 0 ? displayBids[0].amount : 0;
@@ -57,11 +57,22 @@ const LotDetail = () => {
     localStorage.setItem(`my_bids_${id}`, JSON.stringify(myBids));
   }, [myBids, id]);
 
+  const clearLocalBids = () => {
+    setMyBids([]);
+    localStorage.removeItem(`my_bids_${id}`);
+    toast({ title: "Histórico local limpo" });
+  };
+
   const fetchLotData = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user || null;
       setCurrentUser(user);
+
+      if (user) {
+        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+        setIsAdmin(profile?.role === 'admin');
+      }
 
       const { data: lotData } = await supabase
         .from('lots')
@@ -90,15 +101,20 @@ const LotDetail = () => {
         }));
 
         const allRealBids = [...formattedReals];
-        myBids.forEach(myBid => {
-          if (!allRealBids.find(b => b.amount === myBid.amount)) {
-            allRealBids.push(myBid);
-          }
-        });
-
-        const finalBids = [...allRealBids];
         
-        if (finalBids.length < 10) {
+        // Só mescla lances locais se NÃO for admin (para admin ver o banco real)
+        if (currentUser && !isAdmin) {
+          myBids.forEach(myBid => {
+            if (!allRealBids.find(b => b.amount === myBid.amount)) {
+              allRealBids.push(myBid);
+            }
+          });
+        }
+
+        let finalBids = [...allRealBids];
+        
+        // Só gera fakes se NÃO for admin e houver poucos lances
+        if (!isAdmin && finalBids.length < 10) {
           const needed = 10 - finalBids.length;
           const basePrice = finalBids.length > 0 ? Math.min(...finalBids.map(b => b.amount)) : (lotData.current_bid || lotData.start_bid);
           const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
@@ -120,7 +136,6 @@ const LotDetail = () => {
         const sortedBids = finalBids.sort((a, b) => b.amount - a.amount);
         setDisplayBids(sortedBids);
         
-        // Sugestão de próximo lance baseada no maior valor atual
         const topPrice = sortedBids.length > 0 ? sortedBids[0].amount : (lotData.current_bid || lotData.start_bid);
         setBidAmount(topPrice + increment);
         
@@ -133,7 +148,7 @@ const LotDetail = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id, activePhoto, myBids]);
+  }, [id, activePhoto, myBids, isAdmin]);
 
   useEffect(() => {
     fetchLotData();
@@ -150,7 +165,6 @@ const LotDetail = () => {
     }
 
     const newBidAmount = Number(bidAmount);
-    
     const newMyBid = {
       id: `my-bid-${Date.now()}`,
       amount: newBidAmount,
@@ -248,9 +262,16 @@ const LotDetail = () => {
             </Card>
 
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
+                {myBids.length > 0 && (
+                  <Button variant="ghost" size="icon" onClick={clearLocalBids} className="h-8 w-8 text-slate-400 hover:text-red-500" title="Limpar histórico local">
+                    <Trash2 size={14} />
+                  </Button>
+                )}
+              </div>
               <div className="space-y-3">
-                {displayBids.map((bid, idx) => {
+                {displayBids.length > 0 ? displayBids.map((bid, idx) => {
                   const isMyBid = currentUser && (
                     bid.user_id === currentUser.id || 
                     bid.email === currentUser.email ||
@@ -271,7 +292,9 @@ const LotDetail = () => {
                       <span className={cn("font-black", isMyBid ? "text-orange-600" : "text-slate-900")}>{formatCurrency(bid.amount)}</span>
                     </div>
                   );
-                })}
+                }) : (
+                  <div className="text-center py-4 text-xs text-slate-400 italic">Nenhum lance registrado.</div>
+                )}
               </div>
             </div>
           </div>

@@ -29,9 +29,23 @@ const LotDetail = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [realBids, setRealBids] = useState<any[]>([]);
+  const [displayBids, setDisplayBids] = useState<any[]>([]);
 
   const isFinished = lot?.status === 'finished';
+
+  const generateFakeBids = (basePrice: number, increment: number) => {
+    const fakeBids = [];
+    const now = new Date();
+    for (let i = 0; i < 5; i++) {
+      fakeBids.push({
+        id: `fake-${i}`,
+        amount: basePrice - (i * increment),
+        created_at: new Date(now.getTime() - (i * 1000 * 60 * 15)).toISOString(),
+        is_fake: true
+      });
+    }
+    return fakeBids;
+  };
 
   const fetchLotData = async () => {
     try {
@@ -47,16 +61,23 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        const { data: b } = await supabase
+        const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at')
           .eq('lot_id', id)
           .order('amount', { ascending: false });
         
-        setRealBids(b || []);
+        const currentPrice = lotData.current_bid || lotData.start_bid;
+        const increment = lotData.bid_increment || 500;
 
-        const basePrice = b && b.length > 0 ? (lotData.current_bid || lotData.start_bid) : lotData.start_bid;
-        setBidAmount(basePrice + (lotData.bid_increment || 500));
+        // Se houver lances reais, usa eles. Se não, gera fictícios.
+        if (realBids && realBids.length > 0) {
+          setDisplayBids(realBids);
+        } else {
+          setDisplayBids(generateFakeBids(currentPrice, increment));
+        }
+
+        setBidAmount(currentPrice + increment);
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
@@ -193,11 +214,13 @@ const LotDetail = () => {
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
-                {realBids.length > 0 ? realBids.slice(0, 5).map((bid, idx) => (
+                {displayBids.length > 0 ? displayBids.slice(0, 5).map((bid, idx) => (
                   <div key={bid.id} className="flex items-center justify-between text-sm p-3 rounded-2xl bg-white/50">
                     <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", idx === 0 ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
-                      <span className="font-bold text-[11px] text-slate-700">Licitante Oculto</span>
+                      <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
+                      <span className="font-bold text-[11px] text-slate-700">
+                        {bid.is_fake ? 'Licitante Oculto' : 'Licitante Verificado'}
+                      </span>
                     </div>
                     <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
                   </div>

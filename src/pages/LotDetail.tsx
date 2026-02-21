@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Clock, Gavel, Gauge, Calendar, 
@@ -41,9 +41,9 @@ const LotDetail = () => {
     "beatriz.m@gmail.com"
   ];
 
-  const fetchLotData = async () => {
+  const fetchLotData = useCallback(async () => {
     try {
-      // 1. Obter usuário logado
+      // 1. Obter sessão atual de forma síncrona para garantir o ID
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user || null;
       setCurrentUser(user);
@@ -58,7 +58,7 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        // 3. Obter TODOS os lances reais do banco para este lote
+        // 3. Obter lances REAIS
         const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at, profiles(email)')
@@ -68,7 +68,6 @@ const LotDetail = () => {
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
-        // Formatar lances reais vindos do Supabase
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
@@ -78,81 +77,62 @@ const LotDetail = () => {
           is_fake: false
         }));
 
-        // 4. Lógica de preenchimento com lances fictícios
-        const finalBidsList = [...formattedReals];
-        const realAmounts = formattedReals.map(r => r.amount);
-        
-        // Só adicionamos fakes se tivermos menos de 10 lances no total
-        if (finalBidsList.length < 10) {
-          const needed = 10 - finalBidsList.length;
-          // Começamos os fakes a partir do menor lance real ou do preço inicial
-          const baseForFakes = finalBidsList.length > 0 
-            ? finalBidsList[finalBidsList.length - 1].amount 
-            : currentPrice;
-
+        // 4. Gerar fakes apenas se necessário para completar 10 itens
+        const finalBids = [...formattedReals];
+        if (finalBids.length < 10) {
+          const needed = 10 - finalBids.length;
+          const basePrice = finalBids.length > 0 ? finalBids[finalBids.length - 1].amount : currentPrice;
           const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
 
           for (let i = 0; i < needed; i++) {
-            const fakeVal = baseForFakes - ((i + 1) * increment);
-            // Segurança: não criar fake com valor igual a um real ou menor que zero
-            if (fakeVal <= 0 || realAmounts.includes(fakeVal)) continue;
-
-            finalBidsList.push({
+            const fAmount = basePrice - ((i + 1) * increment);
+            if (fAmount <= 0) continue;
+            
+            finalBids.push({
               id: `fake-${i}-${id}`,
-              amount: fakeVal,
+              amount: fAmount,
               created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString(),
               email: fakeEmails[(seed + i) % fakeEmails.length],
-              user_id: 'fake-system-user',
+              user_id: 'system-fake',
               is_fake: true
             });
           }
         }
 
-        // Ordenação final garantida por valor decrescente
-        const sortedBids = finalBidsList.sort((a, b) => b.amount - a.amount);
-        setDisplayBids(sortedBids);
+        setDisplayBids(finalBids.sort((a, b) => b.amount - a.amount));
+        setBidAmount(currentPrice + increment);
         
-        // Sugestão de próximo lance
-        setBidAmount((lotData.current_bid || lotData.start_bid) + increment);
-        
-        // Fotos
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
-        if (!activePhoto) {
-          setActivePhoto(lotData.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=1200');
-        }
+        if (!activePhoto) setActivePhoto(lotData.cover_image_url);
       }
     } catch (e) {
-      console.error("Erro ao carregar dados do lote:", e);
+      console.error(e);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id, activePhoto]);
 
   useEffect(() => {
     fetchLotData();
-    // Realtime para atualizar lances instantaneamente
-    const channel = supabase.channel(`lot-detail-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => {
-        fetchLotData();
-      })
+    const channel = supabase.channel(`lot-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, [id]);
+  }, [id, fetchLotData]);
 
   const handleBid = async () => {
     if (!currentUser) {
-      toast({ title: "Login necessário", description: "Acesse sua conta para dar lances.", variant: "destructive" });
+      toast({ title: "Login necessário", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
-      toast({ title: "Lance realizado!", description: "Seu lance foi registrado com sucesso." });
-      // Forçamos a atualização imediata
-      await fetchLotData();
+      toast({ title: "Lance realizado!" });
+      await fetchLotData(); // Atualiza tudo imediatamente
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro no lance", description: error.message });
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -169,11 +149,7 @@ const LotDetail = () => {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-6">
             <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border shadow-inner">
-              <img 
-                src={activePhoto} 
-                className="w-full h-full object-cover transition-opacity duration-300" 
-                alt={lot.title}
-              />
+              <img src={activePhoto} className="w-full h-full object-cover" alt={lot.title} />
               {!isFinished && (
                 <div className="absolute top-6 left-6 flex gap-3">
                   <Badge className="bg-slate-900/90 text-white border-none px-4 py-1.5 rounded-full font-bold text-xs">LOTE #{lot.lot_number}</Badge>
@@ -187,15 +163,8 @@ const LotDetail = () => {
             
             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
               {allImages.map((url, i) => (
-                <button 
-                  key={i} 
-                  onClick={() => setActivePhoto(url)} 
-                  className={cn(
-                    "shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2 transition-all", 
-                    activePhoto === url ? 'border-orange-500 scale-95 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
-                  )}
-                >
-                  <img src={url} className="w-full h-full object-cover" alt={`Miniatura ${i}`} />
+                <button key={i} onClick={() => setActivePhoto(url)} className={cn("shrink-0 w-24 h-20 rounded-xl overflow-hidden border-2 transition-all", activePhoto === url ? 'border-orange-500 scale-95 shadow-md' : 'border-transparent opacity-70')}>
+                  <img src={url} className="w-full h-full object-cover" alt="" />
                 </button>
               ))}
             </div>
@@ -208,14 +177,9 @@ const LotDetail = () => {
                 <div className="bg-slate-50 p-4 rounded-2xl border"><Settings2 size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Câmbio</p><p className="text-sm font-bold">{lot.transmission || 'Automático'}</p></div>
                 <div className="bg-slate-50 p-4 rounded-2xl border"><Fuel size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Motor</p><p className="text-sm font-bold">{lot.fuel_type || 'Flex'}</p></div>
               </div>
-
               <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
-                  <Info size={20} className="text-orange-500" /> Detalhes do Veículo
-                </h3>
-                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
-                  {lot.description || "Nenhuma descrição detalhada fornecida."}
-                </div>
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><Info size={20} className="text-orange-500" /> Detalhes</h3>
+                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">{lot.description}</div>
               </div>
             </div>
           </div>
@@ -225,53 +189,33 @@ const LotDetail = () => {
               <CardContent className="p-8 space-y-6">
                 <div className="flex justify-between items-center">
                   <Badge className={cn("text-white border-none px-3 py-1 rounded-full text-[10px] font-bold", isFinished ? "bg-white/20" : "bg-orange-500")}>{isFinished ? "ENCERRADO" : "AO VIVO"}</Badge>
-                  {!isFinished && <div className="text-orange-500 font-bold text-sm"><CountdownTimer endsAt={lot.ends_at} lotId={lot.id} /></div>}
                 </div>
-
                 <div>
-                  <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">{isFinished ? "Vendido por" : "Lance Atual"}</p>
+                  <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Lance Atual</p>
                   <p className="text-4xl font-black text-white">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
                 </div>
-
-                {!isFinished ? (
+                {!isFinished && (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-2 gap-3 mb-2">
-                      <div className="bg-white/5 p-3 rounded-xl border border-white/10">
-                        <p className="text-[9px] font-bold text-white/40 uppercase">Inicial</p>
-                        <p className="text-xs font-bold">{formatCurrency(lot.start_bid)}</p>
-                      </div>
-                      <div className="bg-orange-500/10 p-3 rounded-xl border border-orange-500/20">
-                        <p className="text-[9px] font-bold text-orange-400 uppercase">Incremento</p>
-                        <p className="text-xs font-bold text-orange-500">+{formatCurrency(lot.bid_increment || 500)}</p>
-                      </div>
-                    </div>
                     <div className="space-y-2">
                       <Label className="text-[10px] font-bold text-white/40 uppercase ml-1">Seu Lance</Label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">R$</span>
-                        <Input type="number" value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))} className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl focus:border-orange-500 transition-all" />
+                        <Input type="number" value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))} className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl" />
                       </div>
                     </div>
-                    <Button onClick={handleBid} disabled={isSubmitting} className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold shadow-lg transition-all active:scale-95">
-                      {isSubmitting ? <Loader2 className="animate-spin" /> : <><Gavel size={18} className="mr-2" /> DAR LANCE AGORA</>}
+                    <Button onClick={handleBid} disabled={isSubmitting} className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold">
+                      {isSubmitting ? <Loader2 className="animate-spin" /> : "DAR LANCE AGORA"}
                     </Button>
-                    <div className="flex items-center justify-center gap-2 text-[9px] font-bold text-white/30 uppercase tracking-tighter">
-                      <ShieldCheck size={12} className="text-emerald-500" /> Ambiente Seguro & Criptografado
-                    </div>
                   </div>
-                ) : (
-                  <div className="bg-white/10 p-4 rounded-2xl text-center text-xs font-bold">Leilão encerrado.</div>
                 )}
               </CardContent>
             </Card>
 
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
-              <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2">
-                <History size={16} className="text-orange-500" /> Últimos Lances
-              </h3>
+              <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               <div className="space-y-3">
-                {displayBids.length > 0 ? displayBids.map((bid, idx) => {
-                  // Verificação absoluta pelo ID do usuário logado
+                {displayBids.map((bid, idx) => {
+                  // COMPARAÇÃO DIRETA: Se o user_id do lance for igual ao ID do usuário logado
                   const isMyBid = currentUser && bid.user_id === currentUser.id;
                   
                   return (
@@ -280,26 +224,15 @@ const LotDetail = () => {
                       isMyBid ? "bg-orange-100 border border-orange-200 shadow-sm" : "bg-white/50"
                     )}>
                       <div className="flex items-center gap-2">
-                        <div className={cn(
-                          "w-2 h-2 rounded-full", 
-                          idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300"
-                        )} />
-                        <span className={cn(
-                          "font-bold text-[11px]",
-                          isMyBid ? "text-orange-700" : "text-slate-700"
-                        )}>
+                        <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
+                        <span className={cn("font-bold text-[11px]", isMyBid ? "text-orange-700" : "text-slate-700")}>
                           {isMyBid ? "SEU LANCE (VOCÊ)" : maskEmail(bid.email)}
                         </span>
                       </div>
-                      <span className={cn(
-                        "font-black",
-                        isMyBid ? "text-orange-600" : "text-slate-900"
-                      )}>{formatCurrency(bid.amount)}</span>
+                      <span className={cn("font-black", isMyBid ? "text-orange-600" : "text-slate-900")}>{formatCurrency(bid.amount)}</span>
                     </div>
                   );
-                }) : (
-                  <p className="text-xs text-slate-400 text-center py-4 italic">Nenhum lance registrado.</p>
-                )}
+                })}
               </div>
             </div>
           </div>

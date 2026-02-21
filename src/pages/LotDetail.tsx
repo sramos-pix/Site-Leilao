@@ -51,9 +51,9 @@ const LotDetail = () => {
       fakes.push({
         id: `fake-${i}-${lotId}`,
         amount: basePrice - ((i + 1) * increment),
-        created_at: new Date(now.getTime() - ((i + 1) * 1000 * 60 * 25)).toISOString(),
+        created_at: new Date(now.getTime() - ((i + 1) * 1000 * 60 * 30)).toISOString(),
         email: fakeEmails[emailIndex],
-        user_id: 'fake-id', // ID genérico para lances fictícios
+        user_id: 'fake-id',
         is_fake: true
       });
     }
@@ -84,24 +84,28 @@ const LotDetail = () => {
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
+        // 1. Formata lances REAIS
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
           created_at: b.created_at,
           email: b.profiles?.email || 'usuario@autobid.com',
-          user_id: b.user_id, // Importante para a comparação
+          user_id: b.user_id,
           is_fake: false
         }));
 
-        // Garante volume de lances (3 a 10)
-        const totalDesired = Math.max(3, Math.min(10, formattedReals.length + 5));
-        const neededFakes = Math.max(0, totalDesired - formattedReals.length);
-        
-        const baseForFakes = formattedReals.length > 0 
+        // 2. Define a base para os lances fictícios (sempre abaixo do menor lance real ou do preço atual)
+        const lowestRealAmount = formattedReals.length > 0 
           ? formattedReals[formattedReals.length - 1].amount 
           : currentPrice;
 
-        const fakes = generateFakeBids(baseForFakes, increment, neededFakes, id!);
+        // 3. Gera lances fictícios para completar a lista (mínimo 3, máximo 10 no total)
+        const totalDesired = Math.max(5, Math.min(10, formattedReals.length + 3));
+        const neededFakes = Math.max(0, totalDesired - formattedReals.length);
+        
+        const fakes = generateFakeBids(lowestRealAmount, increment, neededFakes, id!);
+        
+        // 4. Une e ordena: Reais no topo por valor, Fictícios abaixo
         const allBids = [...formattedReals, ...fakes].sort((a, b) => b.amount - a.amount);
         
         setDisplayBids(allBids.slice(0, 10));
@@ -138,7 +142,8 @@ const LotDetail = () => {
     try {
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance realizado com sucesso!" });
-      fetchLotData();
+      // Forçamos a atualização imediata
+      await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no lance", description: error.message });
     } finally {
@@ -259,7 +264,7 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 {displayBids.length > 0 ? displayBids.map((bid, idx) => {
-                  // Verificação robusta: se o user_id do lance for igual ao ID do usuário logado
+                  // Verificação crucial: se o user_id do lance for igual ao ID do usuário logado
                   const isMyBid = currentUser && bid.user_id === currentUser.id;
                   
                   return (

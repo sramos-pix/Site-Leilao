@@ -48,12 +48,21 @@ const LotDetail = () => {
     return Math.max(Number(lot.current_bid) || 0, Number(lot.start_bid) || 0);
   }, [lot]);
 
+  // Gerencia o estado de autenticação de forma independente e robusta
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setCurrentUser(session?.user || null);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setCurrentUser(session?.user || null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   const fetchLotData = useCallback(async () => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user || null;
-      setCurrentUser(user);
-
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -72,11 +81,15 @@ const LotDetail = () => {
       const increment = lotData.bid_increment || 500;
       const currentVal = lotData.current_bid || lotData.start_bid || 0;
 
+      // Pega o usuário atual do estado (se já estiver carregado) ou tenta pegar da sessão
+      const { data: { session } } = await supabase.auth.getSession();
+      const activeUser = session?.user || currentUser;
+
       const formattedReals = (realBids || []).map(b => ({
         id: b.id,
         amount: b.amount,
         created_at: b.created_at,
-        email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@leilao.com'),
+        email: b.profiles?.email || (b.user_id === activeUser?.id ? activeUser?.email : 'usuario@leilao.com'),
         user_id: b.user_id,
         is_fake: false
       }));
@@ -136,7 +149,7 @@ const LotDetail = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, currentUser]);
 
   useEffect(() => {
     fetchLotData();
@@ -185,7 +198,7 @@ const LotDetail = () => {
 
       setBidAmount(bidValue + increment);
 
-      // 1. Insere o lance na tabela bids (Isso garante que o lance não suma no F5)
+      // 1. Insere o lance na tabela bids
       const { error: bidError } = await supabase.from('bids').insert({
         lot_id: lot.id,
         user_id: currentUser.id,
@@ -333,7 +346,8 @@ const LotDetail = () => {
               </div>
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {displayBids.map((bid, idx) => {
-                  const isMyBid = currentUser && (bid.user_id === currentUser.id);
+                  // Verificação robusta para garantir que o lance do usuário seja sempre destacado
+                  const isMyBid = currentUser && bid.user_id && (bid.user_id === currentUser.id);
                   const displayName = isMyBid ? "SEU LANCE" : (bid.is_fake ? bid.email : maskEmail(bid.email));
                   
                   return (

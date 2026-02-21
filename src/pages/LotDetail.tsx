@@ -30,7 +30,6 @@ const LotDetail = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
-  const [isAdmin, setIsAdmin] = useState(false);
   const [displayBids, setDisplayBids] = useState<any[]>([]);
   
   const [myBids, setMyBids] = useState<any[]>(() => {
@@ -69,11 +68,6 @@ const LotDetail = () => {
       const user = session?.user || null;
       setCurrentUser(user);
 
-      if (user) {
-        const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
-        setIsAdmin(profile?.role === 'admin');
-      }
-
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -102,19 +96,17 @@ const LotDetail = () => {
 
         const allRealBids = [...formattedReals];
         
-        // Só mescla lances locais se NÃO for admin (para admin ver o banco real)
-        if (currentUser && !isAdmin) {
-          myBids.forEach(myBid => {
-            if (!allRealBids.find(b => b.amount === myBid.amount)) {
-              allRealBids.push(myBid);
-            }
-          });
-        }
+        // Mescla lances locais para todos os usuários
+        myBids.forEach(myBid => {
+          if (!allRealBids.find(b => b.amount === myBid.amount)) {
+            allRealBids.push(myBid);
+          }
+        });
 
         let finalBids = [...allRealBids];
         
-        // Só gera fakes se NÃO for admin e houver poucos lances
-        if (!isAdmin && finalBids.length < 10) {
+        // Gera fakes para manter a simulação ativa
+        if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
           const basePrice = finalBids.length > 0 ? Math.min(...finalBids.map(b => b.amount)) : (lotData.current_bid || lotData.start_bid);
           const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
@@ -148,7 +140,7 @@ const LotDetail = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id, activePhoto, myBids, isAdmin]);
+  }, [id, activePhoto, myBids]);
 
   useEffect(() => {
     fetchLotData();

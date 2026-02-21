@@ -75,10 +75,6 @@ const LotDetail = () => {
 
   const fetchLotData = useCallback(async () => {
     try {
-      // Pega a sessão atual apenas para preencher o email caso seja o próprio usuário
-      const { data: { session } } = await supabase.auth.getSession();
-      const activeUser = session?.user || null;
-
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -88,27 +84,45 @@ const LotDetail = () => {
       if (!lotData) return;
       setLot(lotData);
       
+      // 1. Busca apenas os lances reais (sem JOIN para evitar falhas silenciosas)
       const { data: realBids } = await supabase
         .from('bids')
-        .select('id, amount, user_id, created_at, profiles(email)')
+        .select('id, amount, user_id, created_at')
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
+      // 2. Busca os e-mails dos usuários que deram lance separadamente
+      const userIds = [...new Set((realBids || []).map(b => b.user_id))];
+      let profilesMap: Record<string, string> = {};
+      
+      if (userIds.length > 0) {
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', userIds);
+          
+        profilesMap = (profilesData || []).reduce((acc: any, p) => {
+          acc[p.id] = p.email;
+          return acc;
+        }, {});
+      }
+
       const increment = lotData.bid_increment || 500;
       const currentVal = lotData.current_bid || lotData.start_bid || 0;
 
+      // 3. Formata os lances reais mesclando com os e-mails encontrados
       const formattedReals = (realBids || []).map(b => ({
         id: b.id,
         amount: b.amount,
         created_at: b.created_at,
-        email: b.profiles?.email || (b.user_id === activeUser?.id ? activeUser?.email : 'usuario@leilao.com'),
+        email: profilesMap[b.user_id] || 'usuario@leilao.com',
         user_id: b.user_id,
         is_fake: false
       }));
 
       let finalBids = [...formattedReals];
       
-      // Geração Determinística de Lances Fictícios (Não muda no F5)
+      // 4. Geração Determinística de Lances Fictícios (Não muda no F5)
       if (finalBids.length < 10) {
         const needed = 10 - finalBids.length;
         let nextFakeAmount = finalBids.length > 0 
@@ -157,7 +171,7 @@ const LotDetail = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id]); // Removido currentUser das dependências para evitar re-fetches desnecessários
+  }, [id]);
 
   useEffect(() => {
     fetchLotData();
@@ -354,13 +368,9 @@ const LotDetail = () => {
               </div>
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {displayBids.map((bid, idx) => {
-                  // Verificação à prova de falhas: compara o ID do usuário logado com o dono do lance
-                  const isMyBid = Boolean(currentUser?.id && bid.user_id && bid.user_id === currentUser.id);
-                  
-                  // Se for o lance do usuário, mostra "SEU LANCE". Se não, mostra o email mascarado.
-                  const displayName = isMyBid 
-                    ? "SEU LANCE" 
-                    : (bid.is_fake ? bid.email : maskEmail(bid.email || 'usuario@leilao.com'));
+                  // Verificação robusta para garantir que o lance do usuário seja sempre destacado
+                  const isMyBid = currentUser && bid.user_id && (bid.user_id === currentUser.id);
+                  const displayName = isMyBid ? "SEU LANCE" : (bid.is_fake ? bid.email : maskEmail(bid.email));
                   
                   return (
                     <div key={bid.id} className={cn(

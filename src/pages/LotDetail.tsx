@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Clock, Gavel, Gauge, Calendar, 
@@ -32,13 +32,19 @@ const LotDetail = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [displayBids, setDisplayBids] = useState<any[]>([]);
   
-  // Estado inicial carregando do LocalStorage para persistir entre F5
   const [myBids, setMyBids] = useState<any[]>(() => {
     const saved = localStorage.getItem(`my_bids_${id}`);
     return saved ? JSON.parse(saved) : [];
   });
 
   const isFinished = lot?.status === 'finished';
+
+  // Cálculo dinâmico do lance atual baseado em todos os lances visíveis
+  const currentDisplayPrice = useMemo(() => {
+    if (!lot) return 0;
+    const highestBid = displayBids.length > 0 ? displayBids[0].amount : 0;
+    return Math.max(highestBid, lot.current_bid || 0, lot.start_bid || 0);
+  }, [displayBids, lot]);
 
   const fakeEmails = [
     "marcos.silva@gmail.com", "ana.oliveira@hotmail.com", "carlos_edu@outlook.com",
@@ -47,7 +53,6 @@ const LotDetail = () => {
     "beatriz.m@gmail.com"
   ];
 
-  // Sincroniza myBids com LocalStorage sempre que mudar
   useEffect(() => {
     localStorage.setItem(`my_bids_${id}`, JSON.stringify(myBids));
   }, [myBids, id]);
@@ -73,10 +78,8 @@ const LotDetail = () => {
           .eq('lot_id', id)
           .order('amount', { ascending: false });
         
-        const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
-        // Lances reais do banco
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
@@ -86,10 +89,8 @@ const LotDetail = () => {
           is_fake: false
         }));
 
-        // Mesclar lances do banco com lances salvos localmente (evita sumir no F5)
         const allRealBids = [...formattedReals];
         myBids.forEach(myBid => {
-          // Só adiciona se o lance ainda não apareceu vindo do banco
           if (!allRealBids.find(b => b.amount === myBid.amount)) {
             allRealBids.push(myBid);
           }
@@ -97,10 +98,9 @@ const LotDetail = () => {
 
         const finalBids = [...allRealBids];
         
-        // Preencher com fakes apenas se necessário
         if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
-          const basePrice = finalBids.length > 0 ? Math.min(...finalBids.map(b => b.amount)) : currentPrice;
+          const basePrice = finalBids.length > 0 ? Math.min(...finalBids.map(b => b.amount)) : (lotData.current_bid || lotData.start_bid);
           const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
 
           for (let i = 0; i < needed; i++) {
@@ -117,8 +117,12 @@ const LotDetail = () => {
           }
         }
 
-        setDisplayBids(finalBids.sort((a, b) => b.amount - a.amount));
-        setBidAmount((lotData.current_bid || lotData.start_bid) + increment);
+        const sortedBids = finalBids.sort((a, b) => b.amount - a.amount);
+        setDisplayBids(sortedBids);
+        
+        // Sugestão de próximo lance baseada no maior valor atual
+        const topPrice = sortedBids.length > 0 ? sortedBids[0].amount : (lotData.current_bid || lotData.start_bid);
+        setBidAmount(topPrice + increment);
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
@@ -156,7 +160,6 @@ const LotDetail = () => {
       is_fake: false
     };
 
-    // Salva no estado e o useEffect cuidará do LocalStorage
     setMyBids(prev => [newMyBid, ...prev]);
     
     setIsSubmitting(true);
@@ -225,7 +228,7 @@ const LotDetail = () => {
                 </div>
                 <div>
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Lance Atual</p>
-                  <p className="text-4xl font-black text-white">{formatCurrency(lot.current_bid || lot.start_bid)}</p>
+                  <p className="text-4xl font-black text-white">{formatCurrency(currentDisplayPrice)}</p>
                 </div>
                 {!isFinished && (
                   <div className="space-y-4">
@@ -248,7 +251,6 @@ const LotDetail = () => {
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  // Verificação robusta: ID do banco OU ID local OU Email
                   const isMyBid = currentUser && (
                     bid.user_id === currentUser.id || 
                     bid.email === currentUser.email ||

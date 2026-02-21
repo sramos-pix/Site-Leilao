@@ -32,11 +32,6 @@ const LotDetail = () => {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [displayBids, setDisplayBids] = useState<any[]>([]);
   
-  const [myBids, setMyBids] = useState<any[]>(() => {
-    const saved = localStorage.getItem(`my_bids_${id}`);
-    return saved ? JSON.parse(saved) : [];
-  });
-
   const isFinished = lot?.status === 'finished';
 
   const currentDisplayPrice = useMemo(() => {
@@ -51,16 +46,6 @@ const LotDetail = () => {
     "ricardo.auto@gmail.com", "patricia.leiloes@gmail.com", "thiago.f@hotmail.com",
     "beatriz.m@gmail.com"
   ];
-
-  useEffect(() => {
-    localStorage.setItem(`my_bids_${id}`, JSON.stringify(myBids));
-  }, [myBids, id]);
-
-  const clearLocalBids = () => {
-    setMyBids([]);
-    localStorage.removeItem(`my_bids_${id}`);
-    toast({ title: "Histórico local limpo" });
-  };
 
   const fetchLotData = useCallback(async () => {
     try {
@@ -94,16 +79,9 @@ const LotDetail = () => {
           is_fake: false
         }));
 
-        const allRealBids = [...formattedReals];
+        let finalBids = [...formattedReals];
         
-        myBids.forEach(myBid => {
-          if (!allRealBids.find(b => b.amount === myBid.amount)) {
-            allRealBids.push(myBid);
-          }
-        });
-
-        let finalBids = [...allRealBids];
-        
+        // Lógica de lances fictícios apenas se houver poucos lances reais
         if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
           const basePrice = finalBids.length > 0 ? Math.min(...finalBids.map(b => b.amount)) : (lotData.current_bid || lotData.start_bid);
@@ -138,10 +116,11 @@ const LotDetail = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [id, activePhoto, myBids]);
+  }, [id, activePhoto]);
 
   useEffect(() => {
     fetchLotData();
+    // Escuta mudanças na tabela de lances (INSERT e DELETE)
     const channel = supabase.channel(`lot-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
       .subscribe();
@@ -164,25 +143,13 @@ const LotDetail = () => {
       return;
     }
 
-    const newBidAmount = Number(bidAmount);
-    const newMyBid = {
-      id: `my-bid-${Date.now()}`,
-      amount: newBidAmount,
-      created_at: new Date().toISOString(),
-      email: currentUser.email,
-      user_id: currentUser.id,
-      is_fake: false
-    };
-
-    setMyBids(prev => [newMyBid, ...prev]);
-    
     setIsSubmitting(true);
     try {
-      await placeBid(lot.id, newBidAmount);
+      await placeBid(lot.id, Number(bidAmount));
       toast({ title: "Lance confirmado!" });
+      // O fetchLotData será chamado automaticamente pelo canal do Supabase
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
-      setMyBids(prev => prev.filter(b => b.id !== newMyBid.id));
     } finally {
       setIsSubmitting(false);
     }
@@ -275,18 +242,12 @@ const LotDetail = () => {
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
-                {myBids.length > 0 && (
-                  <Button variant="ghost" size="icon" onClick={clearLocalBids} className="h-8 w-8 text-slate-400 hover:text-red-500" title="Limpar histórico local">
-                    <Trash2 size={14} />
-                  </Button>
-                )}
               </div>
               <div className="space-y-3">
                 {displayBids.length > 0 ? displayBids.map((bid, idx) => {
                   const isMyBid = currentUser && (
                     bid.user_id === currentUser.id || 
-                    bid.email === currentUser.email ||
-                    myBids.some(mb => mb.amount === bid.amount)
+                    bid.email === currentUser.email
                   );
                   
                   return (

@@ -107,17 +107,26 @@ const LotManager = () => {
     
     try {
       const files = Array.from(e.target.files);
-      for (const file of files) {
+      // Verifica se já existe alguma foto de capa na galeria atual
+      let hasCover = lotPhotos.some(p => p.is_cover);
+
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
         let uploadResult = await uploadLotPhoto(selectedLot.id, file);
-        const isFirst = lotPhotos.length === 0;
+        
+        // Só define como capa se não houver nenhuma capa E for a primeira foto deste lote de upload
+        const isCover = !hasCover && i === 0;
+
         await supabase.from('lot_photos').insert({
           lot_id: selectedLot.id,
           storage_path: uploadResult.storagePath,
           public_url: uploadResult.publicUrl,
-          is_cover: isFirst
+          is_cover: isCover
         });
-        if (isFirst) {
+
+        if (isCover) {
           await supabase.from('lots').update({ cover_image_url: uploadResult.publicUrl }).eq('id', selectedLot.id);
+          hasCover = true; // Atualiza para que as próximas fotos do loop não sejam capa
         }
       }
       toast({ title: "Upload concluído!" });
@@ -382,7 +391,7 @@ const LotManager = () => {
       </div>
 
       <Dialog open={isPhotoDialogOpen} onOpenChange={setIsPhotoDialogOpen}>
-        <DialogContent className="max-w-3xl rounded-3xl">
+        <DialogContent className="max-w-3xl rounded-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader><DialogTitle>Fotos do Lote: {selectedLot?.title}</DialogTitle></DialogHeader>
           <div className="space-y-6 py-4">
             <div className="flex items-center justify-center w-full">

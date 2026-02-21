@@ -41,41 +41,14 @@ const LotDetail = () => {
     "beatriz.m@gmail.com"
   ];
 
-  const generateFakeBids = (basePrice: number, increment: number, count: number, lotId: string, existingAmounts: number[]) => {
-    const fakes = [];
-    const now = new Date();
-    const seed = lotId ? lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
-
-    let currentFakeAmount = basePrice;
-    let generatedCount = 0;
-    let attempts = 0;
-
-    while (generatedCount < count && attempts < 30) {
-      attempts++;
-      currentFakeAmount -= increment;
-      
-      if (existingAmounts.includes(currentFakeAmount) || currentFakeAmount <= 0) continue;
-
-      const emailIndex = (seed + generatedCount + attempts) % fakeEmails.length;
-      fakes.push({
-        id: `fake-${generatedCount}-${lotId}`,
-        amount: currentFakeAmount,
-        created_at: new Date(now.getTime() - ((generatedCount + 1) * 1000 * 60 * 45)).toISOString(),
-        email: fakeEmails[emailIndex],
-        user_id: 'fake-id',
-        is_fake: true
-      });
-      generatedCount++;
-    }
-    return fakes;
-  };
-
   const fetchLotData = async () => {
     try {
+      // 1. Obter usuário atual
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user || null;
       setCurrentUser(user);
 
+      // 2. Obter dados do lote
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -85,6 +58,7 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
+        // 3. Obter lances REAIS do banco
         const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at, profiles(email)')
@@ -94,7 +68,7 @@ const LotDetail = () => {
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
-        // 1. Mapeia TODOS os lances reais sem exceção
+        // Formatar lances reais
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
@@ -104,21 +78,32 @@ const LotDetail = () => {
           is_fake: false
         }));
 
+        // 4. Gerar lances fictícios apenas para preencher se houver poucos reais
+        const allBids = [...formattedReals];
         const realAmounts = formattedReals.map(r => r.amount);
-
-        // 2. Define a base para os fictícios (abaixo do menor lance real ou do preço inicial)
-        const lowestAmount = formattedReals.length > 0 
-          ? formattedReals[formattedReals.length - 1].amount 
-          : currentPrice;
-
-        // 3. Gera fictícios apenas para completar a lista até 10 itens
-        const neededFakes = Math.max(0, 10 - formattedReals.length);
-        const fakes = generateFakeBids(lowestAmount, increment, neededFakes, id!, realAmounts);
         
-        // 4. Une e ordena. Os reais SEMPRE estarão no topo se forem maiores.
-        const allBids = [...formattedReals, ...fakes].sort((a, b) => b.amount - a.amount);
-        
-        setDisplayBids(allBids);
+        if (allBids.length < 10) {
+          const needed = 10 - allBids.length;
+          const lowestAmount = allBids.length > 0 ? allBids[allBids.length - 1].amount : currentPrice;
+          const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
+
+          for (let i = 0; i < needed; i++) {
+            const fakeAmount = lowestAmount - ((i + 1) * increment);
+            if (fakeAmount <= 0 || realAmounts.includes(fakeAmount)) continue;
+
+            allBids.push({
+              id: `fake-${i}-${id}`,
+              amount: fakeAmount,
+              created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString(),
+              email: fakeEmails[(seed + i) % fakeEmails.length],
+              user_id: 'fake-user',
+              is_fake: true
+            });
+          }
+        }
+
+        // Ordenar final por valor decrescente
+        setDisplayBids(allBids.sort((a, b) => b.amount - a.amount));
         setBidAmount(currentPrice + increment);
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
@@ -129,7 +114,7 @@ const LotDetail = () => {
         }
       }
     } catch (e) {
-      console.error("Erro:", e);
+      console.error("Erro ao buscar dados:", e);
     } finally {
       setIsLoading(false);
     }
@@ -152,7 +137,7 @@ const LotDetail = () => {
     try {
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance realizado com sucesso!" });
-      await fetchLotData();
+      // O fetchLotData será chamado pelo canal realtime
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no lance", description: error.message });
     } finally {
@@ -273,6 +258,7 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 {displayBids.length > 0 ? displayBids.map((bid, idx) => {
+                  // Verificação direta e infalível do ID do usuário logado
                   const isMyBid = currentUser && bid.user_id === currentUser.id;
                   
                   return (

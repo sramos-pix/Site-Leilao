@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, AlertTriangle } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 import BulkImportLots from './BulkImportLots';
@@ -32,6 +32,7 @@ const LotManager = () => {
   const [editingLot, setEditingLot] = useState<any>(null);
   const [lotPhotos, setLotPhotos] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [searchTerm, setSearchTerm] = useState('');
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -69,11 +70,28 @@ const LotManager = () => {
     setIsPhotoDialogOpen(true);
   };
 
+  // Filtra os lotes com base na busca
+  const filteredLots = lots.filter(lot => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      lot.title?.toLowerCase().includes(searchLower) ||
+      lot.brand?.toLowerCase().includes(searchLower) ||
+      lot.model?.toLowerCase().includes(searchLower) ||
+      lot.lot_number?.toString().includes(searchLower)
+    );
+  });
+
   const toggleSelectAll = () => {
-    if (selectedIds.length === lots.length) {
-      setSelectedIds([]);
+    const filteredIds = filteredLots.map(l => l.id);
+    const allSelected = filteredIds.length > 0 && filteredIds.every(id => selectedIds.includes(id));
+
+    if (allSelected) {
+      // Remove os visíveis da seleção
+      setSelectedIds(prev => prev.filter(id => !filteredIds.includes(id)));
     } else {
-      setSelectedIds(lots.map(l => l.id));
+      // Adiciona os visíveis à seleção
+      const newIds = new Set([...selectedIds, ...filteredIds]);
+      setSelectedIds(Array.from(newIds));
     }
   };
 
@@ -107,14 +125,12 @@ const LotManager = () => {
     
     try {
       const files = Array.from(e.target.files);
-      // Verifica se já existe alguma foto de capa na galeria atual
       let hasCover = lotPhotos.some(p => p.is_cover);
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
         let uploadResult = await uploadLotPhoto(selectedLot.id, file);
         
-        // Só define como capa se não houver nenhuma capa E for a primeira foto deste lote de upload
         const isCover = !hasCover && i === 0;
 
         await supabase.from('lot_photos').insert({
@@ -126,7 +142,7 @@ const LotManager = () => {
 
         if (isCover) {
           await supabase.from('lots').update({ cover_image_url: uploadResult.publicUrl }).eq('id', selectedLot.id);
-          hasCover = true; // Atualiza para que as próximas fotos do loop não sejam capa
+          hasCover = true;
         }
       }
       toast({ title: "Upload concluído!" });
@@ -317,13 +333,29 @@ const LotManager = () => {
         </div>
       </div>
 
+      {/* Barra de Busca */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
+        <div className="relative flex-1">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+          <Input
+            placeholder="Buscar por lote, título, marca ou modelo (ex: moto, honda, civic)..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-12 h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white text-base"
+          />
+        </div>
+        <div className="text-sm text-slate-500 font-medium px-4">
+          {filteredLots.length} {filteredLots.length === 1 ? 'veículo encontrado' : 'veículos encontrados'}
+        </div>
+      </div>
+
       <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-slate-100">
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
               <TableHead className="w-[50px]">
                 <Checkbox 
-                  checked={selectedIds.length === lots.length && lots.length > 0}
+                  checked={filteredLots.length > 0 && filteredLots.every(lot => selectedIds.includes(lot.id))}
                   onCheckedChange={toggleSelectAll}
                 />
               </TableHead>
@@ -337,7 +369,13 @@ const LotManager = () => {
           <TableBody>
             {isLoading ? (
               <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
-            ) : lots.map((lot) => (
+            ) : filteredLots.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} className="text-center py-10 text-slate-500">
+                  Nenhum veículo encontrado para "{searchTerm}".
+                </TableCell>
+              </TableRow>
+            ) : filteredLots.map((lot) => (
               <TableRow key={lot.id} className={`hover:bg-slate-50/50 transition-colors ${selectedIds.includes(lot.id) ? 'bg-orange-50/30' : ''}`}>
                 <TableCell>
                   <Checkbox 

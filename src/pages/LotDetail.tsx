@@ -34,7 +34,6 @@ const LotDetail = () => {
   
   const isFinished = lot?.status === 'finished';
 
-  // Preço atual vem sempre do banco (current_bid ou start_bid)
   const currentPrice = useMemo(() => {
     if (!lot) return 0;
     return Math.max(lot.current_bid || 0, lot.start_bid || 0);
@@ -42,12 +41,10 @@ const LotDetail = () => {
 
   const fetchLotData = useCallback(async () => {
     try {
-      // 1. Pega usuário logado
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user || null;
       setCurrentUser(user);
 
-      // 2. Busca dados do lote
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -57,7 +54,6 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        // 3. Busca lances REAIS do banco de dados
         const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at, profiles(email)')
@@ -66,23 +62,19 @@ const LotDetail = () => {
         
         const increment = lotData.bid_increment || 500;
 
-        // 4. Formata os lances reais para a UI
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
           created_at: b.created_at,
-          // Se o perfil não tiver e-mail, usamos um fallback ou o e-mail do usuário logado se for dele
           email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@leilao.com'),
           user_id: b.user_id,
           is_fake: false
         }));
 
-        // 5. Gera lances fictícios para completar a lista (mínimo 10 itens)
         let finalBids = [...formattedReals];
         
         if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
-          // Começamos a gerar fakes abaixo do menor lance real ou do preço inicial
           const baseForFakes = finalBids.length > 0 
             ? finalBids[finalBids.length - 1].amount 
             : lotData.start_bid;
@@ -104,19 +96,15 @@ const LotDetail = () => {
           }
         }
 
-        // 6. Ordena tudo por valor (maior primeiro) e atualiza estado
         setDisplayBids(finalBids.sort((a, b) => b.amount - a.amount));
-        
-        // 7. Sugere o próximo lance válido
         setBidAmount(currentPrice + increment);
         
-        // 8. Fotos
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
         if (!activePhoto) setActivePhoto(lotData.cover_image_url);
       }
     } catch (e) {
-      console.error("Erro ao carregar dados:", e);
+      console.error(e);
     } finally {
       setIsLoading(false);
     }
@@ -124,43 +112,31 @@ const LotDetail = () => {
 
   useEffect(() => {
     fetchLotData();
-    
-    // Escuta mudanças em tempo real na tabela de lances e no lote
-    const channel = supabase.channel(`lot-realtime-sync-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => {
-        fetchLotData();
-      })
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => {
-        fetchLotData();
-      })
+    const channel = supabase.channel(`lot-realtime-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
       .subscribe();
-
     return () => { supabase.removeChannel(channel); };
   }, [id, fetchLotData]);
 
   const handleBid = async () => {
     if (!currentUser) {
-      toast({ title: "Login necessário", description: "Faça login para dar lances.", variant: "destructive" });
+      toast({ title: "Login necessário", variant: "destructive" });
       return;
     }
 
     const minBid = currentPrice + (lot.bid_increment || 500);
     if (Number(bidAmount) < minBid) {
-      toast({ 
-        title: "Lance inválido", 
-        description: `O valor mínimo é ${formatCurrency(minBid)}`,
-        variant: "destructive" 
-      });
+      toast({ title: "Lance inválido", description: `Mínimo: ${formatCurrency(minBid)}`, variant: "destructive" });
       return;
     }
 
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, Number(bidAmount));
-      toast({ title: "Lance registrado!", description: "Seu lance foi processado com sucesso." });
-      // O fetchLotData será disparado automaticamente pelo Realtime
+      toast({ title: "Lance registrado!" });
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao dar lance", description: error.message });
+      toast({ variant: "destructive", title: "Erro", description: error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -173,7 +149,6 @@ const LotDetail = () => {
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Coluna Esquerda: Imagens e Info */}
           <div className="lg:col-span-8 space-y-6">
             <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border shadow-inner">
               <img src={activePhoto} className="w-full h-full object-cover" alt={lot.title} />
@@ -211,7 +186,6 @@ const LotDetail = () => {
             </div>
           </div>
 
-          {/* Coluna Direita: Lances */}
           <div className="lg:col-span-4 space-y-6">
             <Card className={cn("border-none shadow-xl rounded-3xl overflow-hidden text-white", isFinished ? "bg-slate-800" : "bg-slate-900")}>
               <CardContent className="p-8 space-y-6">
@@ -221,6 +195,14 @@ const LotDetail = () => {
                 <div className="space-y-1">
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Lance Atual</p>
                   <p className="text-4xl font-black text-white">{formatCurrency(currentPrice)}</p>
+                  
+                  {/* RESTAURADO: INCREMENTO MÍNIMO */}
+                  {!isFinished && (
+                    <div className="flex items-center gap-1.5 text-orange-400 font-bold text-[11px] mt-1">
+                      <TrendingUp size={12} />
+                      <span>Incremento Mínimo: {formatCurrency(lot.bid_increment || 500)}</span>
+                    </div>
+                  )}
                 </div>
                 {!isFinished && (
                   <div className="space-y-4">
@@ -244,16 +226,13 @@ const LotDetail = () => {
               </CardContent>
             </Card>
 
-            {/* Histórico de Lances */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               </div>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  // Identifica se o lance é do usuário logado comparando o user_id do banco com o ID da sessão
                   const isMyBid = currentUser && (bid.user_id === currentUser.id);
-                  
                   return (
                     <div key={bid.id} className={cn(
                       "flex items-center justify-between text-sm p-3 rounded-2xl transition-all",

@@ -33,21 +33,16 @@ const LotDetail = () => {
 
   const isFinished = lot?.status === 'finished';
 
-  // Lista de e-mails fictícios para mascarar
   const fakeEmails = [
-    "marcos.silva@gmail.com",
-    "ana.oliveira@hotmail.com",
-    "carlos_edu@outlook.com",
-    "fernanda.vendas@yahoo.com.br",
-    "roberto.lances@gmail.com",
-    "juliana.m@uol.com.br",
-    "ricardo.auto@gmail.com"
+    "marcos.silva@gmail.com", "ana.oliveira@hotmail.com", "carlos_edu@outlook.com",
+    "fernanda.vendas@yahoo.com.br", "roberto.lances@gmail.com", "juliana.m@uol.com.br",
+    "ricardo.auto@gmail.com", "patricia.leiloes@gmail.com", "thiago.f@hotmail.com",
+    "beatriz.m@gmail.com"
   ];
 
   const generateFakeBids = (basePrice: number, increment: number, count: number, lotId: string) => {
     const fakes = [];
     const now = new Date();
-    // Usamos o lotId para escolher e-mails consistentes para o mesmo carro
     const seed = lotId ? lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
 
     for (let i = 0; i < count; i++) {
@@ -57,6 +52,7 @@ const LotDetail = () => {
         amount: basePrice - ((i + 1) * increment),
         created_at: new Date(now.getTime() - ((i + 1) * 1000 * 60 * 25)).toISOString(),
         email: fakeEmails[emailIndex],
+        user_id: 'fake-id',
         is_fake: true
       });
     }
@@ -66,7 +62,8 @@ const LotDetail = () => {
   const fetchLotData = async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
-      setCurrentUser(session?.user || null);
+      const user = session?.user || null;
+      setCurrentUser(user);
 
       const { data: lotData } = await supabase
         .from('lots')
@@ -77,7 +74,6 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        // Busca lances reais
         const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at, profiles(email)')
@@ -87,27 +83,27 @@ const LotDetail = () => {
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
-        // Mapeia lances reais para o formato de exibição
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
           created_at: b.created_at,
           email: b.profiles?.email || 'usuario@autobid.com',
+          user_id: b.user_id,
           is_fake: false
         }));
 
-        // Se tivermos menos de 5 lances, completamos com fictícios
-        const neededFakes = Math.max(0, 5 - formattedReals.length);
+        // Garante entre 3 e 10 lances no total
+        const totalDesired = Math.max(3, Math.min(10, formattedReals.length + 5));
+        const neededFakes = Math.max(0, totalDesired - formattedReals.length);
+        
         const baseForFakes = formattedReals.length > 0 
           ? formattedReals[formattedReals.length - 1].amount 
-          : currentPrice + increment;
+          : currentPrice;
 
         const fakes = generateFakeBids(baseForFakes, increment, neededFakes, id!);
-        
-        // Junta e ordena por valor (maior primeiro)
         const allBids = [...formattedReals, ...fakes].sort((a, b) => b.amount - a.amount);
         
-        setDisplayBids(allBids);
+        setDisplayBids(allBids.slice(0, 10));
         setBidAmount(currentPrice + increment);
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
@@ -245,17 +241,33 @@ const LotDetail = () => {
                 <History size={16} className="text-orange-500" /> Últimos Lances
               </h3>
               <div className="space-y-3">
-                {displayBids.length > 0 ? displayBids.slice(0, 5).map((bid, idx) => (
-                  <div key={bid.id} className="flex items-center justify-between text-sm p-3 rounded-2xl bg-white/50">
-                    <div className="flex items-center gap-2">
-                      <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
-                      <span className="font-bold text-[11px] text-slate-700">
-                        {maskEmail(bid.email)}
-                      </span>
+                {displayBids.length > 0 ? displayBids.map((bid, idx) => {
+                  const isMyBid = currentUser && bid.user_id === currentUser.id;
+                  
+                  return (
+                    <div key={bid.id} className={cn(
+                      "flex items-center justify-between text-sm p-3 rounded-2xl transition-all",
+                      isMyBid ? "bg-orange-100 border border-orange-200 shadow-sm" : "bg-white/50"
+                    )}>
+                      <div className="flex items-center gap-2">
+                        <div className={cn(
+                          "w-2 h-2 rounded-full", 
+                          idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300"
+                        )} />
+                        <span className={cn(
+                          "font-bold text-[11px]",
+                          isMyBid ? "text-orange-700" : "text-slate-700"
+                        )}>
+                          {isMyBid ? "SEU LANCE (VOCÊ)" : maskEmail(bid.email)}
+                        </span>
+                      </div>
+                      <span className={cn(
+                        "font-black",
+                        isMyBid ? "text-orange-600" : "text-slate-900"
+                      )}>{formatCurrency(bid.amount)}</span>
                     </div>
-                    <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>
-                  </div>
-                )) : (
+                  );
+                }) : (
                   <p className="text-xs text-slate-400 text-center py-4 italic">Nenhum lance registrado.</p>
                 )}
               </div>

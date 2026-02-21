@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search, Download } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 import BulkImportLots from './BulkImportLots';
@@ -119,6 +119,71 @@ const LotManager = () => {
     }
   };
 
+  const handleExportCSV = () => {
+    if (filteredLots.length === 0) {
+      toast({ title: "Nenhum veículo para exportar", variant: "destructive" });
+      return;
+    }
+
+    // Cabeçalhos do CSV
+    const headers = [
+      "ID do Lote",
+      "Leilão",
+      "Número do Lote",
+      "Título",
+      "Marca",
+      "Modelo",
+      "Ano",
+      "Quilometragem",
+      "Câmbio",
+      "Combustível",
+      "Lance Inicial",
+      "Incremento",
+      "Destaque Home",
+      "Destaque Semana",
+      "Data de Encerramento"
+    ];
+
+    // Mapeia os dados para o formato CSV
+    const csvData = filteredLots.map(lot => {
+      const auctionName = auctions.find(a => a.id === lot.auction_id)?.title || 'Desconhecido';
+      
+      return [
+        lot.id,
+        `"${auctionName}"`,
+        lot.lot_number,
+        `"${lot.title || ''}"`,
+        `"${lot.brand || ''}"`,
+        `"${lot.model || ''}"`,
+        lot.year || '',
+        lot.mileage_km || '',
+        lot.transmission || '',
+        lot.fuel_type || '',
+        lot.start_bid || 0,
+        lot.bid_increment || 500,
+        lot.is_featured ? 'Sim' : 'Não',
+        lot.is_weekly_highlight ? 'Sim' : 'Não',
+        lot.ends_at ? new Date(lot.ends_at).toLocaleString('pt-BR') : ''
+      ].join(';'); // Usando ponto e vírgula para melhor compatibilidade com Excel em PT-BR
+    });
+
+    // Junta cabeçalhos e dados
+    const csvContent = [headers.join(';'), ...csvData].join('\n');
+    
+    // Adiciona BOM para garantir que o Excel leia os caracteres especiais (acentos) corretamente
+    const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', `veiculos_exportados_${new Date().toISOString().split('T')[0]}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast({ title: "Exportação concluída!", description: `${filteredLots.length} veículos exportados.` });
+  };
+
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!selectedLot || !e.target.files || e.target.files.length === 0) return;
     setIsSubmitting(true);
@@ -207,8 +272,8 @@ const LotManager = () => {
         </div>
         <div className="flex gap-3">
           {selectedIds.length > 0 && (
-            <Button 
-              variant="destructive" 
+            <Button
+              variant="destructive"
               onClick={handleBulkDelete}
               disabled={isSubmitting}
               className="rounded-xl gap-2 animate-in fade-in slide-in-from-right-4"
@@ -217,6 +282,14 @@ const LotManager = () => {
               Excluir Selecionados
             </Button>
           )}
+          <Button
+            variant="outline"
+            onClick={handleExportCSV}
+            className="rounded-xl gap-2 border-slate-200 text-slate-700 hover:bg-slate-50"
+          >
+            <Download size={18} />
+            Exportar CSV
+          </Button>
           <BulkImportLots auctions={auctions} onSuccess={fetchData} />
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingLot(null); }}>
             <DialogTrigger asChild>

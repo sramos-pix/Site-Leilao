@@ -72,7 +72,6 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           fuel_type: String(row.Combustivel || row.combustivel || "Flex").trim()
         };
 
-        // Verifica se o lote já existe neste leilão
         const { data: existingLot } = await supabase
           .from('lots')
           .select('id')
@@ -83,7 +82,6 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         let lotId;
 
         if (existingLot) {
-          // Atualiza lote existente
           const { error: updateError } = await supabase
             .from('lots')
             .update(lotData)
@@ -93,7 +91,6 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           lotId = existingLot.id;
           updatedCount++;
         } else {
-          // Insere novo lote
           const { data: newLot, error: insertError } = await supabase
             .from('lots')
             .insert(lotData)
@@ -105,7 +102,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           insertedCount++;
         }
 
-        // Processa Galeria (apenas se houver dados na coluna)
+        // Processa Galeria
         const galleryString = String(row.Galeria || row.galeria || "");
         if (galleryString && lotId) {
           const photoUrls = galleryString
@@ -114,16 +111,18 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
             .filter(url => url.length > 10);
           
           if (photoUrls.length > 0) {
-            // Remove fotos antigas para evitar duplicatas na galeria ao atualizar
+            // Limpa galeria antiga
             await supabase.from('lot_photos').delete().eq('lot_id', lotId);
 
             const photosToInsert = photoUrls.map((url: string) => ({
               lot_id: lotId,
               public_url: url,
+              storage_path: `external/${lotNumber}/${crypto.randomUUID()}`, // Preenche campo obrigatório
               is_cover: url === lotData.cover_image_url
             }));
 
-            await supabase.from('lot_photos').insert(photosToInsert);
+            const { error: photoError } = await supabase.from('lot_photos').insert(photosToInsert);
+            if (photoError) console.error("Erro ao inserir fotos:", photoError);
           }
         }
       }
@@ -157,7 +156,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
       "Cambio": "Manual",
       "Combustivel": "Flex",
       "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG",
-      "Galeria": "link1, link2",
+      "Galeria": "https://link1.com/foto1.png, https://link2.com/foto2.png",
       "Descricao": "Veículo em bom estado." 
     };
     const ws = XLSX.utils.json_to_sheet([exampleRow], { header });
@@ -183,7 +182,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertTitle className="text-blue-900 font-bold">Atualização Automática</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs">
-              O sistema identifica veículos pelo <b>Número do Lote</b>. Se você subir um lote que já existe no leilão, os dados (como valor e descrição) serão atualizados em vez de duplicados.
+              O sistema identifica veículos pelo <b>Número do Lote</b>. Se você subir um lote que já existe no leilão, os dados serão atualizados.
             </AlertDescription>
           </Alert>
 

@@ -31,7 +31,12 @@ const LotDetail = () => {
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [displayBids, setDisplayBids] = useState<any[]>([]);
-  const [myBids, setMyBids] = useState<any[]>([]); // Estado para persistir SEUS lances
+  
+  // Estado inicial carregando do LocalStorage para persistir entre F5
+  const [myBids, setMyBids] = useState<any[]>(() => {
+    const saved = localStorage.getItem(`my_bids_${id}`);
+    return saved ? JSON.parse(saved) : [];
+  });
 
   const isFinished = lot?.status === 'finished';
 
@@ -41,6 +46,11 @@ const LotDetail = () => {
     "ricardo.auto@gmail.com", "patricia.leiloes@gmail.com", "thiago.f@hotmail.com",
     "beatriz.m@gmail.com"
   ];
+
+  // Sincroniza myBids com LocalStorage sempre que mudar
+  useEffect(() => {
+    localStorage.setItem(`my_bids_${id}`, JSON.stringify(myBids));
+  }, [myBids, id]);
 
   const fetchLotData = useCallback(async () => {
     try {
@@ -71,14 +81,15 @@ const LotDetail = () => {
           id: b.id,
           amount: b.amount,
           created_at: b.created_at,
-          email: b.profiles?.email || user?.email || 'voce@leilao.com',
+          email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@autobid.com'),
           user_id: b.user_id,
           is_fake: false
         }));
 
-        // Mesclar com lances que você acabou de dar (otimistas)
+        // Mesclar lances do banco com lances salvos localmente (evita sumir no F5)
         const allRealBids = [...formattedReals];
         myBids.forEach(myBid => {
+          // Só adiciona se o lance ainda não apareceu vindo do banco
           if (!allRealBids.find(b => b.amount === myBid.amount)) {
             allRealBids.push(myBid);
           }
@@ -136,7 +147,6 @@ const LotDetail = () => {
 
     const newBidAmount = Number(bidAmount);
     
-    // Criar o objeto do seu lance
     const newMyBid = {
       id: `my-bid-${Date.now()}`,
       amount: newBidAmount,
@@ -146,17 +156,15 @@ const LotDetail = () => {
       is_fake: false
     };
 
-    // Salvar no estado persistente de "meus lances" para não sumir
+    // Salva no estado e o useEffect cuidará do LocalStorage
     setMyBids(prev => [newMyBid, ...prev]);
     
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, newBidAmount);
       toast({ title: "Lance confirmado!" });
-      // fetchLotData será chamado pelo useEffect/realtime
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
-      // Remove o lance do estado se deu erro no banco
       setMyBids(prev => prev.filter(b => b.id !== newMyBid.id));
     } finally {
       setIsSubmitting(false);
@@ -240,7 +248,12 @@ const LotDetail = () => {
               <h3 className="text-sm font-bold text-slate-900 mb-4 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
-                  const isMyBid = currentUser && (bid.user_id === currentUser.id || bid.email === currentUser.email);
+                  // Verificação robusta: ID do banco OU ID local OU Email
+                  const isMyBid = currentUser && (
+                    bid.user_id === currentUser.id || 
+                    bid.email === currentUser.email ||
+                    myBids.some(mb => mb.amount === bid.amount)
+                  );
                   
                   return (
                     <div key={bid.id} className={cn(

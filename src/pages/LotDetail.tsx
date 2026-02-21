@@ -34,6 +34,7 @@ const LotDetail = () => {
   
   const isFinished = lot?.status === 'finished';
 
+  // Preço atual vem sempre do banco (current_bid ou start_bid)
   const currentPrice = useMemo(() => {
     if (!lot) return 0;
     return Math.max(lot.current_bid || 0, lot.start_bid || 0);
@@ -41,10 +42,12 @@ const LotDetail = () => {
 
   const fetchLotData = useCallback(async () => {
     try {
+      // 1. Pega usuário logado
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user || null;
       setCurrentUser(user);
 
+      // 2. Busca dados do lote
       const { data: lotData } = await supabase
         .from('lots')
         .select('*, auctions(title)')
@@ -54,7 +57,7 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        // Busca lances REAIS - Garantindo que pegamos o user_id explicitamente
+        // 3. Busca lances REAIS do banco de dados
         const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at, profiles(email)')
@@ -63,23 +66,28 @@ const LotDetail = () => {
         
         const increment = lotData.bid_increment || 500;
 
+        // 4. Formata os lances reais para a UI
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
           created_at: b.created_at,
+          // Se o perfil não tiver e-mail, usamos um fallback ou o e-mail do usuário logado se for dele
           email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@leilao.com'),
           user_id: b.user_id,
           is_fake: false
         }));
 
+        // 5. Gera lances fictícios para completar a lista (mínimo 10 itens)
         let finalBids = [...formattedReals];
         
-        // Lances fictícios apenas se necessário
         if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
+          // Começamos a gerar fakes abaixo do menor lance real ou do preço inicial
           const baseForFakes = finalBids.length > 0 
             ? finalBids[finalBids.length - 1].amount 
             : lotData.start_bid;
+
+          const fakeEmails = ["m***@gmail.com", "a***@uol.com.br", "r***@hotmail.com", "c***@outlook.com", "j***@yahoo.com"];
 
           for (let i = 0; i < needed; i++) {
             const fAmount = baseForFakes - ((i + 1) * increment);
@@ -89,22 +97,26 @@ const LotDetail = () => {
               id: `fake-${i}-${id}`,
               amount: fAmount,
               created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString(),
-              email: `user${i}@exemplo.com`,
+              email: fakeEmails[i % fakeEmails.length],
               user_id: 'system-fake',
               is_fake: true
             });
           }
         }
 
+        // 6. Ordena tudo por valor (maior primeiro) e atualiza estado
         setDisplayBids(finalBids.sort((a, b) => b.amount - a.amount));
+        
+        // 7. Sugere o próximo lance válido
         setBidAmount(currentPrice + increment);
         
+        // 8. Fotos
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
         if (!activePhoto) setActivePhoto(lotData.cover_image_url);
       }
     } catch (e) {
-      console.error(e);
+      console.error("Erro ao carregar dados:", e);
     } finally {
       setIsLoading(false);
     }
@@ -112,30 +124,43 @@ const LotDetail = () => {
 
   useEffect(() => {
     fetchLotData();
-    const channel = supabase.channel(`lot-sync-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
+    
+    // Escuta mudanças em tempo real na tabela de lances e no lote
+    const channel = supabase.channel(`lot-realtime-sync-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => {
+        fetchLotData();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, () => {
+        fetchLotData();
+      })
       .subscribe();
+
     return () => { supabase.removeChannel(channel); };
   }, [id, fetchLotData]);
 
   const handleBid = async () => {
     if (!currentUser) {
-      toast({ title: "Login necessário", variant: "destructive" });
+      toast({ title: "Login necessário", description: "Faça login para dar lances.", variant: "destructive" });
       return;
     }
 
-    if (Number(bidAmount) < currentPrice + (lot.bid_increment || 500)) {
-      toast({ title: "Lance muito baixo", variant: "destructive" });
+    const minBid = currentPrice + (lot.bid_increment || 500);
+    if (Number(bidAmount) < minBid) {
+      toast({ 
+        title: "Lance inválido", 
+        description: `O valor mínimo é ${formatCurrency(minBid)}`,
+        variant: "destructive" 
+      });
       return;
     }
 
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, Number(bidAmount));
-      toast({ title: "Lance realizado!" });
+      toast({ title: "Lance registrado!", description: "Seu lance foi processado com sucesso." });
+      // O fetchLotData será disparado automaticamente pelo Realtime
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      toast({ variant: "destructive", title: "Erro ao dar lance", description: error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -148,6 +173,7 @@ const LotDetail = () => {
       <Navbar />
       <div className="container mx-auto px-4 py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          {/* Coluna Esquerda: Imagens e Info */}
           <div className="lg:col-span-8 space-y-6">
             <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border shadow-inner">
               <img src={activePhoto} className="w-full h-full object-cover" alt={lot.title} />
@@ -185,6 +211,7 @@ const LotDetail = () => {
             </div>
           </div>
 
+          {/* Coluna Direita: Lances */}
           <div className="lg:col-span-4 space-y-6">
             <Card className={cn("border-none shadow-xl rounded-3xl overflow-hidden text-white", isFinished ? "bg-slate-800" : "bg-slate-900")}>
               <CardContent className="p-8 space-y-6">
@@ -217,13 +244,16 @@ const LotDetail = () => {
               </CardContent>
             </Card>
 
+            {/* Histórico de Lances */}
             <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2"><History size={16} className="text-orange-500" /> Últimos Lances</h3>
               </div>
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
+                  // Identifica se o lance é do usuário logado comparando o user_id do banco com o ID da sessão
                   const isMyBid = currentUser && (bid.user_id === currentUser.id);
+                  
                   return (
                     <div key={bid.id} className={cn(
                       "flex items-center justify-between text-sm p-3 rounded-2xl transition-all",
@@ -232,7 +262,7 @@ const LotDetail = () => {
                       <div className="flex items-center gap-2">
                         <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
                         <span className={cn("font-bold text-[11px]", isMyBid ? "text-orange-700" : "text-slate-700")}>
-                          {isMyBid ? "SEU LANCE (VOCÊ)" : maskEmail(bid.email)}
+                          {isMyBid ? "SEU LANCE (VOCÊ)" : (bid.is_fake ? bid.email : maskEmail(bid.email))}
                         </span>
                       </div>
                       <span className={cn("font-black", isMyBid ? "text-orange-600" : "text-slate-900")}>{formatCurrency(bid.amount)}</span>

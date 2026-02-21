@@ -34,7 +34,6 @@ const LotDetail = () => {
   
   const isFinished = lot?.status === 'finished';
 
-  // O preço atual sempre reflete o estado mais recente do lote
   const currentPrice = useMemo(() => {
     if (!lot) return 0;
     return Math.max(Number(lot.current_bid) || 0, Number(lot.start_bid) || 0);
@@ -53,45 +52,53 @@ const LotDetail = () => {
         .single();
 
       if (!lotData) return;
-
       setLot(lotData);
       
-      // Busca lances reais
-      const { data: realBids } = await supabase
+      // 1. Busca os lances reais de forma segura (sem JOIN direto que pode falhar)
+      const { data: realBids, error: bidsError } = await supabase
         .from('bids')
-        .select('id, amount, user_id, created_at, profiles(email)')
+        .select('id, amount, user_id, created_at')
         .eq('lot_id', id)
         .order('amount', { ascending: false });
       
+      if (bidsError) console.error("Erro ao buscar lances:", bidsError);
+
+      let formattedReals: any[] = [];
+
+      // 2. Se houver lances reais, busca os e-mails dos donos desses lances
+      if (realBids && realBids.length > 0) {
+        const userIds = [...new Set(realBids.map(b => b.user_id))];
+        
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', userIds);
+          
+        const profileMap = new Map(profiles?.map(p => [p.id, p.email]) || []);
+
+        formattedReals = realBids.map(b => ({
+          id: b.id,
+          amount: b.amount,
+          created_at: b.created_at,
+          email: profileMap.get(b.user_id) || 'usuario@leilao.com',
+          user_id: b.user_id,
+          is_fake: false
+        }));
+      }
+
       const increment = lotData.bid_increment || 500;
       const currentVal = lotData.current_bid || lotData.start_bid || 0;
 
-      // Formata lances reais
-      const formattedReals = (realBids || []).map(b => ({
-        id: b.id,
-        amount: b.amount,
-        created_at: b.created_at,
-        email: b.profiles?.email || (b.user_id === user?.id ? user?.email : 'usuario@leilao.com'),
-        user_id: b.user_id,
-        is_fake: false
-      }));
-
       let finalBids = [...formattedReals];
       
-      // Se tivermos menos de 10 lances, preenchemos com fictícios
+      // 3. Preenche com lances fictícios para gerar engajamento (apenas abaixo dos reais)
       if (finalBids.length < 10) {
         const needed = 10 - finalBids.length;
-        let nextFakeAmount;
+        let nextFakeAmount = finalBids.length > 0 
+          ? finalBids[finalBids.length - 1].amount - increment
+          : currentVal;
 
-        if (finalBids.length > 0) {
-          // Se já existem lances reais, os fictícios continuam ABAIXO do menor lance real
-          nextFakeAmount = finalBids[finalBids.length - 1].amount - increment;
-        } else {
-          // Se NÃO existem lances reais, o primeiro fictício DEVE SER o valor atual do lote
-          nextFakeAmount = currentVal;
-        }
-
-        const fakeEmails = ["m***@gmail.com", "a***@uol.com.br", "r***@hotmail.com", "c***@outlook.com", "j***@yahoo.com"];
+        const fakeEmails = ["m***@gmail.com", "a***@uol.com.br", "r***@hotmail.com", "c***@outlook.com", "j***@yahoo.com", "p***@icloud.com", "f***@bol.com.br"];
 
         for (let i = 0; i < needed; i++) {
           if (nextFakeAmount <= 0) break;
@@ -121,24 +128,28 @@ const LotDetail = () => {
       
       const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
       setPhotos(ph || []);
-      setActivePhoto(prev => prev || lotData.cover_image_url);
+      if (!activePhoto) setActivePhoto(lotData.cover_image_url);
       
     } catch (e) {
       console.error("Erro ao buscar dados:", e);
     } finally {
       setIsLoading(false);
     }
-  }, [id]);
+  }, [id, activePhoto]);
 
   useEffect(() => {
     fetchLotData();
     
-    // Realtime para manter a tela sincronizada se outra pessoa der lance
-    const channel = supabase.channel(`lot-realtime-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
-      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
+    const channel = supabase.channel(`lot-update-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => {
+        fetchLotData();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, (payload) => {
+        setLot(prev => ({ ...prev, ...payload.new }));
+        fetchLotData();
+      })
       .subscribe();
-      
+
     return () => { supabase.removeChannel(channel); };
   }, [id, fetchLotData]);
 
@@ -159,7 +170,7 @@ const LotDetail = () => {
 
     setIsSubmitting(true);
     try {
-      // 1. ATUALIZAÇÃO OTIMISTA (A tela muda na mesma hora, antes do banco responder)
+      // Atualização Otimista
       setLot(prev => ({ ...prev, current_bid: bidValue }));
       
       const optimisticBid = {
@@ -178,16 +189,13 @@ const LotDetail = () => {
 
       setBidAmount(bidValue + increment);
 
-      // 2. Envia para o banco de dados
+      // Envia para o banco
       await placeBid(lot.id, bidValue);
       toast({ title: "Lance registrado com sucesso!" });
       
-      // Não chamamos fetchLotData() aqui propositalmente. 
-      // O Realtime vai cuidar de sincronizar os dados oficiais logo em seguida.
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
-      // Se der erro, revertemos buscando os dados reais do banco novamente
-      fetchLotData();
+      fetchLotData(); // Reverte em caso de erro
     } finally {
       setIsSubmitting(false);
     }
@@ -283,6 +291,9 @@ const LotDetail = () => {
               <div className="space-y-3">
                 {displayBids.map((bid, idx) => {
                   const isMyBid = currentUser && (bid.user_id === currentUser.id);
+                  // Se for o lance do usuário logado, mostra "SEU LANCE", senão aplica a máscara no email
+                  const displayName = isMyBid ? "SEU LANCE (VOCÊ)" : maskEmail(bid.email || 'usuario@leilao.com');
+                  
                   return (
                     <div key={bid.id} className={cn(
                       "flex items-center justify-between text-sm p-3 rounded-2xl transition-all",
@@ -291,7 +302,7 @@ const LotDetail = () => {
                       <div className="flex items-center gap-2">
                         <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
                         <span className={cn("font-bold text-[11px]", isMyBid ? "text-orange-700" : "text-slate-700")}>
-                          {isMyBid ? "SEU LANCE (VOCÊ)" : (bid.is_fake ? bid.email : maskEmail(bid.email))}
+                          {displayName}
                         </span>
                       </div>
                       <span className={cn("font-black", isMyBid ? "text-orange-600" : "text-slate-900")}>{formatCurrency(bid.amount)}</span>

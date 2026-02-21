@@ -48,6 +48,7 @@ const Auctions = () => {
     const normalizedStatus = (status || '').toLowerCase().trim();
     
     switch (normalizedStatus) {
+      case 'live':
       case 'active':
       case 'ativo':
       case 'ao vivo':
@@ -60,7 +61,6 @@ const Auctions = () => {
       case 'agendado':
         return { label: 'AGENDADO', class: 'bg-blue-500 text-white' };
       default:
-        // Se for um status não mapeado, exibe o próprio texto que veio do banco
         return { 
           label: status ? status.toUpperCase() : 'AGENDADO', 
           class: 'bg-slate-800 text-white' 

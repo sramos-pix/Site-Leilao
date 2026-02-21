@@ -35,6 +35,30 @@ const FeaturedLots = () => {
     fetchAuctions();
   }, []);
 
+  const getStatusInfo = (status: string) => {
+    const normalizedStatus = (status || '').toLowerCase().trim();
+    
+    switch (normalizedStatus) {
+      case 'live':
+      case 'active':
+      case 'ativo':
+      case 'ao vivo':
+        return { label: 'AO VIVO', class: 'bg-red-500 text-white animate-pulse' };
+      case 'finished':
+      case 'finalizado':
+      case 'encerrado':
+        return { label: 'FINALIZADO', class: 'bg-slate-500 text-white' };
+      case 'scheduled':
+      case 'agendado':
+        return { label: 'AGENDADO', class: 'bg-blue-500 text-white' };
+      default:
+        return { 
+          label: status ? status.toUpperCase() : 'AGENDADO', 
+          class: 'bg-slate-800 text-white' 
+        };
+    }
+  };
+
   return (
     <section className="py-20 bg-white">
       <div className="container mx-auto px-4">
@@ -59,49 +83,52 @@ const FeaturedLots = () => {
           </div>
         ) : auctions.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {auctions.map((auction) => (
-              <Card key={auction.id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
-                <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
-                  <img 
-                    src={auction.image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
-                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                    alt={auction.title}
-                  />
-                  <div className="absolute top-3 left-3">
-                    <Badge className={cn(
-                      "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
-                      auction.status === 'live' ? "bg-red-500 text-white animate-pulse" : "bg-blue-500 text-white"
-                    )}>
-                      {auction.status === 'live' ? 'AO VIVO' : 'AGENDADO'}
-                    </Badge>
-                  </div>
-                </div>
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-bold text-slate-900 line-clamp-1 tracking-tight mb-4">{auction.title}</h3>
-                  <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50">
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Lotes</p>
-                      <div className="flex items-center gap-1.5 font-bold text-slate-700 text-sm">
-                        <Car size={14} className="text-orange-500" /> {auction.lots?.length || 0} veículos
-                      </div>
-                    </div>
-                    <div className="space-y-0.5">
-                      <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Início</p>
-                      <div className="flex items-center gap-1.5 font-bold text-slate-700 text-sm">
-                        <Calendar size={14} className="text-orange-500" /> {new Date(auction.starts_at).toLocaleDateString('pt-BR')}
-                      </div>
+            {auctions.map((auction) => {
+              const statusInfo = getStatusInfo(auction.status);
+              return (
+                <Card key={auction.id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
+                  <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+                    <img 
+                      src={auction.image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
+                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                      alt={auction.title}
+                    />
+                    <div className="absolute top-3 left-3">
+                      <Badge className={cn(
+                        "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
+                        statusInfo.class
+                      )}>
+                        {statusInfo.label}
+                      </Badge>
                     </div>
                   </div>
-                </CardContent>
-                <CardFooter className="p-6 pt-0">
-                  <Link to={`/auctions/${auction.id}`} className="w-full">
-                    <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white rounded-xl h-11 font-bold group/btn transition-all">
-                      Ver Veículos <ChevronRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
-                    </Button>
-                  </Link>
-                </CardFooter>
-              </Card>
-            ))}
+                  <CardContent className="p-6">
+                    <h3 className="text-lg font-bold text-slate-900 line-clamp-1 tracking-tight mb-4">{auction.title}</h3>
+                    <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50">
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Lotes</p>
+                        <div className="flex items-center gap-1.5 font-bold text-slate-700 text-sm">
+                          <Car size={14} className="text-orange-500" /> {auction.lots?.length || 0} veículos
+                        </div>
+                      </div>
+                      <div className="space-y-0.5">
+                        <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Início</p>
+                        <div className="flex items-center gap-1.5 font-bold text-slate-700 text-sm">
+                          <Calendar size={14} className="text-orange-500" /> {new Date(auction.starts_at).toLocaleDateString('pt-BR')}
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                  <CardFooter className="p-6 pt-0">
+                    <Link to={`/auctions/${auction.id}`} className="w-full">
+                      <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white rounded-xl h-11 font-bold group/btn transition-all">
+                        Ver Veículos <ChevronRight className="ml-2 h-4 w-4 group-hover/btn:translate-x-1 transition-transform" />
+                      </Button>
+                    </Link>
+                  </CardFooter>
+                </Card>
+              );
+            })}
           </div>
         ) : (
           <div className="text-center py-20 bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200">

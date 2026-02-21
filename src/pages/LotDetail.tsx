@@ -1,12 +1,10 @@
 "use client";
 
-import React, { useEffect, useState, useMemo } from 'react';
-import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { useParams } from 'react-router-dom';
 import { 
-  ChevronLeft, Clock, Gavel, Gauge, Calendar, 
-  Settings2, Fuel, Loader2, History, Info, 
-  CheckCircle2, Lock as LockIcon, AlertCircle
+  Clock, Gavel, Gauge, Calendar, 
+  Settings2, Fuel, Loader2, History, Info
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -63,7 +61,6 @@ const LotDetail = () => {
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
         
-        // Define a foto ativa inicial
         if (!activePhoto) {
           setActivePhoto(lotData.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=1200');
         }
@@ -102,7 +99,6 @@ const LotDetail = () => {
 
   if (isLoading || !lot) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
 
-  // Lista de todas as imagens disponíveis (capa + galeria)
   const allImages = [lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean);
 
   return (
@@ -111,20 +107,11 @@ const LotDetail = () => {
       <div className="container mx-auto px-4 py-6 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
           <div className="lg:col-span-8 space-y-6">
-            {/* Visualizador de Imagem Principal */}
             <div className="aspect-[16/9] rounded-3xl overflow-hidden bg-slate-100 relative border shadow-inner">
               <img 
                 src={activePhoto} 
                 className="w-full h-full object-cover transition-opacity duration-300" 
                 alt={lot.title}
-                onError={(e) => {
-                  // Se a imagem falhar, tenta a capa ou um placeholder
-                  if (activePhoto !== lot.cover_image_url) {
-                    setActivePhoto(lot.cover_image_url);
-                  } else {
-                    e.currentTarget.src = 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=1200';
-                  }
-                }}
               />
               {!isFinished && (
                 <div className="absolute top-6 left-6 flex gap-3">
@@ -137,7 +124,6 @@ const LotDetail = () => {
               )}
             </div>
             
-            {/* Miniaturas da Galeria */}
             <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
               {allImages.map((url, i) => (
                 <button 
@@ -148,15 +134,7 @@ const LotDetail = () => {
                     activePhoto === url ? 'border-orange-500 scale-95 shadow-md' : 'border-transparent opacity-70 hover:opacity-100'
                   )}
                 >
-                  <img 
-                    src={url} 
-                    className="w-full h-full object-cover" 
-                    alt={`Miniatura ${i}`}
-                    onError={(e) => {
-                      // Esconde miniaturas que não carregam
-                      e.currentTarget.parentElement?.style.setProperty('display', 'none');
-                    }}
-                  />
+                  <img src={url} className="w-full h-full object-cover" alt={`Miniatura ${i}`} />
                 </button>
               ))}
             </div>
@@ -175,7 +153,7 @@ const LotDetail = () => {
                   <Info size={20} className="text-orange-500" /> Detalhes do Veículo
                 </h3>
                 <div className="text-slate-600 leading-relaxed whitespace-pre-wrap">
-                  {lot.description || "Nenhuma descrição detalhada fornecida para este veículo."}
+                  {lot.description || "Nenhuma descrição detalhada fornecida."}
                 </div>
               </div>
             </div>

@@ -50,12 +50,11 @@ const LotDetail = () => {
     let generatedCount = 0;
     let attempts = 0;
 
-    while (generatedCount < count && attempts < 20) {
+    while (generatedCount < count && attempts < 30) {
       attempts++;
       currentFakeAmount -= increment;
       
-      // Pula se este valor já existir nos lances reais
-      if (existingAmounts.includes(currentFakeAmount)) continue;
+      if (existingAmounts.includes(currentFakeAmount) || currentFakeAmount <= 0) continue;
 
       const emailIndex = (seed + generatedCount + attempts) % fakeEmails.length;
       fakes.push({
@@ -95,7 +94,7 @@ const LotDetail = () => {
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
-        // 1. Formata lances REAIS
+        // 1. Mapeia TODOS os lances reais sem exceção
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
@@ -107,21 +106,19 @@ const LotDetail = () => {
 
         const realAmounts = formattedReals.map(r => r.amount);
 
-        // 2. Define a base para os lances fictícios
-        const lowestRealAmount = formattedReals.length > 0 
+        // 2. Define a base para os fictícios (abaixo do menor lance real ou do preço inicial)
+        const lowestAmount = formattedReals.length > 0 
           ? formattedReals[formattedReals.length - 1].amount 
           : currentPrice;
 
-        // 3. Gera lances fictícios evitando duplicar valores reais
-        const totalDesired = 8;
-        const neededFakes = Math.max(0, totalDesired - formattedReals.length);
+        // 3. Gera fictícios apenas para completar a lista até 10 itens
+        const neededFakes = Math.max(0, 10 - formattedReals.length);
+        const fakes = generateFakeBids(lowestAmount, increment, neededFakes, id!, realAmounts);
         
-        const fakes = generateFakeBids(lowestRealAmount, increment, neededFakes, id!, realAmounts);
-        
-        // 4. Une e ordena: Reais sempre no topo se forem maiores
+        // 4. Une e ordena. Os reais SEMPRE estarão no topo se forem maiores.
         const allBids = [...formattedReals, ...fakes].sort((a, b) => b.amount - a.amount);
         
-        setDisplayBids(allBids.slice(0, 10));
+        setDisplayBids(allBids);
         setBidAmount(currentPrice + increment);
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
@@ -276,7 +273,6 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 {displayBids.length > 0 ? displayBids.map((bid, idx) => {
-                  // Verificação absoluta: se o user_id do lance for igual ao ID do usuário logado
                   const isMyBid = currentUser && bid.user_id === currentUser.id;
                   
                   return (

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Filter, Car, Calendar, Gauge, MapPin, Loader2, Lock, Heart, Clock } from 'lucide-react';
+import { Search, Car, Calendar, Gauge, Loader2, Lock, Heart, Clock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -23,7 +23,6 @@ const Vehicles = () => {
   const fetchData = async () => {
     setLoading(true);
     
-    // Buscamos os lotes e incluímos os lances para encontrar o maior valor
     const { data: lotsData, error: lotsError } = await supabase
       .from('lots')
       .select(`
@@ -36,12 +35,20 @@ const Vehicles = () => {
     
     if (!lotsError && lotsData) {
       const processedLots = lotsData.map(lot => {
-        // Encontra o maior lance entre os lances reais
-        const highestBid = lot.bids && lot.bids.length > 0 
-          ? Math.max(...lot.bids.map((b: any) => b.amount)) 
-          : 0;
+        // 1. Lances Reais do Banco
+        const realBids = lot.bids?.map((b: any) => b.amount) || [];
         
-        // O preço atual é o maior entre o lance real, o current_bid do banco ou o start_bid
+        // 2. Lances Locais (Cache do Navegador)
+        const savedLocalBids = localStorage.getItem(`my_bids_${lot.id}`);
+        const localBids = savedLocalBids ? JSON.parse(savedLocalBids).map((b: any) => b.amount) : [];
+        
+        // 3. Lógica de Lances Fictícios (Simulando a LotDetail.tsx)
+        // Se houver menos de 10 lances totais, a LotDetail gera fakes.
+        // O maior valor exibido será sempre o maior entre real, local e o current_bid/start_bid.
+        const allBids = [...realBids, ...localBids];
+        const highestBid = allBids.length > 0 ? Math.max(...allBids) : 0;
+        
+        // O preço atual reflete o que o usuário vê na tela de detalhes
         const currentPrice = Math.max(highestBid, lot.current_bid || 0, lot.start_bid || 0);
         
         return {
@@ -68,8 +75,7 @@ const Vehicles = () => {
   useEffect(() => {
     fetchData();
     
-    // Inscrição em tempo real para atualizações de lances
-    const channel = supabase.channel('public:bids')
+    const channel = supabase.channel('public:bids_vehicles')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bids' }, () => {
         fetchData();
       })

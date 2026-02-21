@@ -16,8 +16,8 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search, Download } from 'lucide-react';
-import { formatCurrency } from '@/lib/utils';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search, Download, Filter, X } from 'lucide-react';
+import { formatCurrency, cn } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 import BulkImportLots from './BulkImportLots';
 
@@ -33,7 +33,27 @@ const LotManager = () => {
   const [lotPhotos, setLotPhotos] = useState<any[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  
+  // Filtros
+  const [selectedBrand, setSelectedBrand] = useState<string>("all");
+  const [selectedModel, setSelectedModel] = useState<string>("all");
+  const [selectedAuction, setSelectedAuction] = useState<string>("all");
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  
   const { toast } = useToast();
+
+  // Extrair marcas e modelos únicos para os filtros
+  const brands = Array.from(new Set(lots.map(lot => lot.brand).filter(Boolean))).sort();
+  
+  // Modelos disponíveis baseados na marca selecionada
+  const availableModels = Array.from(
+    new Set(
+      lots
+        .filter(lot => selectedBrand === "all" || lot.brand === selectedBrand)
+        .map(lot => lot.model)
+        .filter(Boolean)
+    )
+  ).sort();
 
   const fetchData = async () => {
     setIsLoading(true);
@@ -70,16 +90,29 @@ const LotManager = () => {
     setIsPhotoDialogOpen(true);
   };
 
-  // Filtra os lotes com base na busca
+  // Filtra os lotes com base na busca e filtros
   const filteredLots = lots.filter(lot => {
     const searchLower = searchTerm.toLowerCase();
-    return (
+    const matchesSearch = (
       lot.title?.toLowerCase().includes(searchLower) ||
       lot.brand?.toLowerCase().includes(searchLower) ||
       lot.model?.toLowerCase().includes(searchLower) ||
       lot.lot_number?.toString().includes(searchLower)
     );
+
+    const matchesBrand = selectedBrand === "all" || lot.brand === selectedBrand;
+    const matchesModel = selectedModel === "all" || lot.model === selectedModel;
+    const matchesAuction = selectedAuction === "all" || lot.auction_id === selectedAuction;
+
+    return matchesSearch && matchesBrand && matchesModel && matchesAuction;
   });
+
+  const clearFilters = () => {
+    setSelectedBrand("all");
+    setSelectedModel("all");
+    setSelectedAuction("all");
+    setSearchTerm("");
+  };
 
   const toggleSelectAll = () => {
     const filteredIds = filteredLots.map(l => l.id);
@@ -406,18 +439,104 @@ const LotManager = () => {
         </div>
       </div>
 
-      {/* Barra de Busca */}
-      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex items-center gap-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-          <Input
-            placeholder="Buscar por lote, título, marca ou modelo (ex: moto, honda, civic)..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-12 h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white text-base"
-          />
+      {/* Barra de Busca e Filtros */}
+      <div className="bg-white p-4 rounded-2xl shadow-sm border border-slate-100 flex flex-col gap-4">
+        <div className="flex items-center gap-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+            <Input
+              placeholder="Buscar por lote, título, marca ou modelo (ex: moto, honda, civic)..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-12 h-12 rounded-xl bg-slate-50 border-slate-200 focus:bg-white text-base"
+            />
+          </div>
+          <Button
+            onClick={() => setIsFilterOpen(!isFilterOpen)}
+            variant={isFilterOpen || selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all" ? "default" : "outline"}
+            className={cn(
+              "h-12 rounded-xl gap-2 font-bold transition-all px-6",
+              (isFilterOpen || selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all")
+                ? "bg-orange-500 hover:bg-orange-600 text-white border-none"
+                : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
+            )}
+          >
+            <Filter size={18} />
+            Filtros
+            {(selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all") && (
+              <Badge className="ml-1 bg-white/20 text-white hover:bg-white/30 border-none px-1.5 py-0.5 text-[10px]">
+                Ativos
+              </Badge>
+            )}
+          </Button>
         </div>
-        <div className="text-sm text-slate-500 font-medium px-4">
+
+        {/* Painel de Filtros Expandido */}
+        {isFilterOpen && (
+          <div className="pt-4 border-t border-slate-100 animate-in fade-in slide-in-from-top-2">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-bold text-slate-900 flex items-center gap-2 text-sm">
+                <Filter size={16} className="text-orange-500" />
+                Filtros Avançados
+              </h3>
+              {(selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all" || searchTerm !== "") && (
+                <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500 hover:text-red-500 h-8 px-2 text-xs font-bold">
+                  <X size={14} className="mr-1" /> Limpar Filtros
+                </Button>
+              )}
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Leilão</label>
+                <select
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 font-medium focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                  value={selectedAuction}
+                  onChange={(e) => setSelectedAuction(e.target.value)}
+                >
+                  <option value="all">Todos os Leilões</option>
+                  {auctions.map(auction => (
+                    <option key={auction.id} value={auction.id}>{auction.title}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Marca</label>
+                <select
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 font-medium focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                  value={selectedBrand}
+                  onChange={(e) => {
+                    setSelectedBrand(e.target.value);
+                    setSelectedModel("all"); // Reseta o modelo ao trocar a marca
+                  }}
+                >
+                  <option value="all">Todas as Marcas</option>
+                  {brands.map(brand => (
+                    <option key={brand} value={brand}>{brand}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Modelo</label>
+                <select
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 font-medium focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  disabled={selectedBrand === "all" && availableModels.length === 0}
+                >
+                  <option value="all">Todos os Modelos</option>
+                  {availableModels.map(model => (
+                    <option key={model} value={model}>{model}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="text-sm text-slate-500 font-medium pt-2 border-t border-slate-100 mt-2">
           {filteredLots.length} {filteredLots.length === 1 ? 'veículo encontrado' : 'veículos encontrados'}
         </div>
       </div>

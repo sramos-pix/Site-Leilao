@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { formatCurrency, cn } from '@/lib/utils';
+import { formatCurrency, cn, maskEmail } from '@/lib/utils';
 import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -33,18 +33,34 @@ const LotDetail = () => {
 
   const isFinished = lot?.status === 'finished';
 
-  const generateFakeBids = (basePrice: number, increment: number) => {
-    const fakeBids = [];
+  // Lista de e-mails fictícios para mascarar
+  const fakeEmails = [
+    "marcos.silva@gmail.com",
+    "ana.oliveira@hotmail.com",
+    "carlos_edu@outlook.com",
+    "fernanda.vendas@yahoo.com.br",
+    "roberto.lances@gmail.com",
+    "juliana.m@uol.com.br",
+    "ricardo.auto@gmail.com"
+  ];
+
+  const generateFakeBids = (basePrice: number, increment: number, count: number, lotId: string) => {
+    const fakes = [];
     const now = new Date();
-    for (let i = 0; i < 5; i++) {
-      fakeBids.push({
-        id: `fake-${i}`,
-        amount: basePrice - (i * increment),
-        created_at: new Date(now.getTime() - (i * 1000 * 60 * 15)).toISOString(),
+    // Usamos o lotId para escolher e-mails consistentes para o mesmo carro
+    const seed = lotId ? lotId.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
+
+    for (let i = 0; i < count; i++) {
+      const emailIndex = (seed + i) % fakeEmails.length;
+      fakes.push({
+        id: `fake-${i}-${lotId}`,
+        amount: basePrice - ((i + 1) * increment),
+        created_at: new Date(now.getTime() - ((i + 1) * 1000 * 60 * 25)).toISOString(),
+        email: fakeEmails[emailIndex],
         is_fake: true
       });
     }
-    return fakeBids;
+    return fakes;
   };
 
   const fetchLotData = async () => {
@@ -61,22 +77,37 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
+        // Busca lances reais
         const { data: realBids } = await supabase
           .from('bids')
-          .select('id, amount, user_id, created_at')
+          .select('id, amount, user_id, created_at, profiles(email)')
           .eq('lot_id', id)
           .order('amount', { ascending: false });
         
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
-        // Se houver lances reais, usa eles. Se não, gera fictícios.
-        if (realBids && realBids.length > 0) {
-          setDisplayBids(realBids);
-        } else {
-          setDisplayBids(generateFakeBids(currentPrice, increment));
-        }
+        // Mapeia lances reais para o formato de exibição
+        const formattedReals = (realBids || []).map(b => ({
+          id: b.id,
+          amount: b.amount,
+          created_at: b.created_at,
+          email: b.profiles?.email || 'usuario@autobid.com',
+          is_fake: false
+        }));
 
+        // Se tivermos menos de 5 lances, completamos com fictícios
+        const neededFakes = Math.max(0, 5 - formattedReals.length);
+        const baseForFakes = formattedReals.length > 0 
+          ? formattedReals[formattedReals.length - 1].amount 
+          : currentPrice + increment;
+
+        const fakes = generateFakeBids(baseForFakes, increment, neededFakes, id!);
+        
+        // Junta e ordena por valor (maior primeiro)
+        const allBids = [...formattedReals, ...fakes].sort((a, b) => b.amount - a.amount);
+        
+        setDisplayBids(allBids);
         setBidAmount(currentPrice + increment);
         
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
@@ -95,7 +126,7 @@ const LotDetail = () => {
 
   useEffect(() => {
     fetchLotData();
-    const channel = supabase.channel(`lot-${id}`)
+    const channel = supabase.channel(`lot-realtime-${id}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -103,16 +134,16 @@ const LotDetail = () => {
 
   const handleBid = async () => {
     if (!currentUser) {
-      toast({ title: "Login necessário", variant: "destructive" });
+      toast({ title: "Login necessário", description: "Acesse sua conta para dar lances.", variant: "destructive" });
       return;
     }
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
-      toast({ title: "Lance realizado!" });
+      toast({ title: "Lance realizado com sucesso!" });
       fetchLotData();
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro", description: error.message });
+      toast({ variant: "destructive", title: "Erro no lance", description: error.message });
     } finally {
       setIsSubmitting(false);
     }
@@ -219,7 +250,7 @@ const LotDetail = () => {
                     <div className="flex items-center gap-2">
                       <div className={cn("w-2 h-2 rounded-full", idx === 0 && !isFinished ? "bg-orange-500 animate-pulse" : "bg-slate-300")} />
                       <span className="font-bold text-[11px] text-slate-700">
-                        {bid.is_fake ? 'Licitante Oculto' : 'Licitante Verificado'}
+                        {maskEmail(bid.email)}
                       </span>
                     </div>
                     <span className="font-black text-slate-900">{formatCurrency(bid.amount)}</span>

@@ -13,7 +13,6 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { formatCurrency, cn, maskEmail } from '@/lib/utils';
-import { placeBid } from '@/lib/actions';
 import { useToast } from '@/components/ui/use-toast';
 import CountdownTimer from '@/components/CountdownTimer';
 import { supabase } from '@/lib/supabase';
@@ -167,6 +166,7 @@ const LotDetail = () => {
 
     setIsSubmitting(true);
     try {
+      // Atualiza a UI otimisticamente
       setLot(prev => ({ ...prev, current_bid: bidValue }));
       
       const optimisticBid = {
@@ -185,12 +185,27 @@ const LotDetail = () => {
 
       setBidAmount(bidValue + increment);
 
-      await placeBid(lot.id, bidValue);
+      // 1. Insere o lance na tabela bids (Isso garante que o lance não suma no F5)
+      const { error: bidError } = await supabase.from('bids').insert({
+        lot_id: lot.id,
+        user_id: currentUser.id,
+        amount: bidValue
+      });
+
+      if (bidError) throw new Error("Erro ao registrar lance no histórico.");
+
+      // 2. Atualiza o valor atual do lote
+      const { error: lotError } = await supabase.from('lots').update({
+        current_bid: bidValue
+      }).eq('id', lot.id);
+
+      if (lotError) throw new Error("Erro ao atualizar o valor do lote.");
+
       toast({ title: "Lance registrado com sucesso!" });
       
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro", description: error.message });
-      fetchLotData();
+      fetchLotData(); // Reverte a UI em caso de erro
     } finally {
       setIsSubmitting(false);
     }

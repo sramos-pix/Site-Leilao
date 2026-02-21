@@ -53,7 +53,7 @@ const LotDetail = () => {
         amount: basePrice - ((i + 1) * increment),
         created_at: new Date(now.getTime() - ((i + 1) * 1000 * 60 * 25)).toISOString(),
         email: fakeEmails[emailIndex],
-        user_id: 'fake-id',
+        user_id: 'fake-id', // ID genérico para lances fictícios
         is_fake: true
       });
     }
@@ -89,10 +89,11 @@ const LotDetail = () => {
           amount: b.amount,
           created_at: b.created_at,
           email: b.profiles?.email || 'usuario@autobid.com',
-          user_id: b.user_id,
+          user_id: b.user_id, // Importante para a comparação
           is_fake: false
         }));
 
+        // Garante volume de lances (3 a 10)
         const totalDesired = Math.max(3, Math.min(10, formattedReals.length + 5));
         const neededFakes = Math.max(0, totalDesired - formattedReals.length);
         
@@ -258,6 +259,7 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 {displayBids.length > 0 ? displayBids.map((bid, idx) => {
+                  // Verificação robusta: se o user_id do lance for igual ao ID do usuário logado
                   const isMyBid = currentUser && bid.user_id === currentUser.id;
                   
                   return (

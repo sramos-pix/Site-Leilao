@@ -4,7 +4,7 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { 
   Clock, Gavel, Gauge, Calendar, 
-  Settings2, Fuel, Loader2, History, Info, ShieldCheck, Trash2
+  Settings2, Fuel, Loader2, History, Info, ShieldCheck, Trash2, TrendingUp
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -83,7 +83,7 @@ const LotDetail = () => {
           .eq('lot_id', id)
           .order('amount', { ascending: false });
         
-        const increment = lotData.bid_increment || 500;
+        const increment = lotData.bid_increment || lotData.min_increment || 500;
 
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
@@ -96,7 +96,6 @@ const LotDetail = () => {
 
         const allRealBids = [...formattedReals];
         
-        // Mescla lances locais para todos os usuários
         myBids.forEach(myBid => {
           if (!allRealBids.find(b => b.amount === myBid.amount)) {
             allRealBids.push(myBid);
@@ -105,7 +104,6 @@ const LotDetail = () => {
 
         let finalBids = [...allRealBids];
         
-        // Gera fakes para manter a simulação ativa
         if (finalBids.length < 10) {
           const needed = 10 - finalBids.length;
           const basePrice = finalBids.length > 0 ? Math.min(...finalBids.map(b => b.amount)) : (lotData.current_bid || lotData.start_bid);
@@ -153,6 +151,16 @@ const LotDetail = () => {
   const handleBid = async () => {
     if (!currentUser) {
       toast({ title: "Login necessário", variant: "destructive" });
+      return;
+    }
+
+    const minRequired = currentDisplayPrice + (lot.bid_increment || lot.min_increment || 500);
+    if (Number(bidAmount) < minRequired) {
+      toast({ 
+        title: "Lance insuficiente", 
+        description: `O lance mínimo deve ser ${formatCurrency(minRequired)}`,
+        variant: "destructive" 
+      });
       return;
     }
 
@@ -232,9 +240,15 @@ const LotDetail = () => {
                 <div className="flex justify-between items-center">
                   <Badge className={cn("text-white border-none px-3 py-1 rounded-full text-[10px] font-bold", isFinished ? "bg-white/20" : "bg-orange-500")}>{isFinished ? "ENCERRADO" : "AO VIVO"}</Badge>
                 </div>
-                <div>
+                <div className="space-y-1">
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Lance Atual</p>
                   <p className="text-4xl font-black text-white">{formatCurrency(currentDisplayPrice)}</p>
+                  {!isFinished && (
+                    <div className="flex items-center gap-1.5 text-orange-400 font-bold text-[11px] mt-1">
+                      <TrendingUp size={12} />
+                      <span>Incremento Mínimo: {formatCurrency(lot.bid_increment || lot.min_increment || 500)}</span>
+                    </div>
+                  )}
                 </div>
                 {!isFinished && (
                   <div className="space-y-4">
@@ -242,10 +256,15 @@ const LotDetail = () => {
                       <Label className="text-[10px] font-bold text-white/40 uppercase ml-1">Seu Lance</Label>
                       <div className="relative">
                         <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-500">R$</span>
-                        <Input type="number" value={bidAmount} onChange={(e) => setBidAmount(Number(e.target.value))} className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl" />
+                        <Input 
+                          type="number" 
+                          value={bidAmount} 
+                          onChange={(e) => setBidAmount(Number(e.target.value))} 
+                          className="w-full bg-white/5 border-white/10 text-white text-xl font-bold h-14 pl-12 rounded-2xl focus:ring-orange-500" 
+                        />
                       </div>
                     </div>
-                    <Button onClick={handleBid} disabled={isSubmitting} className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold">
+                    <Button onClick={handleBid} disabled={isSubmitting} className="w-full h-14 bg-orange-500 hover:bg-orange-600 text-white rounded-2xl font-bold shadow-lg shadow-orange-500/20 transition-all active:scale-95">
                       {isSubmitting ? <Loader2 className="animate-spin" /> : "DAR LANCE AGORA"}
                     </Button>
                   </div>

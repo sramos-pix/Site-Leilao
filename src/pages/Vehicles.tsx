@@ -22,12 +22,35 @@ const Vehicles = () => {
 
   const fetchData = async () => {
     setLoading(true);
+    
+    // Buscamos os lotes e incluímos os lances para encontrar o maior valor
     const { data: lotsData, error: lotsError } = await supabase
       .from('lots')
-      .select('*')
+      .select(`
+        *,
+        bids (
+          amount
+        )
+      `)
       .order('created_at', { ascending: false });
     
-    if (!lotsError) setLots(lotsData || []);
+    if (!lotsError && lotsData) {
+      const processedLots = lotsData.map(lot => {
+        // Encontra o maior lance entre os lances reais
+        const highestBid = lot.bids && lot.bids.length > 0 
+          ? Math.max(...lot.bids.map((b: any) => b.amount)) 
+          : 0;
+        
+        // O preço atual é o maior entre o lance real, o current_bid do banco ou o start_bid
+        const currentPrice = Math.max(highestBid, lot.current_bid || 0, lot.start_bid || 0);
+        
+        return {
+          ...lot,
+          display_price: currentPrice
+        };
+      });
+      setLots(processedLots);
+    }
 
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
@@ -44,6 +67,17 @@ const Vehicles = () => {
 
   useEffect(() => {
     fetchData();
+    
+    // Inscrição em tempo real para atualizações de lances
+    const channel = supabase.channel('public:bids')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bids' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const toggleFavorite = async (e: React.MouseEvent, lotId: string) => {
@@ -136,7 +170,6 @@ const Vehicles = () => {
                         )}
                       />
                       
-                      {/* Botão de Favorito */}
                       {!isFinished && (
                         <button
                           onClick={(e) => toggleFavorite(e, lot.id)}
@@ -168,7 +201,6 @@ const Vehicles = () => {
                               Lote #{lot.lot_number}
                             </Badge>
                           </div>
-                          {/* Relógio de Contagem Regressiva / Urgência */}
                           <div className="absolute bottom-3 left-3 right-3">
                             <Badge className="bg-red-500/90 backdrop-blur-md text-white border-none font-black flex items-center justify-center gap-2 py-1.5 shadow-lg">
                               <Clock size={14} className="animate-pulse" />
@@ -206,7 +238,7 @@ const Vehicles = () => {
                             "text-lg font-black",
                             isFinished ? "text-slate-500" : "text-orange-500"
                           )}>
-                            {formatCurrency(lot.current_bid || lot.start_bid)}
+                            {formatCurrency(lot.display_price)}
                           </p>
                         </div>
                         <Button 

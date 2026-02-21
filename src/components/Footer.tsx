@@ -83,8 +83,7 @@ const Footer = () => {
             </div>
             
             <div className="flex flex-wrap items-center justify-start md:justify-end gap-4 opacity-60 grayscale hover:grayscale-0 transition-all duration-500">
-              <img src="https://logodownload.org/wp-content/uploads/2017/05/selo-google-safe-browsing.png" alt="Google Safe Browsing" className="h-8 object-contain bg-white p-1 rounded" />
-              <img src="https://logodownload.org/wp-content/uploads/2014/10/pci-dss-compliant-logo.png" alt="PCI DSS" className="h-8 object-contain bg-white p-1 rounded" />
+              <img src="https://i.ibb.co/rf1Bk2N9/leilao-seguro.png" alt="Leilão Seguro" className="h-10 object-contain" />
               <div className="flex items-center gap-1 bg-slate-800 px-3 py-1.5 rounded-lg border border-slate-700">
                 <ShieldCheck size={14} className="text-emerald-500" />
                 <span className="text-[10px] font-bold text-white">SSL 256-bit</span>

@@ -87,7 +87,7 @@ const FeaturedLots = () => {
               const statusInfo = getStatusInfo(auction.status);
               return (
                 <Card key={auction.id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
-                  <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+                  <Link to={`/auctions/${auction.id}`} className="relative aspect-[16/9] overflow-hidden bg-slate-100 block">
                     <img 
                       src={auction.image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
                       className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
@@ -101,9 +101,11 @@ const FeaturedLots = () => {
                         {statusInfo.label}
                       </Badge>
                     </div>
-                  </div>
+                  </Link>
                   <CardContent className="p-6">
-                    <h3 className="text-lg font-bold text-slate-900 line-clamp-1 tracking-tight mb-4">{auction.title}</h3>
+                    <Link to={`/auctions/${auction.id}`}>
+                      <h3 className="text-lg font-bold text-slate-900 line-clamp-1 tracking-tight mb-4 hover:text-orange-600 transition-colors">{auction.title}</h3>
+                    </Link>
                     <div className="grid grid-cols-2 gap-4 py-3 border-y border-slate-50">
                       <div className="space-y-0.5">
                         <p className="text-[10px] uppercase font-bold text-slate-400 tracking-wider">Lotes</p>

@@ -84,7 +84,7 @@ const LotDetail = () => {
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
-        // 1. Formata lances REAIS
+        // 1. Formata lances REAIS vindos do banco
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
@@ -94,12 +94,12 @@ const LotDetail = () => {
           is_fake: false
         }));
 
-        // 2. Define a base para os lances fictícios (sempre abaixo do menor lance real ou do preço atual)
+        // 2. Define a base para os lances fictícios (sempre abaixo do menor lance real)
         const lowestRealAmount = formattedReals.length > 0 
           ? formattedReals[formattedReals.length - 1].amount 
           : currentPrice;
 
-        // 3. Gera lances fictícios para completar a lista (mínimo 3, máximo 10 no total)
+        // 3. Gera lances fictícios para completar a lista (mínimo 5 no total)
         const totalDesired = Math.max(5, Math.min(10, formattedReals.length + 3));
         const neededFakes = Math.max(0, totalDesired - formattedReals.length);
         
@@ -142,7 +142,6 @@ const LotDetail = () => {
     try {
       await placeBid(lot.id, bidAmount);
       toast({ title: "Lance realizado com sucesso!" });
-      // Forçamos a atualização imediata
       await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no lance", description: error.message });
@@ -264,7 +263,7 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 {displayBids.length > 0 ? displayBids.map((bid, idx) => {
-                  // Verificação crucial: se o user_id do lance for igual ao ID do usuário logado
+                  // Verificação rigorosa do ID do usuário logado
                   const isMyBid = currentUser && bid.user_id === currentUser.id;
                   
                   return (

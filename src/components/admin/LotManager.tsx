@@ -15,7 +15,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, AlertTriangle } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 import BulkImportLots from './BulkImportLots';
@@ -30,6 +31,7 @@ const LotManager = () => {
   const [selectedLot, setSelectedLot] = useState<any>(null);
   const [editingLot, setEditingLot] = useState<any>(null);
   const [lotPhotos, setLotPhotos] = useState<any[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const { toast } = useToast();
 
   const fetchData = async () => {
@@ -65,6 +67,38 @@ const LotManager = () => {
     setSelectedLot(lot);
     fetchLotPhotos(lot.id);
     setIsPhotoDialogOpen(true);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.length === lots.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(lots.map(l => l.id));
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds(prev => 
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleBulkDelete = async () => {
+    if (!confirm(`Deseja excluir permanentemente os ${selectedIds.length} veículos selecionados?`)) return;
+    
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase.from('lots').delete().in('id', selectedIds);
+      if (error) throw error;
+      
+      toast({ title: "Exclusão concluída!", description: `${selectedIds.length} veículos removidos.` });
+      setSelectedIds([]);
+      fetchData();
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -140,8 +174,24 @@ const LotManager = () => {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-900">Gerenciar Veículos</h2>
+        <div className="flex flex-col">
+          <h2 className="text-2xl font-bold text-slate-900">Gerenciar Veículos</h2>
+          {selectedIds.length > 0 && (
+            <span className="text-xs font-bold text-orange-600">{selectedIds.length} selecionados</span>
+          )}
+        </div>
         <div className="flex gap-3">
+          {selectedIds.length > 0 && (
+            <Button 
+              variant="destructive" 
+              onClick={handleBulkDelete}
+              disabled={isSubmitting}
+              className="rounded-xl gap-2 animate-in fade-in slide-in-from-right-4"
+            >
+              {isSubmitting ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+              Excluir Selecionados
+            </Button>
+          )}
           <BulkImportLots auctions={auctions} onSuccess={fetchData} />
           <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingLot(null); }}>
             <DialogTrigger asChild>
@@ -262,6 +312,12 @@ const LotManager = () => {
         <Table>
           <TableHeader className="bg-slate-50">
             <TableRow>
+              <TableHead className="w-[50px]">
+                <Checkbox 
+                  checked={selectedIds.length === lots.length && lots.length > 0}
+                  onCheckedChange={toggleSelectAll}
+                />
+              </TableHead>
               <TableHead>Lote</TableHead>
               <TableHead>Veículo</TableHead>
               <TableHead>Status</TableHead>
@@ -271,9 +327,15 @@ const LotManager = () => {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={5} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
             ) : lots.map((lot) => (
-              <TableRow key={lot.id} className="hover:bg-slate-50/50 transition-colors">
+              <TableRow key={lot.id} className={`hover:bg-slate-50/50 transition-colors ${selectedIds.includes(lot.id) ? 'bg-orange-50/30' : ''}`}>
+                <TableCell>
+                  <Checkbox 
+                    checked={selectedIds.includes(lot.id)}
+                    onCheckedChange={() => toggleSelect(lot.id)}
+                  />
+                </TableCell>
                 <TableCell className="font-mono text-xs">
                   <Link 
                     to={`/lots/${lot.id}`} 

@@ -39,20 +39,24 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
   const processImport = async () => {
     if (!selectedAuctionId) {
-      toast({ variant: "destructive", title: "Selecione um leilão", description: "É necessário vincular os veículos a um evento." });
+      toast({ variant: "destructive", title: "Selecione um leilão" });
       return;
     }
 
     if (previewData.length === 0) return;
 
     setIsImporting(true);
+    let updatedCount = 0;
+    let insertedCount = 0;
+
     try {
       for (const row of previewData) {
+        const lotNumber = parseInt(row.Lote || row.lote || 0);
         const rawCover = String(row.FotoCapa || row.foto_capa || "").trim();
         
         const lotData = {
           auction_id: selectedAuctionId,
-          lot_number: parseInt(row.Lote || row.lote || 0),
+          lot_number: lotNumber,
           title: String(row.Titulo || row.titulo || row.Title || "").trim(),
           brand: String(row.Marca || row.marca || "").trim(),
           model: String(row.Modelo || row.modelo || "").trim(),
@@ -68,24 +72,53 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           fuel_type: String(row.Combustivel || row.combustivel || "Flex").trim()
         };
 
-        const { data: newLot, error: lotError } = await supabase
+        // Verifica se o lote já existe neste leilão
+        const { data: existingLot } = await supabase
           .from('lots')
-          .insert(lotData)
-          .select()
-          .single();
+          .select('id')
+          .eq('auction_id', selectedAuctionId)
+          .eq('lot_number', lotNumber)
+          .maybeSingle();
 
-        if (lotError) throw lotError;
+        let lotId;
 
+        if (existingLot) {
+          // Atualiza lote existente
+          const { error: updateError } = await supabase
+            .from('lots')
+            .update(lotData)
+            .eq('id', existingLot.id);
+          
+          if (updateError) throw updateError;
+          lotId = existingLot.id;
+          updatedCount++;
+        } else {
+          // Insere novo lote
+          const { data: newLot, error: insertError } = await supabase
+            .from('lots')
+            .insert(lotData)
+            .select()
+            .single();
+          
+          if (insertError) throw insertError;
+          lotId = newLot.id;
+          insertedCount++;
+        }
+
+        // Processa Galeria (apenas se houver dados na coluna)
         const galleryString = String(row.Galeria || row.galeria || "");
-        if (galleryString && newLot) {
+        if (galleryString && lotId) {
           const photoUrls = galleryString
             .split(/[;,]+/)
             .map((url: string) => url.trim())
             .filter(url => url.length > 10);
           
           if (photoUrls.length > 0) {
+            // Remove fotos antigas para evitar duplicatas na galeria ao atualizar
+            await supabase.from('lot_photos').delete().eq('lot_id', lotId);
+
             const photosToInsert = photoUrls.map((url: string) => ({
-              lot_id: newLot.id,
+              lot_id: lotId,
               public_url: url,
               is_cover: url === lotData.cover_image_url
             }));
@@ -95,7 +128,10 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         }
       }
 
-      toast({ title: "Importação concluída!", description: `${previewData.length} veículos cadastrados.` });
+      toast({ 
+        title: "Importação concluída!", 
+        description: `${insertedCount} novos veículos e ${updatedCount} atualizados.` 
+      });
       setIsOpen(false);
       setPreviewData([]);
       onSuccess();
@@ -109,8 +145,6 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
   const downloadTemplate = () => {
     const header = ["Lote", "Titulo", "Marca", "Modelo", "Ano", "KM", "LanceInicial", "Incremento", "Cambio", "Combustivel", "FotoCapa", "Galeria", "Descricao"];
-    
-    // Exemplo real baseado no link que você enviou
     const exampleRow = { 
       "Lote": 70, 
       "Titulo": "Fiat Punto SPORTING 1.8 2011", 
@@ -123,15 +157,13 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
       "Cambio": "Manual",
       "Combustivel": "Flex",
       "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG",
-      "Galeria": "https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img2_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img3_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img4_1727377758954_959499.PNG, https://guimaraeslimaleiloes.com/web/fotos/img5_1727377758954_959499.PNG",
-      "Descricao": "Veículo em bom estado de conservação. Ar condicionado, direção hidráulica." 
+      "Galeria": "link1, link2",
+      "Descricao": "Veículo em bom estado." 
     };
-
     const ws = XLSX.utils.json_to_sheet([exampleRow], { header });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Importar Veiculos");
-    
-    XLSX.writeFile(wb, "modelo_importacao_GUIMARAES.xlsx");
+    XLSX.writeFile(wb, "modelo_importacao.xlsx");
   };
 
   return (
@@ -143,16 +175,15 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
       </DialogTrigger>
       <DialogContent className="max-w-2xl rounded-3xl">
         <DialogHeader>
-          <DialogTitle>Importação em Massa</DialogTitle>
+          <DialogTitle>Importação Inteligente</DialogTitle>
         </DialogHeader>
         
         <div className="space-y-6 py-4">
           <Alert className="bg-blue-50 border-blue-100 rounded-2xl">
             <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-900 font-bold">Como pegar as fotos</AlertTitle>
+            <AlertTitle className="text-blue-900 font-bold">Atualização Automática</AlertTitle>
             <AlertDescription className="text-blue-700 text-xs">
-              No site do leilão, clique com o botão direito na foto e escolha <b>"Copiar endereço da imagem"</b>. 
-              Cole na coluna Galeria separando por vírgula. O sistema aceita links .PNG e .JPG.
+              O sistema identifica veículos pelo <b>Número do Lote</b>. Se você subir um lote que já existe no leilão, os dados (como valor e descrição) serão atualizados em vez de duplicados.
             </AlertDescription>
           </Alert>
 
@@ -172,7 +203,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
             <div className="space-y-2">
               <label className="text-xs font-black text-slate-400 uppercase">2. Baixar Modelo</label>
               <Button variant="secondary" onClick={downloadTemplate} className="w-full h-12 rounded-xl font-bold gap-2">
-                <Upload size={16} className="rotate-180" /> Download Modelo Guimarães
+                <Upload size={16} className="rotate-180" /> Download Modelo
               </Button>
             </div>
           </div>
@@ -199,7 +230,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
             className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-14 rounded-2xl font-black shadow-lg shadow-emerald-100 transition-all"
           >
             {isImporting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-            CONFIRMAR IMPORTAÇÃO
+            INICIAR IMPORTAÇÃO / ATUALIZAÇÃO
           </Button>
         </div>
       </DialogContent>

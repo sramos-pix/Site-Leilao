@@ -43,7 +43,7 @@ const LotDetail = () => {
 
   const fetchLotData = async () => {
     try {
-      // 1. Obter usuário atual
+      // 1. Obter usuário logado
       const { data: { session } } = await supabase.auth.getSession();
       const user = session?.user || null;
       setCurrentUser(user);
@@ -58,7 +58,7 @@ const LotDetail = () => {
       if (lotData) {
         setLot(lotData);
         
-        // 3. Obter lances REAIS do banco
+        // 3. Obter TODOS os lances reais do banco para este lote
         const { data: realBids } = await supabase
           .from('bids')
           .select('id, amount, user_id, created_at, profiles(email)')
@@ -68,7 +68,7 @@ const LotDetail = () => {
         const currentPrice = lotData.current_bid || lotData.start_bid;
         const increment = lotData.bid_increment || 500;
 
-        // Formatar lances reais
+        // Formatar lances reais vindos do Supabase
         const formattedReals = (realBids || []).map(b => ({
           id: b.id,
           amount: b.amount,
@@ -78,43 +78,52 @@ const LotDetail = () => {
           is_fake: false
         }));
 
-        // 4. Gerar lances fictícios apenas para preencher se houver poucos reais
-        const allBids = [...formattedReals];
+        // 4. Lógica de preenchimento com lances fictícios
+        const finalBidsList = [...formattedReals];
         const realAmounts = formattedReals.map(r => r.amount);
         
-        if (allBids.length < 10) {
-          const needed = 10 - allBids.length;
-          const lowestAmount = allBids.length > 0 ? allBids[allBids.length - 1].amount : currentPrice;
+        // Só adicionamos fakes se tivermos menos de 10 lances no total
+        if (finalBidsList.length < 10) {
+          const needed = 10 - finalBidsList.length;
+          // Começamos os fakes a partir do menor lance real ou do preço inicial
+          const baseForFakes = finalBidsList.length > 0 
+            ? finalBidsList[finalBidsList.length - 1].amount 
+            : currentPrice;
+
           const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 0;
 
           for (let i = 0; i < needed; i++) {
-            const fakeAmount = lowestAmount - ((i + 1) * increment);
-            if (fakeAmount <= 0 || realAmounts.includes(fakeAmount)) continue;
+            const fakeVal = baseForFakes - ((i + 1) * increment);
+            // Segurança: não criar fake com valor igual a um real ou menor que zero
+            if (fakeVal <= 0 || realAmounts.includes(fakeVal)) continue;
 
-            allBids.push({
+            finalBidsList.push({
               id: `fake-${i}-${id}`,
-              amount: fakeAmount,
+              amount: fakeVal,
               created_at: new Date(Date.now() - (i + 1) * 3600000).toISOString(),
               email: fakeEmails[(seed + i) % fakeEmails.length],
-              user_id: 'fake-user',
+              user_id: 'fake-system-user',
               is_fake: true
             });
           }
         }
 
-        // Ordenar final por valor decrescente
-        setDisplayBids(allBids.sort((a, b) => b.amount - a.amount));
-        setBidAmount(currentPrice + increment);
+        // Ordenação final garantida por valor decrescente
+        const sortedBids = finalBidsList.sort((a, b) => b.amount - a.amount);
+        setDisplayBids(sortedBids);
         
+        // Sugestão de próximo lance
+        setBidAmount((lotData.current_bid || lotData.start_bid) + increment);
+        
+        // Fotos
         const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
         setPhotos(ph || []);
-        
         if (!activePhoto) {
           setActivePhoto(lotData.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=1200');
         }
       }
     } catch (e) {
-      console.error("Erro ao buscar dados:", e);
+      console.error("Erro ao carregar dados do lote:", e);
     } finally {
       setIsLoading(false);
     }
@@ -122,8 +131,11 @@ const LotDetail = () => {
 
   useEffect(() => {
     fetchLotData();
-    const channel = supabase.channel(`lot-realtime-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
+    // Realtime para atualizar lances instantaneamente
+    const channel = supabase.channel(`lot-detail-${id}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => {
+        fetchLotData();
+      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [id]);
@@ -136,8 +148,9 @@ const LotDetail = () => {
     setIsSubmitting(true);
     try {
       await placeBid(lot.id, bidAmount);
-      toast({ title: "Lance realizado com sucesso!" });
-      // O fetchLotData será chamado pelo canal realtime
+      toast({ title: "Lance realizado!", description: "Seu lance foi registrado com sucesso." });
+      // Forçamos a atualização imediata
+      await fetchLotData();
     } catch (error: any) {
       toast({ variant: "destructive", title: "Erro no lance", description: error.message });
     } finally {
@@ -258,7 +271,7 @@ const LotDetail = () => {
               </h3>
               <div className="space-y-3">
                 {displayBids.length > 0 ? displayBids.map((bid, idx) => {
-                  // Verificação direta e infalível do ID do usuário logado
+                  // Verificação absoluta pelo ID do usuário logado
                   const isMyBid = currentUser && bid.user_id === currentUser.id;
                   
                   return (

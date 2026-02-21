@@ -23,40 +23,14 @@ const Vehicles = () => {
   const fetchData = async () => {
     setLoading(true);
     
+    // Busca os lotes. O valor real é o current_bid ou start_bid.
     const { data: lotsData, error: lotsError } = await supabase
       .from('lots')
-      .select(`
-        *,
-        bids (
-          amount
-        )
-      `)
+      .select('*')
       .order('created_at', { ascending: false });
     
     if (!lotsError && lotsData) {
-      const processedLots = lotsData.map(lot => {
-        // 1. Lances Reais do Banco
-        const realBids = lot.bids?.map((b: any) => b.amount) || [];
-        
-        // 2. Lances Locais (Cache do Navegador)
-        const savedLocalBids = localStorage.getItem(`my_bids_${lot.id}`);
-        const localBids = savedLocalBids ? JSON.parse(savedLocalBids).map((b: any) => b.amount) : [];
-        
-        // 3. Lógica de Lances Fictícios (Simulando a LotDetail.tsx)
-        // Se houver menos de 10 lances totais, a LotDetail gera fakes.
-        // O maior valor exibido será sempre o maior entre real, local e o current_bid/start_bid.
-        const allBids = [...realBids, ...localBids];
-        const highestBid = allBids.length > 0 ? Math.max(...allBids) : 0;
-        
-        // O preço atual reflete o que o usuário vê na tela de detalhes
-        const currentPrice = Math.max(highestBid, lot.current_bid || 0, lot.start_bid || 0);
-        
-        return {
-          ...lot,
-          display_price: currentPrice
-        };
-      });
-      setLots(processedLots);
+      setLots(lotsData);
     }
 
     const { data: { session } } = await supabase.auth.getSession();
@@ -75,10 +49,10 @@ const Vehicles = () => {
   useEffect(() => {
     fetchData();
     
-    const channel = supabase.channel('public:bids_vehicles')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bids' }, () => {
-        fetchData();
-      })
+    // Escuta mudanças em lances e lotes para atualizar os preços nos cards em tempo real
+    const channel = supabase.channel('public:vehicles_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids' }, fetchData)
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots' }, fetchData)
       .subscribe();
 
     return () => {
@@ -92,38 +66,18 @@ const Vehicles = () => {
 
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
-      toast({
-        title: "Acesso restrito",
-        description: "Faça login para favoritar veículos.",
-        variant: "destructive"
-      });
+      toast({ title: "Acesso restrito", description: "Faça login para favoritar.", variant: "destructive" });
       return;
     }
 
     const isFavorite = favorites.includes(lotId);
-
     if (isFavorite) {
-      const { error } = await supabase
-        .from('favorites')
-        .delete()
-        .eq('user_id', session.user.id)
-        .eq('lot_id', lotId);
-
-      if (!error) {
-        setFavorites(prev => prev.filter(id => id !== lotId));
-      }
+      await supabase.from('favorites').delete().eq('user_id', session.user.id).eq('lot_id', lotId);
+      setFavorites(prev => prev.filter(id => id !== lotId));
     } else {
-      const { error } = await supabase
-        .from('favorites')
-        .insert({ user_id: session.user.id, lot_id: lotId });
-
-      if (!error) {
-        setFavorites(prev => [...prev, lotId]);
-        toast({
-          title: "Adicionado aos favoritos",
-          description: "O veículo foi salvo na sua lista.",
-        });
-      }
+      await supabase.from('favorites').insert({ user_id: session.user.id, lot_id: lotId });
+      setFavorites(prev => [...prev, lotId]);
+      toast({ title: "Adicionado aos favoritos" });
     }
   };
 
@@ -162,6 +116,7 @@ const Vehicles = () => {
             {filteredLots.map((lot) => {
               const isFinished = lot.status === 'finished';
               const isFav = favorites.includes(lot.id);
+              const currentPrice = Math.max(lot.current_bid || 0, lot.start_bid || 0);
               
               return (
                 <Link key={lot.id} to={`/lots/${lot.id}`} className="group">
@@ -196,9 +151,6 @@ const Vehicles = () => {
                           <span className="text-white font-black text-base tracking-tighter uppercase drop-shadow-md">
                             ARREMATADO
                           </span>
-                          <span className="text-white/80 text-[9px] font-bold uppercase tracking-widest">
-                            Finalizado
-                          </span>
                         </div>
                       ) : (
                         <>
@@ -210,11 +162,7 @@ const Vehicles = () => {
                           <div className="absolute bottom-3 left-3 right-3">
                             <Badge className="bg-red-500/90 backdrop-blur-md text-white border-none font-black flex items-center justify-center gap-2 py-1.5 shadow-lg">
                               <Clock size={14} className="animate-pulse" />
-                              <CountdownTimer 
-                                endsAt={lot.ends_at} 
-                                randomScarcity={!lot.ends_at} 
-                                lotId={lot.id} 
-                              />
+                              <CountdownTimer endsAt={lot.ends_at} lotId={lot.id} />
                             </Badge>
                           </div>
                         </>
@@ -223,10 +171,7 @@ const Vehicles = () => {
                     
                     <div className="p-5 space-y-4">
                       <div>
-                        <h3 className={cn(
-                          "font-bold text-lg line-clamp-1",
-                          isFinished ? "text-slate-400" : "text-slate-900"
-                        )}>
+                        <h3 className={cn("font-bold text-lg line-clamp-1", isFinished ? "text-slate-400" : "text-slate-900")}>
                           {lot.title}
                         </h3>
                         <div className="flex items-center gap-3 mt-2 text-slate-500 text-xs font-medium">
@@ -240,22 +185,11 @@ const Vehicles = () => {
                           <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
                             {isFinished ? "Vendido por" : "Lance Atual"}
                           </p>
-                          <p className={cn(
-                            "text-lg font-black",
-                            isFinished ? "text-slate-500" : "text-orange-500"
-                          )}>
-                            {formatCurrency(lot.display_price)}
+                          <p className={cn("text-lg font-black", isFinished ? "text-slate-500" : "text-orange-500")}>
+                            {formatCurrency(currentPrice)}
                           </p>
                         </div>
-                        <Button 
-                          size="sm" 
-                          className={cn(
-                            "rounded-xl px-4 transition-colors font-bold",
-                            isFinished 
-                              ? "bg-slate-100 text-slate-400 hover:bg-slate-100" 
-                              : "bg-slate-900 hover:bg-orange-500 text-white"
-                          )}
-                        >
+                        <Button size="sm" className={cn("rounded-xl px-4 font-bold", isFinished ? "bg-slate-100 text-slate-400" : "bg-slate-900 hover:bg-orange-500 text-white")}>
                           {isFinished ? "Ver Resultado" : "Ver Detalhes"}
                         </Button>
                       </div>
@@ -264,14 +198,6 @@ const Vehicles = () => {
                 </Link>
               );
             })}
-          </div>
-        )}
-
-        {!loading && filteredLots.length === 0 && (
-          <div className="text-center py-20 bg-white rounded-[2rem] border border-dashed border-slate-100">
-            <Car className="mx-auto text-slate-200 mb-4" size={48} />
-            <h3 className="text-xl font-bold text-slate-900">Nenhum veículo encontrado</h3>
-            <p className="text-slate-500">Tente ajustar sua busca ou filtros.</p>
           </div>
         )}
       </main>

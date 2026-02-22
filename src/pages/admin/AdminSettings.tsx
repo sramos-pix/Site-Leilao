@@ -117,14 +117,14 @@ const AdminSettings = () => {
       <div className="flex flex-col md:flex-row gap-8 items-start w-full">
         
         {/* SUBMENU LATERAL ESQUERDO (Padrão Menu Principal) */}
-        <div className="flex flex-col w-full md:w-64 space-y-2 shrink-0 sticky top-6">
+        <div className="flex flex-col w-full md:w-64 space-y-2 shrink-0 sticky top-6 bg-slate-900 p-4 rounded-3xl shadow-lg">
           <Button
             variant="ghost"
             onClick={() => setActiveSection("geral")}
             className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
               activeSection === "geral" 
                 ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
-                : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-900"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
             }`}
           >
             <AppWindow size={18} className="mr-3" /> Informações Gerais
@@ -136,7 +136,7 @@ const AdminSettings = () => {
             className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
               activeSection === "regras" 
                 ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
-                : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-900"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
             }`}
           >
             <Gavel size={18} className="mr-3" /> Regras de Leilão
@@ -148,7 +148,7 @@ const AdminSettings = () => {
             className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
               activeSection === "seguranca" 
                 ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
-                : "text-slate-500 hover:bg-slate-200/50 hover:text-slate-900"
+                : "text-slate-400 hover:bg-slate-800 hover:text-white"
             }`}
           >
             <Shield size={18} className="mr-3" /> Segurança e Funções

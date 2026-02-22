@@ -146,7 +146,7 @@ const AppearanceSettings = () => {
         <div className="space-y-4">
           <h3 className="text-lg font-semibold flex items-center text-slate-800">
             <Paintbrush className="mr-2 h-5 w-5 text-orange-500" />
-            Cor Principal (Em breve)
+            Cor Principal do Site
           </h3>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
             {[
@@ -168,7 +168,7 @@ const AppearanceSettings = () => {
               </button>
             ))}
           </div>
-          <p className="text-xs text-slate-500">A cor principal será aplicada em botões, destaques e menus em uma atualização futura.</p>
+          <p className="text-xs text-slate-500">A cor escolhida será aplicada instantaneamente em todos os botões, links e destaques da plataforma.</p>
         </div>
       </div>
 

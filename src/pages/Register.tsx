@@ -136,8 +136,6 @@ const Register = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        // O banco de dados já criou a linha no profiles via trigger.
-        // Então precisamos apenas fazer um UPDATE com os dados adicionais.
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
@@ -163,7 +161,14 @@ const Register = () => {
       
       navigate('/app/dashboard');
     } catch (error: any) {
-      setErrorMessage(error.message || "Erro ao realizar cadastro.");
+      let msg = error.message || "Erro ao realizar cadastro.";
+      
+      // Traduzindo o erro do Supabase para português
+      if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('user already exists')) {
+        msg = "Este e-mail já está cadastrado em nosso sistema. Por favor, faça login.";
+      }
+      
+      setErrorMessage(msg);
     } finally {
       setIsLoading(false);
     }

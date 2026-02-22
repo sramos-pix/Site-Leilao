@@ -12,8 +12,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
-import { Plus, Trash2, Calendar, Loader2, Edit, Image as ImageIcon, Upload } from 'lucide-react';
-import { uploadLotPhoto } from '@/lib/storage'; // Reutilizando a lógica de upload
+import { Plus, Trash2, Loader2, Edit, Image as ImageIcon, Upload } from 'lucide-react';
+import { uploadLotPhoto } from '@/lib/storage';
 
 const AuctionManager = () => {
   const [auctions, setAuctions] = useState<any[]>([]);
@@ -49,12 +49,14 @@ const AuctionManager = () => {
 
     setUploadingImage(true);
     try {
-      // Usamos o ID do leilão ou um temporário se for novo
-      const pathId = auctionId || 'temp-auction';
+      const pathId = auctionId || `temp-${Date.now()}`;
       const uploadResult = await uploadLotPhoto(pathId, file);
       
+      // CORREÇÃO: Sempre atualiza o estado local para a imagem aparecer no preview
+      // e não ser apagada quando o usuário clicar em "Salvar Alterações"
+      setEditingAuction((prev: any) => ({ ...prev, image_url: uploadResult.publicUrl }));
+      
       if (auctionId) {
-        // Se o leilão já existe, atualiza direto no banco
         const { error } = await supabase
           .from('auctions')
           .update({ image_url: uploadResult.publicUrl })
@@ -64,8 +66,6 @@ const AuctionManager = () => {
         toast({ title: "Imagem atualizada!" });
         fetchAuctions();
       } else {
-        // Se for um novo leilão sendo criado, guardamos a URL no estado do form
-        setEditingAuction((prev: any) => ({ ...prev, image_url: uploadResult.publicUrl }));
         toast({ title: "Imagem carregada para o novo leilão" });
       }
     } catch (error: any) {
@@ -87,7 +87,7 @@ const AuctionManager = () => {
       starts_at: new Date(formData.get('starts_at') as string).toISOString(),
       ends_at: new Date(formData.get('ends_at') as string).toISOString(),
       status: formData.get('status'),
-      image_url: editingAuction?.image_url // Mantém a URL da imagem carregada
+      image_url: editingAuction?.image_url // Agora envia a URL correta
     };
 
     const { error } = editingAuction?.id 
@@ -191,7 +191,7 @@ const AuctionManager = () => {
                 <TableCell>
                   <div className="w-16 h-10 rounded-lg bg-slate-100 overflow-hidden">
                     {auction.image_url ? (
-                      <img src={auction.image_url} className="w-full h-full object-cover" />
+                      <img src={auction.image_url} className="w-full h-full object-cover" alt="Capa" />
                     ) : (
                       <ImageIcon className="w-full h-full p-2 text-slate-300" />
                     )}

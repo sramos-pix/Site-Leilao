@@ -7,28 +7,32 @@ import HeroBanner from "@/components/HeroBanner";
 import FeaturedLots from "@/components/FeaturedLots";
 import FeaturedAuctions from "@/components/FeaturedAuctions";
 import Footer from "@/components/Footer";
+import SupportChatWidget from "@/components/SupportChatWidget";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col">
+    <div className="min-h-screen bg-slate-50 flex flex-col relative">
       {/* Menu Superior */}
       <Navbar />
       
       {/* Conteúdo Principal */}
       <main className="flex-1">
-        {/* 1. Banner Promocional (Aparece no topo, abaixo do menu, se estiver ativo) */}
+        {/* Banner Promocional */}
         <HeroBanner />
         
-        {/* 2. Texto Grande e Chamativo (Restaurado!) */}
+        {/* Texto Grande e Chamativo */}
         <Hero />
         
-        {/* 3. Listagem de Lotes e Leilões */}
+        {/* Listagem de Lotes e Leilões */}
         <FeaturedLots />
         <FeaturedAuctions />
       </main>
 
       {/* Rodapé */}
       <Footer />
+
+      {/* Widget de Chat Flutuante */}
+      <SupportChatWidget />
     </div>
   );
 };

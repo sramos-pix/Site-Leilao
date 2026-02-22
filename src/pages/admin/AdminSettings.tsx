@@ -15,7 +15,7 @@ const AdminSettings = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeSection, setActiveSection] = useState<string>("geral"); // Começa com 'geral' aberto
+  const [activeSection, setActiveSection] = useState<string>("geral");
   
   const [settings, setSettings] = useState({
     platform_name: "",
@@ -95,10 +95,10 @@ const AdminSettings = () => {
   };
 
   const modules = [
-    { id: 'geral', title: 'Informações Gerais', desc: 'Nome da plataforma e contatos.', icon: AppWindow, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-500' },
-    { id: 'aparencia', title: 'Aparência e Cores', desc: 'Logotipo, banners e cores.', icon: Paintbrush, color: 'text-pink-500', bg: 'bg-pink-50', border: 'border-pink-500' },
-    { id: 'regras', title: 'Regras de Leilão', desc: 'Taxas e sistema anti-sniping.', icon: Gavel, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-500' },
-    { id: 'seguranca', title: 'Segurança e Acesso', desc: 'KYC, Chat e Manutenção.', icon: Shield, color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-500' },
+    { id: 'geral', title: 'Geral', desc: 'Nome e contatos', icon: AppWindow, color: 'text-blue-500', bg: 'bg-blue-50', border: 'border-blue-500' },
+    { id: 'aparencia', title: 'Aparência', desc: 'Logos e cores', icon: Paintbrush, color: 'text-pink-500', bg: 'bg-pink-50', border: 'border-pink-500' },
+    { id: 'regras', title: 'Regras', desc: 'Taxas e lances', icon: Gavel, color: 'text-orange-500', bg: 'bg-orange-50', border: 'border-orange-500' },
+    { id: 'seguranca', title: 'Segurança', desc: 'KYC e acessos', icon: Shield, color: 'text-emerald-500', bg: 'bg-emerald-50', border: 'border-emerald-500' },
   ];
 
   if (isLoading) {
@@ -112,29 +112,31 @@ const AdminSettings = () => {
     <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500 pb-24">
       <div className="mb-8">
         <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações da Plataforma</h2>
-        <p className="text-slate-500 mt-2 text-lg">Selecione um módulo abaixo para gerenciar as preferências.</p>
+        <p className="text-slate-500 mt-2 text-base">Selecione um módulo abaixo para gerenciar as preferências.</p>
       </div>
 
-      {/* GRID DE CARDS (HUB) */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-10">
+      {/* GRID DE CARDS (HUB) - Mais delicado e compacto */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
         {modules.map(mod => {
           const isActive = activeSection === mod.id;
           return (
             <Card
               key={mod.id}
-              className={`transition-all duration-300 cursor-pointer rounded-[2rem] overflow-hidden group ${
+              className={`transition-all duration-300 cursor-pointer rounded-2xl overflow-hidden group ${
                 isActive 
-                  ? `ring-2 ring-offset-2 shadow-md bg-slate-50 ${mod.border.replace('border-', 'ring-')}` 
-                  : 'border-transparent shadow-sm hover:shadow-xl bg-white hover:-translate-y-1'
+                  ? `ring-2 ring-offset-1 shadow-sm bg-slate-50 ${mod.border.replace('border-', 'ring-')}` 
+                  : 'border-slate-200 shadow-sm hover:shadow-md bg-white hover:-translate-y-0.5'
               }`}
               onClick={() => setActiveSection(mod.id)}
             >
-              <CardContent className="p-6 md:p-8">
-                <div className={`w-14 h-14 md:w-16 md:h-16 rounded-2xl flex items-center justify-center mb-4 md:mb-6 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'} ${mod.bg} ${mod.color}`}>
-                  <mod.icon size={28} />
+              <CardContent className="p-4 flex items-center gap-4">
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 transition-transform ${isActive ? 'scale-110' : 'group-hover:scale-110'} ${mod.bg} ${mod.color}`}>
+                  <mod.icon size={22} />
                 </div>
-                <h3 className="text-lg md:text-xl font-bold text-slate-900 mb-2">{mod.title}</h3>
-                <p className="text-sm text-slate-500 leading-relaxed">{mod.desc}</p>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">{mod.title}</h3>
+                  <p className="text-xs text-slate-500 mt-0.5">{mod.desc}</p>
+                </div>
               </CardContent>
             </Card>
           );
@@ -143,12 +145,12 @@ const AdminSettings = () => {
 
       {/* ÁREA DE CONTEÚDO (Abaixo dos cards) */}
       {activeModule && (
-        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-6 md:p-10 animate-in slide-in-from-bottom-8 fade-in duration-500">
+        <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-6 md:p-10 animate-in slide-in-from-bottom-4 fade-in duration-500">
           
           {/* Cabeçalho da Seção Ativa */}
           <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
             <div className={`p-3 rounded-xl ${activeModule.bg} ${activeModule.color}`}>
-              <ActiveIcon size={28} />
+              <ActiveIcon size={24} />
             </div>
             <div>
               <h3 className="text-2xl font-bold text-slate-900">{activeModule.title}</h3>

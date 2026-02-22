@@ -12,6 +12,7 @@ import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { useToast } from '@/components/ui/use-toast';
 import CountdownTimer from '@/components/CountdownTimer';
+import { SEO } from '@/components/SEO';
 
 const Vehicles = () => {
   const [lots, setLots] = useState<any[]>([]);
@@ -119,6 +120,10 @@ const Vehicles = () => {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      <SEO
+        title="Todos os Veículos"
+        description="Explore nossa frota completa de veículos disponíveis para leilão. Filtre por marca, modelo e encontre o carro ideal."
+      />
       <Navbar />
       
       <main className="flex-1 container mx-auto px-4 py-8">

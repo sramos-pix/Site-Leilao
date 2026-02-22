@@ -19,6 +19,7 @@ import CountdownTimer from '@/components/CountdownTimer';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { SEO } from '@/components/SEO';
 
 // Função para gerar números pseudo-aleatórios baseados em uma string (seed)
 const mulberry32 = (a: number) => {
@@ -271,6 +272,11 @@ const LotDetail = () => {
 
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col">
+      <SEO
+        title={`${lot.title} - Lote #${lot.lot_number}`}
+        description={`Leilão de ${lot.title}. Ano: ${lot.year}, Km: ${lot.mileage_km?.toLocaleString()}. Dê seu lance agora na AutoBid!`}
+        image={lot.cover_image_url}
+      />
       <Navbar />
       <div className="container mx-auto px-4 py-8 flex-1">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">

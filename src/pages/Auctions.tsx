@@ -11,6 +11,7 @@ import { supabase } from '@/lib/supabase';
 import { cn } from '@/lib/utils';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { SEO } from '@/components/SEO';
 
 const Auctions = () => {
   const [auctions, setAuctions] = React.useState<any[]>([]);
@@ -70,6 +71,10 @@ const Auctions = () => {
 
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col">
+      <SEO
+        title="Leilões Ativos"
+        description="Confira os leilões de veículos ativos na AutoBid. Participe e dê seu lance em carros, motos e caminhões."
+      />
       <Navbar />
       <div className="container mx-auto px-4 py-10 flex-1">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-6">

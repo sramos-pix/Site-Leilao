@@ -8,10 +8,15 @@ import FeaturedLots from "@/components/FeaturedLots";
 import FeaturedAuctions from "@/components/FeaturedAuctions";
 import Footer from "@/components/Footer";
 import SupportChatWidget from "@/components/SupportChatWidget";
+import { SEO } from "@/components/SEO";
 
 const Index = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
+      <SEO
+        title="AutoBid - Leilões de Veículos"
+        description="Encontre os melhores veículos em leilão. Carros, motos e caminhões com preços imperdíveis. Participe agora e faça seu lance!"
+      />
       {/* Menu Superior */}
       <Navbar />
       

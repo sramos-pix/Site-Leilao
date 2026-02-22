@@ -87,13 +87,17 @@ const FeaturedLots = () => {
               const statusInfo = getStatusInfo(auction.status);
               return (
                 <Card key={auction.id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
-                  <Link to={`/auctions/${auction.id}`} className="relative aspect-[16/9] overflow-hidden bg-slate-100 block">
-                    <img 
-                      src={auction.image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
-                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                      alt={auction.title}
-                    />
-                    <div className="absolute top-3 left-3">
+                  
+                  {/* Container da Imagem corrigido */}
+                  <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+                    <Link to={`/auctions/${auction.id}`} className="block w-full h-full">
+                      <img 
+                        src={auction.image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
+                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                        alt={auction.title}
+                      />
+                    </Link>
+                    <div className="absolute top-3 left-3 pointer-events-none">
                       <Badge className={cn(
                         "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",
                         statusInfo.class
@@ -101,7 +105,8 @@ const FeaturedLots = () => {
                         {statusInfo.label}
                       </Badge>
                     </div>
-                  </Link>
+                  </div>
+
                   <CardContent className="p-6">
                     <Link to={`/auctions/${auction.id}`}>
                       <h3 className="text-lg font-bold text-slate-900 line-clamp-1 tracking-tight mb-4 hover:text-orange-600 transition-colors">{auction.title}</h3>

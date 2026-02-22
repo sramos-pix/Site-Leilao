@@ -102,19 +102,26 @@ const FeaturedAuctions = () => {
           {Array.isArray(featuredLots) && featuredLots.length > 0 ? (
             featuredLots.map((item) => (
               <Card key={item.id} className="group border-none shadow-md hover:shadow-xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white flex flex-col">
-                <Link to={`/lots/${item.id}`} className="block relative aspect-[4/3] overflow-hidden">
-                  {item.cover_image_url ? (
-                    <img 
-                      src={item.cover_image_url} 
-                      alt={item.title}
-                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-slate-200 flex items-center justify-center">
-                      <span className="text-slate-400 font-bold">Sem Imagem</span>
-                    </div>
-                  )}
-                  <div className="absolute top-4 left-4 flex gap-2">
+                
+                {/* Container da Imagem corrigido */}
+                <div className="relative aspect-[4/3] overflow-hidden">
+                  {/* Link envolvendo apenas a imagem */}
+                  <Link to={`/lots/${item.id}`} className="block w-full h-full">
+                    {item.cover_image_url ? (
+                      <img 
+                        src={item.cover_image_url} 
+                        alt={item.title}
+                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-slate-200 flex items-center justify-center">
+                        <span className="text-slate-400 font-bold">Sem Imagem</span>
+                      </div>
+                    )}
+                  </Link>
+
+                  {/* Badges (pointer-events-none para não bloquear o clique na imagem) */}
+                  <div className="absolute top-4 left-4 flex gap-2 pointer-events-none">
                     <Badge className="bg-slate-900 text-white border-none px-3 py-1 flex items-center gap-1 rounded-none text-[11px] font-bold uppercase tracking-tight">
                       LOTE #{item.lot_number}
                     </Badge>
@@ -123,15 +130,18 @@ const FeaturedAuctions = () => {
                       <CountdownTimer randomScarcity={true} lotId={item.id} />
                     </Badge>
                   </div>
+
+                  {/* Botão de Favorito (separado do Link principal) */}
                   <Button 
                     variant="secondary" 
                     size="icon" 
                     onClick={(e) => {
                       e.preventDefault();
+                      e.stopPropagation();
                       toggleFavorite(item.id);
                     }}
                     className={cn(
-                      "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300",
+                      "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300 z-10",
                       userFavorites.includes(item.id) 
                         ? "bg-red-500 text-white hover:bg-red-600" 
                         : "bg-white/90 text-slate-600 hover:bg-orange-500 hover:text-white"
@@ -139,7 +149,7 @@ const FeaturedAuctions = () => {
                   >
                     <Heart size={18} fill={userFavorites.includes(item.id) ? "currentColor" : "none"} />
                   </Button>
-                </Link>
+                </div>
 
                 <CardContent className="p-8 flex-1">
                   <Link to={`/lots/${item.id}`}>

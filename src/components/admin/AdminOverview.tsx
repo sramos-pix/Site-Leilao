@@ -6,8 +6,17 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Gavel, Package, Users, TrendingUp,
-  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2, CheckCircle, Undo2, Activity
+  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2, CheckCircle, Undo2, Activity, MessageSquare
 } from 'lucide-react';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { formatCurrency, formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/components/ui/use-toast';
@@ -36,6 +45,12 @@ const AdminOverview = () => {
   const [recentBids, setRecentBids] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  
+  // Estados para o modal de mensagem
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [messageTarget, setMessageTarget] = useState<{id: string, name: string} | null>(null);
+  const [messageText, setMessageText] = useState("");
+  const [isSendingMessage, setIsSendingMessage] = useState(false);
   
   const isFetchingRef = useRef(false);
 
@@ -241,6 +256,38 @@ const AdminOverview = () => {
     navigate(`/admin?id=${userId}`, { replace: true });
   };
 
+  const openMessageModal = (user: any) => {
+    setMessageTarget({ id: user.id, name: user.name });
+    setMessageText("");
+    setMessageModalOpen(true);
+  };
+
+  const handleSendMessage = async () => {
+    if (!messageTarget || !messageText.trim()) return;
+    
+    setIsSendingMessage(true);
+    try {
+      const { error } = await supabase
+        .from('notifications')
+        .insert({
+          user_id: messageTarget.id,
+          title: 'Mensagem do Suporte',
+          message: messageText.trim(),
+          type: 'info',
+          read: false
+        });
+
+      if (error) throw error;
+
+      toast({ title: "Mensagem enviada!", description: `Sua mensagem foi enviada para ${messageTarget.name}.` });
+      setMessageModalOpen(false);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro ao enviar", description: error.message });
+    } finally {
+      setIsSendingMessage(false);
+    }
+  };
+
   const cards = [
     { title: 'Leilões', value: stats.auctions, icon: Gavel, color: 'text-orange-500', bg: 'bg-orange-500/10' },
     { title: 'Veículos/Lotes', value: stats.lots, icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10' },
@@ -275,16 +322,29 @@ const AdminOverview = () => {
                 {onlineUsersList.length > 0 ? (
                   <ul className="space-y-1">
                     {onlineUsersList.map((u, i) => (
-                      <li key={i} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors">
-                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${u.isGuest ? 'bg-slate-300' : 'bg-emerald-500'}`}></div>
-                        <div className="flex flex-col overflow-hidden">
-                          <span className={`text-sm font-medium truncate ${u.isGuest ? 'text-slate-500' : 'text-slate-900'}`}>
-                            {u.name || 'Visitante'}
-                          </span>
-                          {!u.isGuest && u.email && (
-                            <span className="text-xs text-slate-400 truncate">{u.email}</span>
-                          )}
+                      <li key={i} className="flex items-center justify-between p-2 hover:bg-slate-50 rounded-lg transition-colors group/item">
+                        <div className="flex items-center gap-3 overflow-hidden">
+                          <div className={`w-2 h-2 rounded-full flex-shrink-0 ${u.isGuest ? 'bg-slate-300' : 'bg-emerald-500'}`}></div>
+                          <div className="flex flex-col overflow-hidden">
+                            <span className={`text-sm font-medium truncate ${u.isGuest ? 'text-slate-500' : 'text-slate-900'}`}>
+                              {u.name || 'Visitante'}
+                            </span>
+                            {!u.isGuest && u.email && (
+                              <span className="text-xs text-slate-400 truncate">{u.email}</span>
+                            )}
+                          </div>
                         </div>
+                        {!u.isGuest && u.id && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 opacity-0 group-hover/item:opacity-100 transition-opacity text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            onClick={() => openMessageModal(u)}
+                            title="Enviar mensagem"
+                          >
+                            <MessageSquare size={14} />
+                          </Button>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -440,6 +500,35 @@ const AdminOverview = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Modal de Envio de Mensagem */}
+      <Dialog open={messageModalOpen} onOpenChange={setMessageModalOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Enviar Mensagem</DialogTitle>
+            <DialogDescription>
+              Envie uma notificação direta para <strong>{messageTarget?.name}</strong>. O usuário receberá um aviso no sistema.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <Textarea
+              placeholder="Ex: Olá! Vi que você está acompanhando o leilão do Honda Civic. Posso ajudar com alguma dúvida?"
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              className="min-h-[100px] resize-none"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMessageModalOpen(false)} disabled={isSendingMessage}>
+              Cancelar
+            </Button>
+            <Button onClick={handleSendMessage} disabled={!messageText.trim() || isSendingMessage} className="bg-blue-600 hover:bg-blue-700">
+              {isSendingMessage ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <MessageSquare className="h-4 w-4 mr-2" />}
+              Enviar Mensagem
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

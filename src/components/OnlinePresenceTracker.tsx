@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-// Variáveis globais para manter o estado atual
 export let currentOnlineCount = 1;
 export let currentOnlineUsers: any[] = [];
 
@@ -18,17 +17,14 @@ export function OnlinePresenceTracker() {
     });
 
     const setupPresence = async () => {
-      // 1. Verifica se o usuário atual está logado
       const { data: { session } } = await supabase.auth.getSession();
       
-      // Dados padrão para visitantes
-      let userData = { 
+      let userData: any = { 
         isGuest: true, 
         name: 'Visitante', 
         email: '' 
       };
 
-      // Se estiver logado, busca o nome e email no perfil
       if (session?.user) {
         const { data: profile } = await supabase
           .from('profiles')
@@ -38,31 +34,36 @@ export function OnlinePresenceTracker() {
 
         userData = {
           isGuest: false,
+          id: session.user.id, // Adicionando o ID do usuário aqui!
           name: profile?.full_name || 'Usuário Cadastrado',
           email: profile?.email || session.user.email || ''
         };
       }
 
-      // 2. Configura os eventos do canal
       channel
         .on('presence', { event: 'sync' }, () => {
           const state = channel.presenceState();
           const count = Object.keys(state).length;
           
-          // Extrai os dados de cada usuário conectado
-          const users = Object.values(state).map((presences: any) => presences[0]);
+          // Achata o array de presenças e remove duplicatas baseadas no ID do usuário (para não contar a mesma pessoa em 2 abas)
+          const allUsers = Object.values(state).map((presences: any) => presences[0]);
           
-          currentOnlineCount = count;
-          currentOnlineUsers = users;
+          // Filtra usuários únicos (se o mesmo usuário abrir 3 abas, aparece só 1 vez na lista)
+          const uniqueUsers = allUsers.filter((user, index, self) => 
+            index === self.findIndex((t) => (
+              t.id === user.id && t.isGuest === user.isGuest && t.name === user.name
+            ))
+          );
           
-          // Envia a contagem E a lista de usuários para o painel admin
+          currentOnlineCount = uniqueUsers.length;
+          currentOnlineUsers = uniqueUsers;
+          
           window.dispatchEvent(new CustomEvent('presence-update', { 
-            detail: { count, users } 
+            detail: { count: uniqueUsers.length, users: uniqueUsers } 
           }));
         })
         .subscribe(async (status) => {
           if (status === 'SUBSCRIBED') {
-            // Registra a presença enviando os dados do usuário junto
             await channel.track({
               online_at: new Date().toISOString(),
               ...userData

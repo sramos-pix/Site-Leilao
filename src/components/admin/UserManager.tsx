@@ -21,6 +21,9 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = React.useState(false);
 
+  // Limpa o cargo caso ele tenha sido salvo com o erro anterior ("admin text-xs")
+  const initialRole = user.role?.replace(' text-xs', '') || 'user';
+
   const { register, handleSubmit, setValue, watch, formState: { isDirty } } = useForm({
     defaultValues: {
       full_name: user.full_name || '',
@@ -34,7 +37,7 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
       neighborhood: user.neighborhood || '',
       city: user.city || '',
       state: user.state || '',
-      role: user.role || 'user'
+      role: initialRole
     }
   });
 
@@ -142,9 +145,9 @@ const UserManager = ({ user, onSuccess }: UserManagerProps) => {
             <SelectValue placeholder="Selecione o cargo" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="user text-xs">Usuário / Licitante</SelectItem>
-            <SelectItem value="finance text-xs">Financeiro</SelectItem>
-            <SelectItem value="admin text-xs">Administrador</SelectItem>
+            <SelectItem value="user" className="text-xs">Usuário / Licitante</SelectItem>
+            <SelectItem value="finance" className="text-xs">Financeiro</SelectItem>
+            <SelectItem value="admin" className="text-xs">Administrador</SelectItem>
           </SelectContent>
         </Select>
       </div>

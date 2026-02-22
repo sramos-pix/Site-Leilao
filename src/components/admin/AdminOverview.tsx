@@ -20,7 +20,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
-import { currentOnlineCount } from '@/components/OnlinePresenceTracker';
+import { currentOnlineCount, currentOnlineUsers } from '@/components/OnlinePresenceTracker';
 
 const AdminOverview = () => {
   const navigate = useNavigate();
@@ -32,6 +32,7 @@ const AdminOverview = () => {
     bids: 0
   });
   const [onlineUsers, setOnlineUsers] = useState(currentOnlineCount);
+  const [onlineUsersList, setOnlineUsersList] = useState<any[]>(currentOnlineUsers || []);
   const [recentBids, setRecentBids] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
@@ -226,6 +227,7 @@ const AdminOverview = () => {
     const handlePresenceUpdate = (e: Event) => {
       const customEvent = e as CustomEvent;
       setOnlineUsers(customEvent.detail.count);
+      setOnlineUsersList(customEvent.detail.users || []);
     };
 
     window.addEventListener('presence-update', handlePresenceUpdate);
@@ -254,13 +256,45 @@ const AdminOverview = () => {
           <p className="text-slate-500">Métricas e atividades em tempo real.</p>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl border border-emerald-100 shadow-sm">
-            <div className="relative flex h-3 w-3">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+          <div className="relative group">
+            <div className="flex items-center gap-2 bg-emerald-50 text-emerald-600 px-4 py-2 rounded-xl border border-emerald-100 shadow-sm cursor-help transition-colors hover:bg-emerald-100">
+              <div className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+              </div>
+              <span className="font-bold text-sm">{onlineUsers} {onlineUsers === 1 ? 'usuário online' : 'usuários online'}</span>
             </div>
-            <span className="font-bold text-sm">{onlineUsers} {onlineUsers === 1 ? 'usuário online' : 'usuários online'}</span>
+            
+            {/* Hover Card com a lista de usuários */}
+            <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden">
+              <div className="p-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Usuários Conectados</h4>
+                <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">{onlineUsers}</span>
+              </div>
+              <div className="max-h-64 overflow-y-auto p-2">
+                {onlineUsersList.length > 0 ? (
+                  <ul className="space-y-1">
+                    {onlineUsersList.map((u, i) => (
+                      <li key={i} className="flex items-center gap-3 p-2 hover:bg-slate-50 rounded-lg transition-colors">
+                        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${u.isGuest ? 'bg-slate-300' : 'bg-emerald-500'}`}></div>
+                        <div className="flex flex-col overflow-hidden">
+                          <span className={`text-sm font-medium truncate ${u.isGuest ? 'text-slate-500' : 'text-slate-900'}`}>
+                            {u.name || 'Visitante'}
+                          </span>
+                          {!u.isGuest && u.email && (
+                            <span className="text-xs text-slate-400 truncate">{u.email}</span>
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="text-sm text-slate-500 p-4 text-center">Carregando dados...</p>
+                )}
+              </div>
+            </div>
           </div>
+
           <Button onClick={() => fetchStats(true)} variant="outline" className="rounded-xl gap-2" disabled={isLoading}>
             {isLoading ? <Loader2 className="animate-spin h-4 w-4" /> : <RefreshCw className="h-4 w-4" />}
             Atualizar

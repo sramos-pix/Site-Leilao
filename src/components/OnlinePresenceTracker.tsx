@@ -1,15 +1,14 @@
 import { useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
-// Variável global para manter o estado atual caso o componente admin seja montado depois
+// Variáveis globais para manter o estado atual
 export let currentOnlineCount = 1;
+export let currentOnlineUsers: any[] = [];
 
 export function OnlinePresenceTracker() {
   useEffect(() => {
-    // Gera um ID único para esta aba/sessão
     const sessionId = 'user-' + Math.random().toString(36).substring(2, 15);
 
-    // Cria um canal global para presença
     const channel = supabase.channel('global-presence', {
       config: {
         presence: {
@@ -18,25 +17,61 @@ export function OnlinePresenceTracker() {
       },
     });
 
-    channel
-      .on('presence', { event: 'sync' }, () => {
-        const state = channel.presenceState();
-        // Conta quantas chaves únicas (sessões) estão conectadas
-        const count = Object.keys(state).length;
-        
-        currentOnlineCount = count;
-        
-        // Dispara um evento customizado para que o painel admin possa escutar
-        window.dispatchEvent(new CustomEvent('presence-update', { detail: { count } }));
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          // Quando conectado, registra a presença
-          await channel.track({
-            online_at: new Date().toISOString(),
-          });
-        }
-      });
+    const setupPresence = async () => {
+      // 1. Verifica se o usuário atual está logado
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      // Dados padrão para visitantes
+      let userData = { 
+        isGuest: true, 
+        name: 'Visitante', 
+        email: '' 
+      };
+
+      // Se estiver logado, busca o nome e email no perfil
+      if (session?.user) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, email')
+          .eq('id', session.user.id)
+          .single();
+
+        userData = {
+          isGuest: false,
+          name: profile?.full_name || 'Usuário Cadastrado',
+          email: profile?.email || session.user.email || ''
+        };
+      }
+
+      // 2. Configura os eventos do canal
+      channel
+        .on('presence', { event: 'sync' }, () => {
+          const state = channel.presenceState();
+          const count = Object.keys(state).length;
+          
+          // Extrai os dados de cada usuário conectado
+          const users = Object.values(state).map((presences: any) => presences[0]);
+          
+          currentOnlineCount = count;
+          currentOnlineUsers = users;
+          
+          // Envia a contagem E a lista de usuários para o painel admin
+          window.dispatchEvent(new CustomEvent('presence-update', { 
+            detail: { count, users } 
+          }));
+        })
+        .subscribe(async (status) => {
+          if (status === 'SUBSCRIBED') {
+            // Registra a presença enviando os dados do usuário junto
+            await channel.track({
+              online_at: new Date().toISOString(),
+              ...userData
+            });
+          }
+        });
+    };
+
+    setupPresence();
 
     return () => {
       supabase.removeChannel(channel);

@@ -88,13 +88,24 @@ const SupportChatWidget = () => {
     setIsLoading(true);
 
     try {
-      const { error } = await supabase.from('support_messages').insert({
+      // Adicionamos o .select().single() para retornar a mensagem recém-criada com o ID e Data corretos
+      const { data, error } = await supabase.from('support_messages').insert({
         user_id: user.id,
         message: messageText,
         is_from_admin: false
-      });
+      }).select().single();
 
       if (error) throw error;
+
+      // Atualiza a tela instantaneamente com a nova mensagem
+      if (data) {
+        setMessages(prev => {
+          const exists = prev.find(m => m.id === data.id);
+          if (exists) return prev;
+          return [...prev, data];
+        });
+      }
+      
     } catch (error) {
       toast({ 
         title: "Erro ao enviar", 
@@ -104,6 +115,10 @@ const SupportChatWidget = () => {
       setNewMessage(messageText);
     } finally {
       setIsLoading(false);
+      // Garante que a rolagem desça após o envio
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
     }
   };
 

@@ -3,8 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Save, Globe, Mail, Phone, Percent, 
-  Clock, DollarSign, CreditCard, Building, 
-  ShieldAlert, Loader2, Settings2, Gavel, Wallet, ShieldCheck
+  Clock, DollarSign, ShieldAlert, Loader2, 
+  Settings2, Gavel, ShieldCheck
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,9 +25,6 @@ const AdminSettings = () => {
     buyerFee: '5',
     antiSnipingTime: '30',
     minIncrement: '500',
-    pixKey: '12.345.678/0001-90',
-    pixName: 'AutoBid Pagamentos LTDA',
-    bankName: 'Banco Inter',
     maintenanceMode: false,
     requireKyc: true
   });
@@ -65,7 +62,6 @@ const AdminSettings = () => {
   const tabs = [
     { id: 'general', label: 'Geral', icon: Globe },
     { id: 'auctions', label: 'Regras de Leilão', icon: Gavel },
-    { id: 'financial', label: 'Financeiro', icon: Wallet },
     { id: 'system', label: 'Sistema', icon: Settings2 },
   ];
 
@@ -143,42 +139,14 @@ const AdminSettings = () => {
                     <p className="text-[10px] text-slate-400">Porcentagem cobrada sobre o valor do arremate.</p>
                   </div>
                   <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><DollarSign size={14}/> Incremento Mínimo (R$)</Label>
+                    <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><DollarSign size={14}/> Incremento Mínimo Padrão (R$)</Label>
                     <Input name="minIncrement" type="number" value={settings.minIncrement} onChange={handleChange} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
-                    <p className="text-[10px] text-slate-400">Valor mínimo para cobrir o lance anterior.</p>
+                    <p className="text-[10px] text-slate-400">Usado apenas caso o veículo não tenha um incremento específico cadastrado.</p>
                   </div>
                   <div className="space-y-2 md:col-span-2">
                     <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><Clock size={14}/> Tempo Anti-Sniping (Segundos)</Label>
                     <Input name="antiSnipingTime" type="number" value={settings.antiSnipingTime} onChange={handleChange} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                     <p className="text-[10px] text-slate-400">Tempo adicionado ao cronômetro se houver lance nos últimos segundos.</p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* ABA: FINANCEIRO */}
-          {activeTab === 'financial' && (
-            <Card className="border-none shadow-sm rounded-2xl overflow-hidden">
-              <CardHeader className="bg-slate-50 border-b border-slate-100 pb-4">
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Wallet className="text-orange-500" size={20} /> Dados de Recebimento
-                </CardTitle>
-                <CardDescription>Contas bancárias exibidas para os arrematantes realizarem o pagamento.</CardDescription>
-              </CardHeader>
-              <CardContent className="p-6 space-y-5">
-                <div className="space-y-2">
-                  <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><CreditCard size={14}/> Chave PIX Oficial</Label>
-                  <Input name="pixKey" value={settings.pixKey} onChange={handleChange} className="h-12 rounded-xl bg-slate-50 border-slate-200 font-mono" />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><Building size={14}/> Instituição Bancária</Label>
-                    <Input name="bankName" value={settings.bankName} onChange={handleChange} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
-                  </div>
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-slate-500 uppercase flex items-center gap-1"><ShieldCheck size={14}/> Nome do Titular</Label>
-                    <Input name="pixName" value={settings.pixName} onChange={handleChange} className="h-12 rounded-xl bg-slate-50 border-slate-200" />
                   </div>
                 </div>
               </CardContent>

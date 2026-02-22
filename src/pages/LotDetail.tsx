@@ -283,7 +283,7 @@ const LotDetail = () => {
     },
     "offers": {
       "@type": "Offer",
-      "url": `https://autobid.com.br/lots/${lot.id}`,
+      "url": `https://autobidbr.com/lots/${lot.id}`,
       "priceCurrency": "BRL",
       "price": currentPrice,
       "availability": isFinished ? "https://schema.org/SoldOut" : "https://schema.org/InStock",

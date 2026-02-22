@@ -22,7 +22,7 @@ export function SEO({
   const siteTitle = title.includes('AutoBid') ? title : `${title} | AutoBid`;
   
   // Pega a URL atual dinamicamente se não for passada
-  const currentUrl = url || (typeof window !== 'undefined' ? window.location.href : 'https://autobid.com.br');
+  const currentUrl = url || (typeof window !== 'undefined' ? window.location.href : 'https://autobidbr.com');
 
   return (
     <Helmet>

@@ -16,10 +16,10 @@ const Index = () => {
     "@context": "https://schema.org",
     "@type": "WebSite",
     "name": "AutoBid",
-    "url": "https://autobid.com.br",
+    "url": "https://autobidbr.com",
     "potentialAction": {
       "@type": "SearchAction",
-      "target": "https://autobid.com.br/vehicles?q={search_term_string}",
+      "target": "https://autobidbr.com/vehicles?q={search_term_string}",
       "query-input": "required name=search_term_string"
     }
   };

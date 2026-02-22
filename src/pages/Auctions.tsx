@@ -85,7 +85,7 @@ const Auctions = () => {
         "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
         "location": {
           "@type": "VirtualLocation",
-          "url": `https://autobid.com.br/auctions/${auction.id}`
+          "url": `https://autobidbr.com/auctions/${auction.id}`
         },
         "image": auction.image_url
       }

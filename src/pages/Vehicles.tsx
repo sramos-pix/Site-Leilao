@@ -124,7 +124,7 @@ const Vehicles = () => {
     "@type": "CollectionPage",
     "name": "Todos os Veículos em Leilão - AutoBid",
     "description": "Explore nossa frota completa de veículos disponíveis para leilão. Filtre por marca, modelo e encontre o carro ideal.",
-    "url": "https://autobid.com.br/vehicles"
+    "url": "https://autobidbr.com/vehicles"
   };
 
   return (

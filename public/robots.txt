@@ -8,4 +8,4 @@ Disallow: /login
 Disallow: /register
 
 # Sitemaps
-Sitemap: https://autobid.com.br/sitemap.xml
+Sitemap: https://autobidbr.com/sitemap.xml

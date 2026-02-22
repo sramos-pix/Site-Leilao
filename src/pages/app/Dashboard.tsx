@@ -151,7 +151,7 @@ const Dashboard = () => {
       color: 'bg-orange-500',
       badge: 'text-orange-600',
       description: 'Documentos em verificação',
-      buttonText: 'VER DETALHES'
+      buttonText: '' // Removido o botão quando está em análise
     };
   }
 

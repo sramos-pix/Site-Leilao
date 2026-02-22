@@ -8,13 +8,48 @@ import FeaturedLots from '@/components/FeaturedLots';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import SupportChat from '@/components/SupportChat';
+import { supabase } from '@/lib/supabase';
 
 const Index = () => {
+  const [banner, setBanner] = React.useState({ active: false, url: '', link: '' });
+
+  React.useEffect(() => {
+    const fetchBanner = async () => {
+      const { data } = await supabase
+        .from('platform_settings')
+        .select('banner_active, banner_url, banner_link')
+        .eq('id', 1)
+        .single();
+      
+      if (data) {
+        setBanner({ 
+          active: data.banner_active, 
+          url: data.banner_url, 
+          link: data.banner_link 
+        });
+      }
+    };
+    fetchBanner();
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
       
       <main className="flex-1">
+        {/* Banner Promocional */}
+        {banner.active && banner.url && (
+          <div className="w-full bg-slate-100 border-b border-slate-200">
+            {banner.link ? (
+              <a href={banner.link} target="_blank" rel="noopener noreferrer" className="block w-full">
+                <img src={banner.url} alt="Banner Promocional" className="w-full h-auto max-h-[400px] object-cover" />
+              </a>
+            ) : (
+              <img src={banner.url} alt="Banner Promocional" className="w-full h-auto max-h-[400px] object-cover" />
+            )}
+          </div>
+        )}
+
         {/* Hero Section */}
         <section className="relative overflow-hidden bg-slate-50 pt-16 pb-24 lg:pt-32 lg:pb-40">
           <div className="container mx-auto px-4 relative z-10">

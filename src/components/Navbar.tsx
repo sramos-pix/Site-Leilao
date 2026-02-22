@@ -10,6 +10,7 @@ import { supabase } from '@/lib/supabase';
 const Navbar = () => {
   const [isOpen, setIsOpen] = React.useState(false);
   const [user, setUser] = React.useState<any>(null);
+  const [logoUrl, setLogoUrl] = React.useState<string | null>(null);
   const location = useLocation();
   const navigate = useNavigate();
   
@@ -21,6 +22,14 @@ const Navbar = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       setUser(session?.user ?? null);
     });
+
+    const fetchLogo = async () => {
+      const { data } = await supabase.from('platform_settings').select('logo_url').eq('id', 1).single();
+      if (data?.logo_url) {
+        setLogoUrl(data.logo_url);
+      }
+    };
+    fetchLogo();
 
     return () => subscription.unsubscribe();
   }, []);
@@ -46,12 +55,18 @@ const Navbar = () => {
         <div className="flex h-16 justify-between items-center">
           <div className="flex items-center">
             <Link to="/" className="flex items-center gap-2 group">
-              <div className="bg-orange-500 p-1.5 rounded-xl text-white shadow-md shadow-orange-100 group-hover:scale-105 transition-transform">
-                <Gavel size={20} />
-              </div>
-              <span className="text-xl font-bold tracking-tight text-slate-900">
-                Auto<span className="text-orange-500">Bid</span>
-              </span>
+              {logoUrl ? (
+                <img src={logoUrl} alt="Logo" className="h-10 object-contain" />
+              ) : (
+                <>
+                  <div className="bg-orange-500 p-1.5 rounded-xl text-white shadow-md shadow-orange-100 group-hover:scale-105 transition-transform">
+                    <Gavel size={20} />
+                  </div>
+                  <span className="text-xl font-bold tracking-tight text-slate-900">
+                    Auto<span className="text-orange-500">Bid</span>
+                  </span>
+                </>
+              )}
             </Link>
           </div>
 

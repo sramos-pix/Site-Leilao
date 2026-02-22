@@ -7,7 +7,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
-import { Loader2, Save, Shield, Gavel, MessageSquare, TrendingUp, Clock, Percent, Phone, Mail, AppWindow } from "lucide-react";
+import { Loader2, Save, Shield, Gavel, MessageSquare, TrendingUp, Clock, Percent, Phone, Mail, AppWindow, Paintbrush } from "lucide-react";
+import AppearanceSettings from "@/components/admin/settings/AppearanceSettings";
 
 const AdminSettings = () => {
   const { toast } = useToast();
@@ -114,6 +115,18 @@ const AdminSettings = () => {
         >
           <AppWindow size={18} className="mr-3" /> Informações Gerais
         </Button>
+
+        <Button
+          variant="ghost"
+          onClick={() => setActiveSection("aparencia")}
+          className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
+            activeSection === "aparencia" 
+              ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
+              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+          }`}
+        >
+          <Paintbrush size={18} className="mr-3" /> Aparência
+        </Button>
         
         <Button
           variant="ghost"
@@ -150,14 +163,16 @@ const AdminSettings = () => {
               <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações da Plataforma</h2>
               <p className="text-slate-500 mt-1">Gerencie as regras de negócio, taxas e funcionalidades do sistema.</p>
             </div>
-            <Button 
-              onClick={handleSave} 
-              disabled={isSaving}
-              className="bg-slate-900 hover:bg-orange-600 text-white px-8 py-6 rounded-2xl font-black shadow-xl shadow-slate-200 transition-all active:scale-95 w-full md:w-auto"
-            >
-              {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
-              SALVAR TUDO
-            </Button>
+            {activeSection !== "aparencia" && (
+              <Button 
+                onClick={handleSave} 
+                disabled={isSaving}
+                className="bg-slate-900 hover:bg-orange-600 text-white px-8 py-6 rounded-2xl font-black shadow-xl shadow-slate-200 transition-all active:scale-95 w-full md:w-auto"
+              >
+                {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
+                SALVAR TUDO
+              </Button>
+            )}
           </div>
 
           {/* SEÇÃO 1: INFORMAÇÕES GERAIS */}
@@ -200,6 +215,11 @@ const AdminSettings = () => {
                 </div>
               </div>
             </div>
+          )}
+
+          {/* SEÇÃO: APARÊNCIA */}
+          {activeSection === "aparencia" && (
+            <AppearanceSettings />
           )}
 
           {/* SEÇÃO 2: REGRAS DE LEILÃO */}

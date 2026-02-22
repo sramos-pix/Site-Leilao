@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
+import { Card, CardContent } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2, Save, Shield, Gavel, MessageSquare, TrendingUp, Clock, Percent, Phone, Mail, AppWindow, Paintbrush } from "lucide-react";
 import AppearanceSettings from "@/components/admin/settings/AppearanceSettings";
@@ -14,7 +16,7 @@ const AdminSettings = () => {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [activeSection, setActiveSection] = useState("geral");
+  const [activeModal, setActiveModal] = useState<string | null>(null);
   
   const [settings, setSettings] = useState({
     platform_name: "",
@@ -81,6 +83,7 @@ const AdminSettings = () => {
         title: "Configurações salvas",
         description: "As alterações foram aplicadas com sucesso."
       });
+      setActiveModal(null); // Fecha o modal após salvar
     } catch (error) {
       console.error("Erro ao salvar:", error);
       toast({
@@ -93,100 +96,70 @@ const AdminSettings = () => {
     }
   };
 
+  const modules = [
+    { id: 'geral', title: 'Informações Gerais', desc: 'Nome da plataforma e contatos de suporte.', icon: AppWindow, color: 'text-blue-500', bg: 'bg-blue-50' },
+    { id: 'aparencia', title: 'Aparência e Cores', desc: 'Logotipo, banners e cor principal do site.', icon: Paintbrush, color: 'text-pink-500', bg: 'bg-pink-50' },
+    { id: 'regras', title: 'Regras de Leilão', desc: 'Taxas, incrementos e sistema anti-sniping.', icon: Gavel, color: 'text-orange-500', bg: 'bg-orange-50' },
+    { id: 'seguranca', title: 'Segurança e Acesso', desc: 'Verificação KYC, Chat e Modo Manutenção.', icon: Shield, color: 'text-emerald-500', bg: 'bg-emerald-50' },
+  ];
+
   if (isLoading) {
-    return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-orange-500" /></div>;
+    return <div className="flex items-center justify-center h-full min-h-[60vh]"><Loader2 className="animate-spin text-orange-500" size={32} /></div>;
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 pb-20">
-      
-      {/* CABEÇALHO E MENU HORIZONTAL (Fixo no topo) */}
-      <div className="bg-white border-b border-slate-200 sticky top-0 z-20 shadow-sm">
-        <div className="max-w-5xl mx-auto px-6 pt-8">
-          
-          {/* Título e Botão Salvar */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-            <div>
-              <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações</h2>
-              <p className="text-slate-500 mt-1">Gerencie as regras, taxas e visual da plataforma.</p>
-            </div>
-            {activeSection !== "aparencia" && (
-              <Button 
-                onClick={handleSave} 
-                disabled={isSaving}
-                className="bg-slate-900 hover:bg-orange-600 text-white px-8 py-6 rounded-xl font-bold shadow-md transition-all active:scale-95 w-full md:w-auto"
-              >
-                {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
-                SALVAR ALTERAÇÕES
-              </Button>
-            )}
-          </div>
-
-          {/* Abas de Navegação */}
-          <div className="flex overflow-x-auto hide-scrollbar gap-2 pb-4">
-            <Button
-              variant="ghost"
-              onClick={() => setActiveSection("geral")}
-              className={`rounded-full px-6 h-11 font-semibold whitespace-nowrap transition-all ${
-                activeSection === "geral" 
-                  ? "bg-slate-900 text-white shadow-md" 
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-              }`}
-            >
-              <AppWindow size={18} className="mr-2" /> Informações Gerais
-            </Button>
-
-            <Button
-              variant="ghost"
-              onClick={() => setActiveSection("aparencia")}
-              className={`rounded-full px-6 h-11 font-semibold whitespace-nowrap transition-all ${
-                activeSection === "aparencia" 
-                  ? "bg-slate-900 text-white shadow-md" 
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-              }`}
-            >
-              <Paintbrush size={18} className="mr-2" /> Aparência
-            </Button>
-            
-            <Button
-              variant="ghost"
-              onClick={() => setActiveSection("regras")}
-              className={`rounded-full px-6 h-11 font-semibold whitespace-nowrap transition-all ${
-                activeSection === "regras" 
-                  ? "bg-slate-900 text-white shadow-md" 
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-              }`}
-            >
-              <Gavel size={18} className="mr-2" /> Regras de Leilão
-            </Button>
-            
-            <Button
-              variant="ghost"
-              onClick={() => setActiveSection("seguranca")}
-              className={`rounded-full px-6 h-11 font-semibold whitespace-nowrap transition-all ${
-                activeSection === "seguranca" 
-                  ? "bg-slate-900 text-white shadow-md" 
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200 hover:text-slate-900"
-              }`}
-            >
-              <Shield size={18} className="mr-2" /> Segurança e Funções
-            </Button>
-          </div>
-        </div>
+    <div className="p-4 md:p-8 max-w-6xl mx-auto animate-in fade-in duration-500">
+      <div className="mb-10">
+        <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações da Plataforma</h2>
+        <p className="text-slate-500 mt-2 text-lg">Selecione um módulo abaixo para gerenciar as preferências.</p>
       </div>
 
-      {/* ÁREA DE CONTEÚDO */}
-      <div className="max-w-5xl mx-auto px-6 pt-8">
-        
-        {/* SEÇÃO 1: INFORMAÇÕES GERAIS */}
-        {activeSection === "geral" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 space-y-6">
-              <div className="space-y-5">
+      {/* GRID DE CARDS (HUB) */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {modules.map(mod => (
+          <Card
+            key={mod.id}
+            className="border-none shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1 rounded-[2rem] overflow-hidden group bg-white"
+            onClick={() => setActiveModal(mod.id)}
+          >
+            <CardContent className="p-8">
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-6 transition-transform group-hover:scale-110 ${mod.bg} ${mod.color}`}>
+                <mod.icon size={32} />
+              </div>
+              <h3 className="text-xl font-bold text-slate-900 mb-2">{mod.title}</h3>
+              <p className="text-sm text-slate-500 leading-relaxed">{mod.desc}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* MODAL FLUTUANTE COM O CONTEÚDO */}
+      <Dialog open={!!activeModal} onOpenChange={(open) => { if (!open) setActiveModal(null); }}>
+        <DialogContent className="max-w-2xl rounded-[2rem] max-h-[90vh] overflow-y-auto p-0 border-none shadow-2xl">
+          <div className="p-8">
+            <DialogHeader className="mb-8">
+              <DialogTitle className="text-2xl font-bold flex items-center gap-3 text-slate-900">
+                {activeModal && (() => {
+                  const mod = modules.find(m => m.id === activeModal);
+                  if (!mod) return null;
+                  const Icon = mod.icon;
+                  return (
+                    <>
+                      <div className={`p-2.5 rounded-xl ${mod.bg} ${mod.color}`}>
+                        <Icon size={24} />
+                      </div>
+                      {mod.title}
+                    </>
+                  );
+                })()}
+              </DialogTitle>
+            </DialogHeader>
+
+            {/* CONTEÚDO: INFORMAÇÕES GERAIS */}
+            {activeModal === 'geral' && (
+              <div className="space-y-6">
                 <div className="space-y-2">
-                  <Label className="font-bold text-slate-700 flex items-center gap-2">
-                    Nome da Plataforma
-                  </Label>
+                  <Label className="font-bold text-slate-700">Nome da Plataforma</Label>
                   <Input 
                     className="h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-colors text-base"
                     value={settings.platform_name} 
@@ -216,20 +189,18 @@ const AdminSettings = () => {
                   </div>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* SEÇÃO: APARÊNCIA */}
-        {activeSection === "aparencia" && (
-          <AppearanceSettings />
-        )}
+            {/* CONTEÚDO: APARÊNCIA */}
+            {activeModal === 'aparencia' && (
+              <div className="-mt-6">
+                <AppearanceSettings />
+              </div>
+            )}
 
-        {/* SEÇÃO 2: REGRAS DE LEILÃO */}
-        {activeSection === "regras" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200 space-y-6">
-              <div className="space-y-6">
+            {/* CONTEÚDO: REGRAS DE LEILÃO */}
+            {activeModal === 'regras' && (
+              <div className="space-y-8">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
                     <Label className="font-bold text-slate-700 flex items-center gap-2">
@@ -271,17 +242,12 @@ const AdminSettings = () => {
                   </p>
                 </div>
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-        {/* SEÇÃO 3: SEGURANÇA E FUNCIONALIDADES */}
-        {activeSection === "seguranca" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="bg-white p-8 rounded-3xl shadow-sm border border-slate-200">
-              <div className="grid grid-cols-1 gap-6">
-                
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors gap-4">
+            {/* CONTEÚDO: SEGURANÇA E FUNÇÕES */}
+            {activeModal === 'seguranca' && (
+              <div className="grid grid-cols-1 gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-200 gap-4">
                   <div className="space-y-2">
                     <Label className="text-lg font-bold text-slate-900 flex items-center gap-2">
                       <Shield size={20} className="text-emerald-500" /> Exigir KYC
@@ -292,14 +258,11 @@ const AdminSettings = () => {
                   </div>
                   <div className="flex items-center gap-4 shrink-0">
                     <span className="text-sm font-bold text-slate-400 uppercase">{settings.require_kyc ? 'Ativado' : 'Desativado'}</span>
-                    <Switch 
-                      checked={settings.require_kyc} 
-                      onCheckedChange={(checked) => setSettings({...settings, require_kyc: checked})} 
-                    />
+                    <Switch checked={settings.require_kyc} onCheckedChange={(checked) => setSettings({...settings, require_kyc: checked})} />
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-200 hover:border-slate-300 transition-colors gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-200 gap-4">
                   <div className="space-y-2">
                     <Label className="text-lg font-bold text-slate-900 flex items-center gap-2">
                       <MessageSquare size={20} className="text-blue-500" /> Chat de Suporte
@@ -310,14 +273,11 @@ const AdminSettings = () => {
                   </div>
                   <div className="flex items-center gap-4 shrink-0">
                     <span className="text-sm font-bold text-slate-400 uppercase">{settings.chat_enabled ? 'Ativado' : 'Desativado'}</span>
-                    <Switch 
-                      checked={settings.chat_enabled} 
-                      onCheckedChange={(checked) => setSettings({...settings, chat_enabled: checked})} 
-                    />
+                    <Switch checked={settings.chat_enabled} onCheckedChange={(checked) => setSettings({...settings, chat_enabled: checked})} />
                   </div>
                 </div>
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-red-50/50 rounded-2xl border border-red-100 hover:border-red-200 transition-colors gap-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-red-50/50 rounded-2xl border border-red-100 gap-4">
                   <div className="space-y-2">
                     <Label className="text-lg font-bold text-red-700">Modo Manutenção</Label>
                     <p className="text-sm text-red-600/70 leading-relaxed max-w-md">
@@ -326,19 +286,28 @@ const AdminSettings = () => {
                   </div>
                   <div className="flex items-center gap-4 shrink-0">
                     <span className="text-sm font-bold text-red-400 uppercase">{settings.maintenance_mode ? 'Ativado' : 'Desativado'}</span>
-                    <Switch 
-                      checked={settings.maintenance_mode} 
-                      onCheckedChange={(checked) => setSettings({...settings, maintenance_mode: checked})} 
-                    />
+                    <Switch checked={settings.maintenance_mode} onCheckedChange={(checked) => setSettings({...settings, maintenance_mode: checked})} />
                   </div>
                 </div>
-
               </div>
-            </div>
-          </div>
-        )}
+            )}
 
-      </div>
+            {/* BOTÃO SALVAR (Oculto na aba de aparência pois ela tem o próprio botão) */}
+            {activeModal !== 'aparencia' && (
+              <div className="mt-8 pt-6 border-t border-slate-100 flex justify-end">
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="bg-slate-900 hover:bg-orange-600 text-white px-8 py-6 rounded-xl font-bold shadow-md transition-all w-full sm:w-auto text-lg"
+                >
+                  {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
+                  SALVAR ALTERAÇÕES
+                </Button>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

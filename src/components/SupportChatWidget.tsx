@@ -36,37 +36,20 @@ const SupportChatWidget = () => {
     initChat();
   }, []);
 
+  // Carrega as mensagens e configura o auto-refresh
   useEffect(() => {
     if (isOpen && user) {
       loadMessages();
       
-      const channel = supabase
-        .channel('support_chat_user')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'support_messages',
-          filter: `user_id=eq.${user.id}`
-        }, (payload) => {
-          setMessages(prev => {
-            const exists = prev.find(m => m.id === payload.new.id);
-            if (exists) return prev;
-            return [...prev, payload.new];
-          });
-        })
-        .subscribe();
+      // Sistema de Polling: Busca novas mensagens a cada 3 segundos
+      // Isso garante que as mensagens cheguem mesmo se o Realtime do Supabase estiver desativado
+      const interval = setInterval(() => {
+        loadMessages();
+      }, 3000);
 
-      return () => { supabase.removeChannel(channel); };
+      return () => clearInterval(interval);
     }
   }, [isOpen, user]);
-
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
-    }
-  }, [messages, isOpen]);
 
   const loadMessages = async () => {
     if (!user) return;
@@ -76,7 +59,21 @@ const SupportChatWidget = () => {
       .eq('user_id', user.id)
       .order('created_at', { ascending: true });
     
-    if (data) setMessages(data);
+    if (data) {
+      setMessages(prev => {
+        // Só atualiza o estado se houver mensagens novas para evitar que a tela pisque
+        const isDifferent = prev.length !== data.length || 
+                           (prev.length > 0 && data.length > 0 && prev[prev.length-1].id !== data[data.length-1].id);
+        
+        if (isDifferent) {
+          setTimeout(() => {
+            messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+          }, 100);
+          return data;
+        }
+        return prev;
+      });
+    }
   };
 
   const sendMessage = async (e: React.FormEvent) => {
@@ -85,26 +82,36 @@ const SupportChatWidget = () => {
 
     const messageText = newMessage.trim();
     setNewMessage('');
-    setIsLoading(true);
+    
+    // 1. ATUALIZAÇÃO OTIMISTA: Mostra a mensagem na tela IMEDIATAMENTE
+    const tempId = 'temp-' + Date.now();
+    const tempMsg = {
+      id: tempId,
+      user_id: user.id,
+      message: messageText,
+      is_from_admin: false,
+      created_at: new Date().toISOString()
+    };
+    
+    setMessages(prev => [...prev, tempMsg]);
+    
+    // Rola para baixo instantaneamente
+    setTimeout(() => {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, 50);
 
     try {
-      // Adicionamos o .select().single() para retornar a mensagem recém-criada com o ID e Data corretos
-      const { data, error } = await supabase.from('support_messages').insert({
+      // 2. Envia para o banco de dados em segundo plano
+      const { error } = await supabase.from('support_messages').insert({
         user_id: user.id,
         message: messageText,
         is_from_admin: false
-      }).select().single();
+      });
 
       if (error) throw error;
-
-      // Atualiza a tela instantaneamente com a nova mensagem
-      if (data) {
-        setMessages(prev => {
-          const exists = prev.find(m => m.id === data.id);
-          if (exists) return prev;
-          return [...prev, data];
-        });
-      }
+      
+      // 3. Recarrega para pegar o ID oficial gerado pelo banco
+      await loadMessages();
       
     } catch (error) {
       toast({ 
@@ -112,13 +119,9 @@ const SupportChatWidget = () => {
         description: "Não foi possível enviar sua mensagem. Tente novamente.",
         variant: "destructive" 
       });
+      // Se der erro, remove a mensagem temporária e devolve o texto pro input
+      setMessages(prev => prev.filter(m => m.id !== tempId));
       setNewMessage(messageText);
-    } finally {
-      setIsLoading(false);
-      // Garante que a rolagem desça após o envio
-      setTimeout(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
     }
   };
 

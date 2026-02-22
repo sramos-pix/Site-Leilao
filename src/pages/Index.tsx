@@ -2,10 +2,11 @@
 
 import React from "react";
 import Navbar from "@/components/Navbar";
-import Footer from "@/components/Footer";
+import Hero from "@/components/Hero";
 import HeroBanner from "@/components/HeroBanner";
 import FeaturedLots from "@/components/FeaturedLots";
 import FeaturedAuctions from "@/components/FeaturedAuctions";
+import Footer from "@/components/Footer";
 
 const Index = () => {
   return (
@@ -15,13 +16,14 @@ const Index = () => {
       
       {/* Conteúdo Principal */}
       <main className="flex-1">
-        {/* Banner Promocional (Só aparece se estiver ativo no painel) */}
+        {/* 1. Banner Promocional (Aparece no topo, abaixo do menu, se estiver ativo) */}
         <HeroBanner />
         
-        {/* Leilões em Destaque */}
-        <FeaturedLots />
+        {/* 2. Texto Grande e Chamativo (Restaurado!) */}
+        <Hero />
         
-        {/* Lotes/Veículos Destaques da Semana */}
+        {/* 3. Listagem de Lotes e Leilões */}
+        <FeaturedLots />
         <FeaturedAuctions />
       </main>
 

@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft, Search, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft, ShieldCheck, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -136,25 +136,22 @@ const Register = () => {
       if (authError) throw authError;
 
       if (authData.user) {
-        const profileData = {
-          id: authData.user.id,
-          full_name: fullName,
-          email: email,
-          document_id: cpf.replace(/[^\d]+/g, ''),
-          phone: phone.replace(/[^\d]+/g, ''),
-          zip_code: cep.replace(/[^\d]+/g, ''),
-          address: address,
-          number: number,
-          complement: complement,
-          neighborhood: neighborhood,
-          city: city,
-          state: state,
-          kyc_status: null 
-        };
-
+        // O banco de dados já criou a linha no profiles via trigger.
+        // Então precisamos apenas fazer um UPDATE com os dados adicionais.
         const { error: profileError } = await supabase
           .from('profiles')
-          .upsert(profileData);
+          .update({
+            document_id: cpf.replace(/[^\d]+/g, ''),
+            phone: phone.replace(/[^\d]+/g, ''),
+            zip_code: cep.replace(/[^\d]+/g, ''),
+            address: address,
+            number: number,
+            complement: complement,
+            neighborhood: neighborhood,
+            city: city,
+            state: state,
+          })
+          .eq('id', authData.user.id);
 
         if (profileError) throw profileError;
       }

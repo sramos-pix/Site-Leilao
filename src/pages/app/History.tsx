@@ -15,10 +15,17 @@ const History = () => {
   const [wins, setWins] = React.useState<any[]>([]);
   const [isLoading, setIsLoading] = React.useState(true);
   const [user, setUser] = React.useState<any>(null);
+  const [buyerFee, setBuyerFee] = React.useState(5);
   const navigate = useNavigate();
 
   const fetchWins = React.useCallback(async () => {
     try {
+      // Busca as configurações da plataforma
+      const { data: settings } = await supabase.from('platform_settings').select('buyer_fee').eq('id', 1).single();
+      if (settings?.buyer_fee) {
+        setBuyerFee(Number(settings.buyer_fee));
+      }
+
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser) return;
       setUser(currentUser);
@@ -69,7 +76,7 @@ const History = () => {
 
       <div className="grid gap-6">
         {wins.length > 0 ? wins.map((lot) => {
-          const commission = lot.final_price * 0.05;
+          const commission = lot.final_price * (buyerFee / 100);
           const isFullyPaid = lot.commission_paid && lot.vehicle_paid;
 
           return (
@@ -89,7 +96,7 @@ const History = () => {
                           Veículo: {lot.vehicle_paid ? 'Quitado' : 'Pendente'}
                         </Badge>
                         <Badge variant="outline" className={lot.commission_paid ? "border-emerald-200 text-emerald-600 bg-emerald-50" : "border-red-200 text-red-600"}>
-                          Comissão (5%): {lot.commission_paid ? 'Quitada' : 'Pendente'}
+                          Comissão ({buyerFee}%): {lot.commission_paid ? 'Quitada' : 'Pendente'}
                         </Badge>
                       </div>
                     </div>
@@ -121,7 +128,7 @@ const History = () => {
                         <Button 
                           variant="secondary"
                           className="rounded-xl font-bold bg-slate-900 text-white hover:bg-slate-800 gap-2"
-                          onClick={() => generateWinningCertificate(lot, user)}
+                          onClick={() => generateWinningCertificate(lot, user, buyerFee)}
                         >
                           <FileText size={16} /> BAIXAR NOTA FISCAL
                         </Button>

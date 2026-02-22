@@ -23,14 +23,22 @@ const Checkout = () => {
   const [loading, setLoading] = useState(true);
   const [processing, setProcessing] = useState(false);
   const [lot, setLot] = useState<any>(null);
+  const [buyerFee, setBuyerFee] = useState(5);
   const [paymentData, setPaymentData] = useState<any>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [expiresAtMs, setExpiresAtMs] = useState<number | null>(null);
 
   useEffect(() => {
-    const fetchLot = async () => {
+    const fetchLotAndSettings = async () => {
       if (!id) return;
+      
+      // Busca as configurações da plataforma
+      const { data: settings } = await supabase.from('platform_settings').select('buyer_fee').eq('id', 1).single();
+      if (settings?.buyer_fee) {
+        setBuyerFee(Number(settings.buyer_fee));
+      }
+
       const { data } = await supabase.from('lots').select('*, auctions(title)').eq('id', id).single();
       if (data) setLot(data);
       
@@ -49,7 +57,7 @@ const Checkout = () => {
       
       setLoading(false);
     };
-    fetchLot();
+    fetchLotAndSettings();
   }, [id, isCommission]);
 
   const handleGeneratePix = async () => {
@@ -62,9 +70,9 @@ const Checkout = () => {
 
       const { data: profile } = await supabase.from('profiles').select('*').eq('id', user.id).single();
 
-      const amount = isCommission ? (lot.final_price || lot.current_bid) * 0.05 : (lot.final_price || lot.current_bid);
+      const amount = isCommission ? (lot.final_price || lot.current_bid) * (buyerFee / 100) : (lot.final_price || lot.current_bid);
       const description = isCommission 
-        ? `Comissão Leiloeiro (5%) - Lote ${lot.lot_number}` 
+        ? `Comissão Leiloeiro (${buyerFee}%) - Lote ${lot.lot_number}` 
         : `Pagamento Veículo - Lote ${lot.lot_number}`;
 
       const res = await generatePixPayment({
@@ -102,7 +110,7 @@ const Checkout = () => {
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
 
-  const displayAmount = isCommission ? (lot.final_price || lot.current_bid) * 0.05 : (lot.final_price || lot.current_bid);
+  const displayAmount = isCommission ? (lot.final_price || lot.current_bid) * (buyerFee / 100) : (lot.final_price || lot.current_bid);
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
@@ -122,7 +130,7 @@ const Checkout = () => {
           <CardHeader className="bg-slate-900 text-white p-8">
             <div className="flex justify-between items-start">
               <CardTitle className="text-2xl font-bold flex items-center gap-3">
-                <ShieldCheck className="text-orange-500" /> {isCommission ? 'Pagamento de Comissão' : 'Pagamento do Veículo'}
+                <ShieldCheck className="text-orange-500" /> {isCommission ? `Pagamento de Comissão (${buyerFee}%)` : 'Pagamento do Veículo'}
               </CardTitle>
               <img src="https://upload.wikimedia.org/wikipedia/commons/a/a2/Logo_Pix.png" alt="Pix" className="h-6 brightness-0 invert" />
             </div>
@@ -157,7 +165,7 @@ const Checkout = () => {
               <div className="bg-blue-50 p-4 rounded-xl border border-blue-100 flex gap-3">
                 <Info className="text-blue-500 shrink-0" size={20} />
                 <p className="text-xs text-blue-700 leading-relaxed">
-                  A comissão de 5% é obrigatória para a liberação da Nota de Arremate e agendamento da retirada do veículo.
+                  A comissão de {buyerFee}% é obrigatória para a liberação da Nota de Arremate e agendamento da retirada do veículo.
                 </p>
               </div>
             )}

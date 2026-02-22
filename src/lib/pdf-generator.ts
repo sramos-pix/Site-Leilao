@@ -2,7 +2,7 @@ import { jsPDF } from "jspdf";
 import autoTable from "jspdf-autotable";
 import { formatCurrency } from "./utils";
 
-export const generateWinningCertificate = (lot: any, user: any) => {
+export const generateWinningCertificate = (lot: any, user: any, buyerFee: number = 5) => {
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
@@ -82,7 +82,7 @@ export const generateWinningCertificate = (lot: any, user: any) => {
 
   // --- TABELA DE VALORES ---
   const finalPrice = lot.final_price || lot.current_bid;
-  const commission = finalPrice * 0.05;
+  const commission = finalPrice * (buyerFee / 100);
   const total = finalPrice + commission;
 
   autoTable(doc, {
@@ -91,7 +91,7 @@ export const generateWinningCertificate = (lot: any, user: any) => {
     head: [['DESCRIÇÃO DOS VALORES', 'MONTANTE (BRL)']],
     body: [
       ['VALOR DO ARREMATE (LANCE VENCEDOR)', formatCurrency(finalPrice)],
-      ['COMISSÃO DO LEILOEIRO (5% FIXO)', formatCurrency(commission)],
+      [`COMISSÃO DO LEILOEIRO (${buyerFee}% FIXO)`, formatCurrency(commission)],
       ['TAXAS ADMINISTRATIVAS E PÁTIO', 'INCLUSO'],
       [{ content: 'TOTAL CONSOLIDADO A PAGAR', styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } }, 
        { content: formatCurrency(total), styles: { fontStyle: 'bold', fillColor: [241, 245, 249] } }],

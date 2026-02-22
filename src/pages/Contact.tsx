@@ -1,6 +1,6 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Mail, Phone, MessageSquare, 
   Clock, Send, Loader2, ShieldCheck, 
@@ -11,13 +11,30 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/components/ui/use-toast';
-import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 
 const Contact = () => {
   const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [settings, setSettings] = useState({
+    phone: '0800 123 4567',
+    email: 'suporte@autobid.com.br'
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('platform_settings').select('support_phone, support_email').eq('id', 1).single();
+      if (data) {
+        setSettings({
+          phone: data.support_phone || '0800 123 4567',
+          email: data.support_email || 'suporte@autobid.com.br'
+        });
+      }
+    };
+    fetchSettings();
+  }, []);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -87,14 +104,14 @@ const Contact = () => {
                       <div className="p-3 bg-slate-50 text-slate-600 rounded-xl"><Phone size={20} /></div>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Telefone Central</p>
-                        <p className="font-bold text-slate-900">0800 123 4567</p>
+                        <p className="font-bold text-slate-900">{settings.phone}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-4">
                       <div className="p-3 bg-slate-50 text-slate-600 rounded-xl"><Mail size={20} /></div>
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">E-mail Suporte</p>
-                        <p className="font-bold text-slate-900">suporte@autobid.com.br</p>
+                        <p className="font-bold text-slate-900">{settings.email}</p>
                       </div>
                     </div>
                     <div className="flex items-start gap-4">

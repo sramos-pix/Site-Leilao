@@ -1,10 +1,31 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, Gavel, Instagram, Facebook, Twitter, MapPin, ShieldCheck } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 const Footer = () => {
+  const [settings, setSettings] = useState({
+    phone: '0800 123 4567',
+    email: 'contato@autobidbr.com.br',
+    name: 'AutoBid Leilões S.A.'
+  });
+
+  useEffect(() => {
+    const fetchSettings = async () => {
+      const { data } = await supabase.from('platform_settings').select('support_phone, support_email, platform_name').eq('id', 1).single();
+      if (data) {
+        setSettings({
+          phone: data.support_phone || '0800 123 4567',
+          email: data.support_email || 'contato@autobidbr.com.br',
+          name: data.platform_name || 'AutoBid Leilões S.A.'
+        });
+      }
+    };
+    fetchSettings();
+  }, []);
+
   return (
     <footer className="bg-slate-900 text-slate-300 border-t-4 border-orange-500">
       <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 lg:px-8">
@@ -52,13 +73,13 @@ const Footer = () => {
               <li className="flex items-start gap-3">
                 <Phone size={18} className="text-orange-500 shrink-0 mt-0.5" />
                 <div>
-                  <p className="font-bold text-white">0800 123 4567</p>
+                  <p className="font-bold text-white">{settings.phone}</p>
                   <p className="text-[10px] uppercase">Seg a Sex, 09h às 18h</p>
                 </div>
               </li>
               <li className="flex items-start gap-3">
                 <Mail size={18} className="text-orange-500 shrink-0 mt-0.5" />
-                <p className="font-bold text-white break-all">contato@autobidbr.com.br</p>
+                <p className="font-bold text-white break-all">{settings.email}</p>
               </li>
               <li className="flex items-start gap-3">
                 <MapPin size={18} className="text-orange-500 shrink-0 mt-0.5" />
@@ -77,7 +98,7 @@ const Footer = () => {
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
                 <strong className="text-slate-300">João Silva Leiloeiro</strong> - JUCESP Nº 1234<br/>
-                AutoBid Leilões S.A. - CNPJ: 12.345.678/0001-90<br/>
+                {settings.name} - CNPJ: 12.345.678/0001-90<br/>
                 © {new Date().getFullYear()} Todos os direitos reservados.
               </p>
             </div>

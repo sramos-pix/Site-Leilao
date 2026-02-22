@@ -268,13 +268,11 @@ const AdminOverview = () => {
     setIsSendingMessage(true);
     try {
       const { error } = await supabase
-        .from('notifications')
+        .from('support_messages')
         .insert({
           user_id: messageTarget.id,
-          title: 'Mensagem do Suporte',
           message: messageText.trim(),
-          type: 'info',
-          read: false
+          is_from_admin: true
         });
 
       if (error) throw error;
@@ -507,7 +505,7 @@ const AdminOverview = () => {
           <DialogHeader>
             <DialogTitle>Enviar Mensagem</DialogTitle>
             <DialogDescription>
-              Envie uma notificação direta para <strong>{messageTarget?.name}</strong>. O usuário receberá um aviso no sistema.
+              Envie uma mensagem direta para <strong>{messageTarget?.name}</strong>. O chat de suporte abrirá automaticamente na tela do usuário.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">

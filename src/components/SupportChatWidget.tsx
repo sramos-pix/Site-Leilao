@@ -36,20 +36,42 @@ const SupportChatWidget = () => {
     initChat();
   }, []);
 
-  // Carrega as mensagens e configura o auto-refresh
+  const [prevMsgCount, setPrevMsgCount] = useState(0);
+  const [hasUnread, setHasUnread] = useState(false);
+
+  // Carrega as mensagens e configura o auto-refresh (agora roda sempre em background)
   useEffect(() => {
-    if (isOpen && user) {
+    if (user) {
       loadMessages();
       
       // Sistema de Polling: Busca novas mensagens a cada 3 segundos
-      // Isso garante que as mensagens cheguem mesmo se o Realtime do Supabase estiver desativado
       const interval = setInterval(() => {
         loadMessages();
       }, 3000);
 
       return () => clearInterval(interval);
     }
-  }, [isOpen, user]);
+  }, [user]);
+
+  // Monitora novas mensagens para abrir o chat automaticamente
+  useEffect(() => {
+    if (messages.length > prevMsgCount) {
+      // Se não for o carregamento inicial
+      if (prevMsgCount > 0) {
+        const lastMsg = messages[messages.length - 1];
+        // Se a mensagem for do admin e o chat estiver fechado
+        if (lastMsg.is_from_admin && !isOpen) {
+          setIsOpen(true);
+          setHasUnread(true);
+          toast({
+            title: "Nova mensagem do Suporte",
+            description: "A equipe da AutoBid enviou uma mensagem para você.",
+          });
+        }
+      }
+      setPrevMsgCount(messages.length);
+    }
+  }, [messages]);
 
   const loadMessages = async () => {
     if (!user) return;
@@ -240,17 +262,28 @@ const SupportChatWidget = () => {
 
       {/* Botão Flutuante Premium */}
       <button
-        onClick={() => setIsOpen(!isOpen)}
+        onClick={() => {
+          setIsOpen(!isOpen);
+          if (!isOpen) setHasUnread(false);
+        }}
         className={cn(
           "relative group flex items-center justify-center w-16 h-16 rounded-full shadow-[0_8px_30px_rgb(249,115,22,0.3)] transition-all duration-500 hover:scale-110 active:scale-95 z-50",
-          isOpen 
-            ? "bg-slate-900 rotate-90 shadow-xl" 
+          isOpen
+            ? "bg-slate-900 rotate-90 shadow-xl"
             : "bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600"
         )}
       >
         {/* Efeito de pulso quando fechado */}
         {!isOpen && (
-          <span className="absolute inset-0 rounded-full bg-orange-500 animate-ping opacity-30 duration-1000"></span>
+          <span className={cn(
+            "absolute inset-0 rounded-full animate-ping duration-1000",
+            hasUnread ? "bg-red-500 opacity-50" : "bg-orange-500 opacity-30"
+          )}></span>
+        )}
+        
+        {/* Badge de notificação */}
+        {!isOpen && hasUnread && (
+          <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white rounded-full z-10 animate-bounce"></span>
         )}
         
         {isOpen ? (

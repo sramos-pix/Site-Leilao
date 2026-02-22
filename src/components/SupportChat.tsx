@@ -20,29 +20,53 @@ const SupportChat = () => {
   
   const [visitorData, setVisitorData] = useState({ name: '', email: '' });
   const [activeUserId, setActiveUserId] = useState<string | null>(null);
+  
+  // Novos estados para controlar se o chat está ativado no painel
+  const [isChatEnabled, setIsChatEnabled] = useState(false);
+  const [isSettingsLoaded, setIsSettingsLoaded] = useState(false);
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const initChat = async () => {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      
-      if (authUser) {
-        setActiveUserId(authUser.id);
-        fetchMessages(authUser.id);
-      } else {
-        const savedId = localStorage.getItem('autobid_visitor_id');
-        const savedName = localStorage.getItem('autobid_visitor_name');
-        const savedEmail = localStorage.getItem('autobid_visitor_email');
+    const fetchSettingsAndInit = async () => {
+      try {
+        // 1. Verifica se o chat está ativado nas configurações
+        const { data: settings } = await supabase
+          .from('platform_settings')
+          .select('chat_enabled')
+          .eq('id', 1)
+          .single();
+          
+        const enabled = settings?.chat_enabled !== false; // Se for null, assume true por padrão
+        setIsChatEnabled(enabled);
+        setIsSettingsLoaded(true);
 
-        if (savedId && savedName && savedEmail) {
-          setActiveUserId(savedId);
-          setVisitorData({ name: savedName, email: savedEmail });
-          fetchMessages(savedId);
+        // 2. Se estiver ativado, inicializa a lógica do chat
+        if (enabled) {
+          const { data: { user: authUser } } = await supabase.auth.getUser();
+          
+          if (authUser) {
+            setActiveUserId(authUser.id);
+            fetchMessages(authUser.id);
+          } else {
+            const savedId = localStorage.getItem('autobid_visitor_id');
+            const savedName = localStorage.getItem('autobid_visitor_name');
+            const savedEmail = localStorage.getItem('autobid_visitor_email');
+
+            if (savedId && savedName && savedEmail) {
+              setActiveUserId(savedId);
+              setVisitorData({ name: savedName, email: savedEmail });
+              fetchMessages(savedId);
+            }
+          }
         }
+      } catch (error) {
+        console.error("Erro ao inicializar chat:", error);
+        setIsSettingsLoaded(true);
       }
     };
-    initChat();
+
+    fetchSettingsAndInit();
   }, []);
 
   useEffect(() => {
@@ -135,7 +159,6 @@ const SupportChat = () => {
 
       if (error) {
         console.error("Erro Supabase:", error);
-        // Aumentado o tempo de exibição para 8 segundos (8000ms)
         toast({ 
           variant: "destructive", 
           title: "Acesso Restrito", 
@@ -152,6 +175,11 @@ const SupportChat = () => {
       setIsLoading(false);
     }
   };
+
+  // Se as configurações ainda não carregaram ou se o chat estiver desativado, não renderiza nada
+  if (!isSettingsLoaded || !isChatEnabled) {
+    return null;
+  }
 
   return (
     <div className="fixed bottom-6 right-6 z-[100]">

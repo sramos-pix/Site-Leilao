@@ -20,6 +20,8 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { currentOnlineCount } from '@/components/OnlinePresenceTracker';
+
 const AdminOverview = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -29,7 +31,7 @@ const AdminOverview = () => {
     users: 0,
     bids: 0
   });
-  const [onlineUsers, setOnlineUsers] = useState(0);
+  const [onlineUsers, setOnlineUsers] = useState(currentOnlineCount);
   const [recentBids, setRecentBids] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
@@ -220,41 +222,16 @@ const AdminOverview = () => {
   useEffect(() => {
     fetchStats(true);
 
-    // Configuração do Presence (Usuários Online)
-    const room = supabase.channel('online-users', {
-      config: {
-        presence: {
-          key: 'admin-dashboard',
-        },
-      },
-    });
+    // Escuta o evento global disparado pelo OnlinePresenceTracker
+    const handlePresenceUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      setOnlineUsers(customEvent.detail.count);
+    };
 
-    room
-      .on('presence', { event: 'sync' }, () => {
-        const newState = room.presenceState();
-        // Conta o número de chaves únicas (usuários/abas conectadas)
-        const count = Object.keys(newState).length;
-        // Adiciona um pequeno fator de aleatoriedade para parecer mais orgânico se houver poucos usuários reais
-        // ou apenas mostra o número real se for maior que 0
-        setOnlineUsers(count > 0 ? count : Math.floor(Math.random() * 5) + 1);
-      })
-      .on('presence', { event: 'join' }, ({ key, newPresences }) => {
-        console.log('join', key, newPresences);
-      })
-      .on('presence', { event: 'leave' }, ({ key, leftPresences }) => {
-        console.log('leave', key, leftPresences);
-      })
-      .subscribe(async (status) => {
-        if (status === 'SUBSCRIBED') {
-          await room.track({
-            online_at: new Date().toISOString(),
-            is_admin: true
-          });
-        }
-      });
+    window.addEventListener('presence-update', handlePresenceUpdate);
 
     return () => {
-      supabase.removeChannel(room);
+      window.removeEventListener('presence-update', handlePresenceUpdate);
     };
   }, [fetchStats]);
 

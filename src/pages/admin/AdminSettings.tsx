@@ -93,71 +93,73 @@ const AdminSettings = () => {
   };
 
   if (isLoading) {
-    return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-orange-500" /></div>;
+    return <div className="flex items-center justify-center h-screen"><Loader2 className="animate-spin text-orange-500" /></div>;
   }
 
   return (
-    <div className="space-y-8 max-w-6xl mx-auto pb-10">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
-        <div>
-          <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações da Plataforma</h2>
-          <p className="text-slate-500 mt-1">Gerencie as regras de negócio, taxas e funcionalidades do sistema.</p>
-        </div>
-        <Button 
-          onClick={handleSave} 
-          disabled={isSaving}
-          className="bg-slate-900 hover:bg-orange-600 text-white px-8 py-6 rounded-2xl font-black shadow-xl shadow-slate-200 transition-all active:scale-95 w-full md:w-auto"
+    <div className="flex flex-col md:flex-row min-h-screen bg-slate-50">
+      
+      {/* SUBMENU LATERAL ESQUERDO (Colado no menu principal) */}
+      <div className="flex flex-col w-full md:w-64 space-y-2 shrink-0 bg-slate-900 p-6 border-l border-white/5">
+        <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4 px-2">Módulos</div>
+        
+        <Button
+          variant="ghost"
+          onClick={() => setActiveSection("geral")}
+          className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
+            activeSection === "geral" 
+              ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
+              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+          }`}
         >
-          {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
-          SALVAR TUDO
+          <AppWindow size={18} className="mr-3" /> Informações Gerais
+        </Button>
+        
+        <Button
+          variant="ghost"
+          onClick={() => setActiveSection("regras")}
+          className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
+            activeSection === "regras" 
+              ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
+              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+          }`}
+        >
+          <Gavel size={18} className="mr-3" /> Regras de Leilão
+        </Button>
+        
+        <Button
+          variant="ghost"
+          onClick={() => setActiveSection("seguranca")}
+          className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
+            activeSection === "seguranca" 
+              ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
+              : "text-slate-400 hover:bg-slate-800 hover:text-white"
+          }`}
+        >
+          <Shield size={18} className="mr-3" /> Segurança e Funções
         </Button>
       </div>
 
-      {/* Container principal com items-start para evitar que o menu pule/desça */}
-      <div className="flex flex-col md:flex-row gap-8 items-start w-full">
-        
-        {/* SUBMENU LATERAL ESQUERDO (Padrão Menu Principal) */}
-        <div className="flex flex-col w-full md:w-64 space-y-2 shrink-0 sticky top-6 bg-slate-900 p-4 rounded-3xl shadow-lg">
-          <Button
-            variant="ghost"
-            onClick={() => setActiveSection("geral")}
-            className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
-              activeSection === "geral" 
-                ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
-                : "text-slate-400 hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <AppWindow size={18} className="mr-3" /> Informações Gerais
-          </Button>
+      {/* ÁREA DE CONTEÚDO DIREITA */}
+      <div className="flex-1 p-10 overflow-y-auto">
+        <div className="max-w-5xl mx-auto space-y-8">
           
-          <Button
-            variant="ghost"
-            onClick={() => setActiveSection("regras")}
-            className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
-              activeSection === "regras" 
-                ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
-                : "text-slate-400 hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <Gavel size={18} className="mr-3" /> Regras de Leilão
-          </Button>
-          
-          <Button
-            variant="ghost"
-            onClick={() => setActiveSection("seguranca")}
-            className={`w-full justify-start rounded-xl h-12 font-bold transition-all ${
-              activeSection === "seguranca" 
-                ? "bg-orange-500 text-white hover:bg-orange-600 shadow-md" 
-                : "text-slate-400 hover:bg-slate-800 hover:text-white"
-            }`}
-          >
-            <Shield size={18} className="mr-3" /> Segurança e Funções
-          </Button>
-        </div>
+          {/* Cabeçalho da Página */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900 tracking-tight">Configurações da Plataforma</h2>
+              <p className="text-slate-500 mt-1">Gerencie as regras de negócio, taxas e funcionalidades do sistema.</p>
+            </div>
+            <Button 
+              onClick={handleSave} 
+              disabled={isSaving}
+              className="bg-slate-900 hover:bg-orange-600 text-white px-8 py-6 rounded-2xl font-black shadow-xl shadow-slate-200 transition-all active:scale-95 w-full md:w-auto"
+            >
+              {isSaving ? <Loader2 className="animate-spin mr-2" /> : <Save className="mr-2" />}
+              SALVAR TUDO
+            </Button>
+          </div>
 
-        {/* ÁREA DE CONTEÚDO DIREITA */}
-        <div className="flex-1 w-full">
-          
           {/* SEÇÃO 1: INFORMAÇÕES GERAIS */}
           {activeSection === "geral" && (
             <div className="animate-in fade-in slide-in-from-right-4 duration-500">

@@ -36,7 +36,7 @@ const Admin = () => {
   return (
     <AdminGuard>
       <div className="min-h-screen bg-slate-50 flex">
-        <aside className="w-64 bg-slate-900 text-white p-6 flex flex-col sticky top-0 h-screen">
+        <aside className="w-64 bg-slate-900 text-white p-6 flex flex-col sticky top-0 h-screen z-10">
           <div className="mb-8 px-2">
             <div className="text-2xl font-black tracking-tighter text-orange-500">AUTO BID</div>
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Painel de Controle</div>
@@ -115,8 +115,8 @@ const Admin = () => {
           </div>
         </aside>
 
-        <main className="flex-1 p-10 overflow-y-auto">
-          <div className="max-w-7xl mx-auto">
+        <main className={`flex-1 overflow-y-auto ${activeTab === "settings" ? "" : "p-10"}`}>
+          <div className={activeTab === "settings" ? "h-full" : "max-w-7xl mx-auto"}>
             {activeTab === "dashboard" && <AdminOverview />}
             {activeTab === "chat" && <AdminChat />}
             {activeTab === "notifications" && <AdminNotifications />}

@@ -14,6 +14,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { SEO } from '@/components/SEO';
 
 const Contact = () => {
   const { toast } = useToast();
@@ -49,8 +50,33 @@ const Contact = () => {
     }, 1500);
   };
 
+  // Schema Markup para a página de Contato (ContactPage e LocalBusiness)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "ContactPage",
+    "name": "Contato AutoBid",
+    "description": "Entre em contato com a equipe da AutoBid para tirar dúvidas sobre leilões, pagamentos e retiradas.",
+    "mainEntity": {
+      "@type": "Organization",
+      "name": "AutoBid Leilões",
+      "contactPoint": {
+        "@type": "ContactPoint",
+        "telephone": settings.phone,
+        "email": settings.email,
+        "contactType": "customer service",
+        "availableLanguage": "Portuguese"
+      }
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      <SEO
+        title="Fale Conosco | Suporte AutoBid Leilões"
+        description="Tem dúvidas sobre como participar dos nossos leilões de veículos? Entre em contato com nossa equipe de suporte. Atendimento rápido e seguro."
+        keywords="contato leilão, suporte autobid, telefone leilão, tirar dúvidas leilão de carros"
+        schema={schemaData}
+      />
       <Navbar />
       <main className="flex-1">
         {/* Hero Section Institucional */}

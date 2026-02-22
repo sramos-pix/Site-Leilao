@@ -118,11 +118,22 @@ const Vehicles = () => {
     setSearchTerm("");
   };
 
+  // Schema Markup para a página de listagem (CollectionPage)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    "name": "Todos os Veículos em Leilão - AutoBid",
+    "description": "Explore nossa frota completa de veículos disponíveis para leilão. Filtre por marca, modelo e encontre o carro ideal.",
+    "url": "https://autobid.com.br/vehicles"
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <SEO
-        title="Todos os Veículos"
-        description="Explore nossa frota completa de veículos disponíveis para leilão. Filtre por marca, modelo e encontre o carro ideal."
+        title="Todos os Veículos em Leilão | AutoBid"
+        description="Explore nossa frota completa de veículos disponíveis para leilão. Filtre por marca, modelo e encontre o carro ideal. Carros, motos e caminhões."
+        keywords="leilão de carros, leilão de motos, comprar carro barato, carros de frota, leilão de veículos, autobid, veículos seminovos"
+        schema={schemaData}
       />
       <Navbar />
       

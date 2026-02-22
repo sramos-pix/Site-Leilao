@@ -270,12 +270,35 @@ const LotDetail = () => {
 
   if (isLoading || !lot) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-orange-500" /></div>;
 
+  // Schema Markup para Produto (Veículo em Leilão)
+  const schemaData = {
+    "@context": "https://schema.org/",
+    "@type": "Product",
+    "name": `${lot.title} - Lote #${lot.lot_number}`,
+    "image": [lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean),
+    "description": lot.description || `Leilão de ${lot.title}. Ano: ${lot.year}, Km: ${lot.mileage_km?.toLocaleString()}. Dê seu lance agora na AutoBid!`,
+    "brand": {
+      "@type": "Brand",
+      "name": lot.brand || "Marca não especificada"
+    },
+    "offers": {
+      "@type": "Offer",
+      "url": `https://autobid.com.br/lots/${lot.id}`,
+      "priceCurrency": "BRL",
+      "price": currentPrice,
+      "availability": isFinished ? "https://schema.org/SoldOut" : "https://schema.org/InStock",
+      "itemCondition": "https://schema.org/UsedCondition"
+    }
+  };
+
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col">
       <SEO
-        title={`${lot.title} - Lote #${lot.lot_number}`}
+        title={`${lot.title} - Lote #${lot.lot_number} | Leilão AutoBid`}
         description={`Leilão de ${lot.title}. Ano: ${lot.year}, Km: ${lot.mileage_km?.toLocaleString()}. Dê seu lance agora na AutoBid!`}
         image={lot.cover_image_url}
+        type="product"
+        schema={schemaData}
       />
       <Navbar />
       <div className="container mx-auto px-4 py-8 flex-1">

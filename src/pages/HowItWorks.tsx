@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
+import { SEO } from '@/components/SEO';
 
 const HowItWorks = () => {
   const steps = [
@@ -31,8 +32,28 @@ const HowItWorks = () => {
     }
   ];
 
+  // Schema Markup para a página de Como Funciona (HowTo)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    "name": "Como participar de leilões de veículos na AutoBid",
+    "description": "Aprenda passo a passo como se cadastrar, habilitar, dar lances e arrematar veículos em nossos leilões online.",
+    "step": steps.map((step, index) => ({
+      "@type": "HowToStep",
+      "position": index + 1,
+      "name": step.title,
+      "text": step.description
+    }))
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      <SEO
+        title="Como Funciona o Leilão de Veículos | AutoBid"
+        description="Aprenda como participar dos leilões de veículos da AutoBid. Passo a passo simples: cadastro, habilitação, lances e arremate seguro."
+        keywords="como funciona leilão, participar de leilão, arrematar carro, leilão seguro, passo a passo leilão"
+        schema={schemaData}
+      />
       <Navbar />
       <main className="flex-1">
         <section className="bg-slate-900 text-white py-20">

@@ -11,11 +11,26 @@ import SupportChatWidget from "@/components/SupportChatWidget";
 import { SEO } from "@/components/SEO";
 
 const Index = () => {
+  // Schema Markup para a página inicial (Organization e WebSite)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    "name": "AutoBid",
+    "url": "https://autobid.com.br",
+    "potentialAction": {
+      "@type": "SearchAction",
+      "target": "https://autobid.com.br/vehicles?q={search_term_string}",
+      "query-input": "required name=search_term_string"
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col relative">
       <SEO
-        title="AutoBid - Leilões de Veículos"
-        description="Encontre os melhores veículos em leilão. Carros, motos e caminhões com preços imperdíveis. Participe agora e faça seu lance!"
+        title="AutoBid - Leilões de Veículos Online"
+        description="Participe dos melhores leilões de veículos online. Encontre carros, motos e caminhões de frota, recuperados e seminovos com preços imperdíveis. Cadastre-se e dê seu lance!"
+        keywords="leilão de carros, leilão de motos, leilão online, comprar carro barato, carros de frota, leilão de veículos, autobid"
+        schema={schemaData}
       />
       {/* Menu Superior */}
       <Navbar />

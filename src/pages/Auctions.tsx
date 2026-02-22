@@ -62,18 +62,43 @@ const Auctions = () => {
       case 'agendado':
         return { label: 'AGENDADO', class: 'bg-blue-500 text-white' };
       default:
-        return { 
-          label: status ? status.toUpperCase() : 'AGENDADO', 
-          class: 'bg-slate-800 text-white' 
+        return {
+          label: status ? status.toUpperCase() : 'AGENDADO',
+          class: 'bg-slate-800 text-white'
         };
     }
+  };
+
+  // Schema Markup para a página de leilões (Event)
+  const schemaData = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    "itemListElement": auctions.map((auction, index) => ({
+      "@type": "ListItem",
+      "position": index + 1,
+      "item": {
+        "@type": "Event",
+        "name": auction.title,
+        "startDate": auction.starts_at,
+        "endDate": auction.ends_at,
+        "eventStatus": auction.status === 'finished' ? "https://schema.org/EventRescheduled" : "https://schema.org/EventScheduled",
+        "eventAttendanceMode": "https://schema.org/OnlineEventAttendanceMode",
+        "location": {
+          "@type": "VirtualLocation",
+          "url": `https://autobid.com.br/auctions/${auction.id}`
+        },
+        "image": auction.image_url
+      }
+    }))
   };
 
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col">
       <SEO
-        title="Leilões Ativos"
-        description="Confira os leilões de veículos ativos na AutoBid. Participe e dê seu lance em carros, motos e caminhões."
+        title="Leilões Ativos de Veículos | AutoBid"
+        description="Confira os leilões de veículos ativos na AutoBid. Participe e dê seu lance em carros, motos e caminhões de frota e recuperados."
+        keywords="leilões ativos, leilão de carros hoje, leilão online, participar de leilão, autobid"
+        schema={schemaData}
       />
       <Navbar />
       <div className="container mx-auto px-4 py-10 flex-1">

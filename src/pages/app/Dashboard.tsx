@@ -123,8 +123,8 @@ const Dashboard = () => {
   
   let statusConfig = {
     label: 'AGUARDANDO ENVIO',
-    color: 'bg-red-600',
-    badge: 'text-red-600',
+    color: 'bg-rose-600',
+    badge: 'text-rose-600',
     description: 'Ação necessária para lances',
     buttonText: 'ENVIAR DOCUMENTOS'
   };
@@ -137,7 +137,15 @@ const Dashboard = () => {
       description: 'Acesso total liberado',
       buttonText: ''
     };
-  } else if (hasDocument || kycStatus === 'in_review' || kycStatus === 'pending') {
+  } else if (kycStatus === 'rejected') {
+    statusConfig = {
+      label: 'REJEITADO',
+      color: 'bg-red-600',
+      badge: 'text-red-600',
+      description: 'Documento recusado, envie novamente',
+      buttonText: 'REENVIAR DOCUMENTOS'
+    };
+  } else if (hasDocument) {
     statusConfig = {
       label: 'EM ANÁLISE',
       color: 'bg-orange-500',

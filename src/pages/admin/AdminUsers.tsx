@@ -137,13 +137,18 @@ const AdminUsers = () => {
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge className={
-                        u.kyc_status === 'verified' ? "bg-green-100 text-green-600 border-none" :
-                        u.kyc_status === 'pending' ? "bg-yellow-100 text-yellow-600 border-none" :
-                        "bg-slate-100 text-slate-400 border-none"
-                      }>
-                        {u.kyc_status === 'verified' ? 'Verificado' : u.kyc_status === 'pending' ? 'Pendente' : 'Aguardando'}
-                      </Badge>
+                      {(() => {
+                        const isVerified = u.kyc_status === 'verified';
+                        const hasDoc = !!u.document_url;
+                        const isPending = (u.kyc_status === 'pending' || u.kyc_status === 'in_review') && hasDoc;
+                        const isRejected = u.kyc_status === 'rejected';
+
+                        if (isVerified) return <Badge className="bg-emerald-100 text-emerald-700 border-none">Aprovado</Badge>;
+                        if (isRejected) return <Badge className="bg-red-100 text-red-700 border-none">Rejeitado</Badge>;
+                        if (isPending) return <Badge className="bg-orange-100 text-orange-700 border-none">Em Análise</Badge>;
+                        
+                        return <Badge className="bg-rose-100 text-rose-700 border-none">Aguardando Doc.</Badge>;
+                      })()}
                     </TableCell>
                     <TableCell className="text-right pr-6">
                       <div className="flex justify-end gap-2">

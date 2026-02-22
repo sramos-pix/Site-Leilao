@@ -23,6 +23,7 @@ import AuctionDetails from "./pages/AuctionDetails";
 import Vehicles from "./pages/Vehicles";
 import HowItWorks from "./pages/HowItWorks";
 import Contact from "./pages/Contact";
+import { OnlinePresenceTracker } from "./components/OnlinePresenceTracker";
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
+          <OnlinePresenceTracker />
           <Toaster />
           <Sonner />
           <Routes>

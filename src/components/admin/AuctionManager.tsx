@@ -52,8 +52,6 @@ const AuctionManager = () => {
       const pathId = auctionId || `temp-${Date.now()}`;
       const uploadResult = await uploadLotPhoto(pathId, file);
       
-      // CORREÇÃO: Sempre atualiza o estado local para a imagem aparecer no preview
-      // e não ser apagada quando o usuário clicar em "Salvar Alterações"
       setEditingAuction((prev: any) => ({ ...prev, image_url: uploadResult.publicUrl }));
       
       if (auctionId) {
@@ -87,7 +85,7 @@ const AuctionManager = () => {
       starts_at: new Date(formData.get('starts_at') as string).toISOString(),
       ends_at: new Date(formData.get('ends_at') as string).toISOString(),
       status: formData.get('status'),
-      image_url: editingAuction?.image_url // Agora envia a URL correta
+      image_url: editingAuction?.image_url
     };
 
     const { error } = editingAuction?.id 
@@ -115,7 +113,7 @@ const AuctionManager = () => {
               <Plus size={18} className="mr-2" /> Novo Leilão
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md rounded-3xl">
+          <DialogContent className="max-w-md rounded-3xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>{editingAuction?.id ? 'Editar Leilão' : 'Criar Novo Leilão'}</DialogTitle>
             </DialogHeader>

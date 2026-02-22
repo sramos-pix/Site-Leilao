@@ -58,7 +58,7 @@ const Footer = () => {
               </li>
               <li className="flex items-start gap-3">
                 <Mail size={18} className="text-orange-500 shrink-0 mt-0.5" />
-                <p className="font-bold text-white break-all">contato@autobid.com.br</p>
+                <p className="font-bold text-white break-all">contato@autobidbr.com.br</p>
               </li>
               <li className="flex items-start gap-3">
                 <MapPin size={18} className="text-orange-500 shrink-0 mt-0.5" />

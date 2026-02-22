@@ -20,8 +20,9 @@ const AdminChat = () => {
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  const fetchConversations = async () => {
-    setIsFetching(true);
+  // Busca a lista de conversas (silent = true evita que o ícone fique girando no auto-refresh)
+  const fetchConversations = async (silent = false) => {
+    if (!silent) setIsFetching(true);
     try {
       const { data: msgs, error: msgsError } = await supabase
         .from('support_messages')
@@ -58,10 +59,11 @@ const AdminChat = () => {
     } catch (err) {
       console.error("Erro ao buscar conversas:", err);
     } finally {
-      setIsFetching(false);
+      if (!silent) setIsFetching(false);
     }
   };
 
+  // Busca as mensagens da conversa selecionada
   const fetchMessages = async (userId: string) => {
     const { data, error } = await supabase
       .from('support_messages')
@@ -69,8 +71,46 @@ const AdminChat = () => {
       .eq('user_id', userId)
       .order('created_at', { ascending: true });
     
-    if (!error) setMessages(data || []);
+    if (!error && data) {
+      setMessages(prev => {
+        // Só atualiza o estado se houver mensagens novas para evitar que a tela pisque
+        const isDifferent = prev.length !== data.length || 
+                           (prev.length > 0 && data.length > 0 && prev[prev.length-1].id !== data[data.length-1].id);
+        
+        if (isDifferent) {
+          setTimeout(() => {
+            if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+          }, 100);
+          return data;
+        }
+        return prev;
+      });
+    }
   };
+
+  // Auto-refresh para a lista de conversas
+  useEffect(() => {
+    fetchConversations();
+    
+    const interval = setInterval(() => {
+      fetchConversations(true); // silent refresh
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Auto-refresh para as mensagens da conversa aberta
+  useEffect(() => {
+    if (selectedUser) {
+      fetchMessages(selectedUser.user_id);
+      
+      const interval = setInterval(() => {
+        fetchMessages(selectedUser.user_id);
+      }, 3000);
+
+      return () => clearInterval(interval);
+    }
+  }, [selectedUser]);
 
   const handleDeleteConversation = async (e: React.MouseEvent, userId: string) => {
     e.stopPropagation();
@@ -100,73 +140,52 @@ const AdminChat = () => {
     }
   };
 
-  useEffect(() => {
-    fetchConversations();
-    
-    const channel = supabase
-      .channel('admin-support-realtime')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'support_messages' }, () => {
-        fetchConversations();
-      })
-      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'support_messages' }, () => {
-        fetchConversations();
-      })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
-  }, []);
-
-  useEffect(() => {
-    if (selectedUser) {
-      fetchMessages(selectedUser.user_id);
-      
-      const userChannel = supabase
-        .channel(`admin-msg-${selectedUser.user_id}`)
-        .on('postgres_changes', 
-          { event: 'INSERT', schema: 'public', table: 'support_messages', filter: `user_id=eq.${selectedUser.user_id}` }, 
-          (payload) => {
-            setMessages(prev => {
-              if (prev.find(m => m.id === payload.new.id)) return prev;
-              return [...prev, payload.new];
-            });
-          }
-        )
-        .subscribe();
-
-      return () => { supabase.removeChannel(userChannel); };
-    }
-  }, [selectedUser]);
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   const handleReply = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedReply = reply.trim();
     if (!trimmedReply || !selectedUser) return;
 
+    // 1. ATUALIZAÇÃO OTIMISTA: Mostra a mensagem na tela IMEDIATAMENTE
+    const tempId = 'temp-' + Date.now();
+    const tempMsg = {
+      id: tempId,
+      user_id: selectedUser.user_id,
+      message: trimmedReply,
+      is_from_admin: true,
+      created_at: new Date().toISOString()
+    };
+
+    setMessages(prev => [...prev, tempMsg]);
+    setReply('');
+
+    // Rola para baixo instantaneamente
+    setTimeout(() => {
+      if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }, 50);
+
     setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // 2. Envia para o banco de dados
+      const { error } = await supabase
         .from('support_messages')
         .insert({
           user_id: selectedUser.user_id,
           message: trimmedReply,
           is_from_admin: true
-        })
-        .select()
-        .single();
+        });
 
       if (error) throw error;
-      if (data) {
-        setMessages(prev => [...prev, data]);
-        setReply('');
-      }
+      
+      // 3. Recarrega para pegar o ID oficial gerado pelo banco
+      await fetchMessages(selectedUser.user_id);
+      fetchConversations(true); // Atualiza a lista lateral silenciosamente
+      
     } catch (err) {
       console.error("Erro ao responder:", err);
+      toast({ variant: "destructive", title: "Erro", description: "Falha ao enviar mensagem." });
+      // Reverte a mensagem em caso de erro
+      setMessages(prev => prev.filter(m => m.id !== tempId));
+      setReply(trimmedReply);
     } finally {
       setIsLoading(false);
     }
@@ -179,7 +198,7 @@ const AdminChat = () => {
           <div className="flex items-center gap-2">
             <MessageSquare size={18} className="text-orange-500" /> Conversas
           </div>
-          <Button variant="ghost" size="icon" onClick={fetchConversations} disabled={isFetching}>
+          <Button variant="ghost" size="icon" onClick={() => fetchConversations(false)} disabled={isFetching}>
             <RefreshCw size={14} className={cn(isFetching && "animate-spin")} />
           </Button>
         </div>

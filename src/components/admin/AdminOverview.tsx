@@ -34,11 +34,21 @@ import { currentOnlineCount, currentOnlineUsers } from '@/components/OnlinePrese
 // Função para traduzir a URL em um nome amigável
 const formatPath = (path: string) => {
   if (!path || path === '/') return 'Página Inicial';
-  if (path.startsWith('/lote/')) return 'Página do Veículo';
-  if (path.startsWith('/leiloes')) return 'Lista de Leilões';
+  if (path.startsWith('/lots/')) return 'Detalhes do Veículo';
+  if (path.startsWith('/vehicles')) return 'Catálogo de Veículos';
+  if (path.startsWith('/auctions/')) return 'Detalhes do Leilão';
+  if (path.startsWith('/auctions')) return 'Lista de Leilões';
   if (path.startsWith('/admin')) return 'Painel Admin';
-  if (path.startsWith('/dashboard')) return 'Painel do Usuário';
+  if (path.startsWith('/app/dashboard')) return 'Painel do Usuário';
+  if (path.startsWith('/app/profile')) return 'Perfil do Usuário';
+  if (path.startsWith('/app/favorites')) return 'Favoritos';
+  if (path.startsWith('/app/wins')) return 'Histórico de Arremates';
   if (path.startsWith('/login')) return 'Página de Login';
+  if (path.startsWith('/register')) return 'Página de Cadastro';
+  if (path.startsWith('/how-it-works')) return 'Como Funciona';
+  if (path.startsWith('/contact')) return 'Contato';
+  
+  // Fallback caso seja uma rota desconhecida
   return path;
 };
 

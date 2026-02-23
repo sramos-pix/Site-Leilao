@@ -31,6 +31,17 @@ import {
 
 import { currentOnlineCount, currentOnlineUsers } from '@/components/OnlinePresenceTracker';
 
+// Função para traduzir a URL em um nome amigável
+const formatPath = (path: string) => {
+  if (!path || path === '/') return 'Página Inicial';
+  if (path.startsWith('/lote/')) return 'Página do Veículo';
+  if (path.startsWith('/leiloes')) return 'Lista de Leilões';
+  if (path.startsWith('/admin')) return 'Painel Admin';
+  if (path.startsWith('/dashboard')) return 'Painel do Usuário';
+  if (path.startsWith('/login')) return 'Página de Login';
+  return path;
+};
+
 const AdminOverview = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -311,7 +322,7 @@ const AdminOverview = () => {
             </div>
             
             {/* Hover Card com a lista de usuários */}
-            <div className="absolute right-0 top-full mt-2 w-72 bg-white rounded-xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden">
+            <div className="absolute right-0 top-full mt-2 w-80 bg-white rounded-xl shadow-xl border border-slate-100 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 overflow-hidden">
               <div className="p-3 bg-slate-50 border-b border-slate-100 flex justify-between items-center">
                 <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider">Usuários Conectados</h4>
                 <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">{onlineUsers}</span>
@@ -329,6 +340,11 @@ const AdminOverview = () => {
                             </span>
                             {!u.isGuest && u.email && (
                               <span className="text-xs text-slate-400 truncate">{u.email}</span>
+                            )}
+                            {u.path && (
+                              <span className="text-[10px] text-blue-600 font-medium truncate mt-1 bg-blue-50 w-fit px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                                📍 {formatPath(u.path)}
+                              </span>
                             )}
                           </div>
                         </div>

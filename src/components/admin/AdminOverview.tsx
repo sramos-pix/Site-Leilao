@@ -35,6 +35,14 @@ import { currentOnlineCount, currentOnlineUsers } from '@/components/OnlinePrese
 const formatPath = (path: string) => {
   if (!path || path === '/') return 'Página Inicial';
   
+  // Remove o domínio e a porta (ex: http://localhost:32102) se vier junto
+  try {
+    const url = new URL(path, window.location.origin);
+    path = url.pathname;
+  } catch (e) {
+    // Se não for uma URL válida, continua com o path original
+  }
+  
   // Se for a página de um lote específico, tenta extrair o ID para mostrar algo mais amigável
   if (path.startsWith('/lots/')) {
     return 'Detalhes do Veículo';

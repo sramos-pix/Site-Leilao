@@ -52,7 +52,6 @@ const Index = () => {
       <Footer />
 
       {/* Widget de Chat Flutuante */}
-      <SupportChatWidget />
     </div>
   );
 };

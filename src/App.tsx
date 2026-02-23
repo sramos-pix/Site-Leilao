@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/toaster";
+import SupportChatWidget from "@/components/SupportChatWidget";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -34,6 +35,7 @@ const App = () => (
         <TooltipProvider>
           <OnlinePresenceTracker />
           <Toaster />
+          <SupportChatWidget />
           <Sonner />
           <Routes>
             {/* Public Routes */}

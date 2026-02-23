@@ -44,22 +44,22 @@ const formatPath = (path: string) => {
   }
   
   // Se for a página de um lote específico, tenta extrair o ID para mostrar algo mais amigável
-  if (path.startsWith('/lots/')) {
+  if (path.includes('/lots/')) {
     return 'Detalhes do Veículo';
   }
   
-  if (path.startsWith('/vehicles')) return 'Catálogo de Veículos';
-  if (path.startsWith('/auctions/')) return 'Detalhes do Leilão';
-  if (path.startsWith('/auctions')) return 'Lista de Leilões';
-  if (path.startsWith('/admin')) return 'Painel Admin';
-  if (path.startsWith('/app/dashboard')) return 'Painel do Usuário';
-  if (path.startsWith('/app/profile')) return 'Perfil do Usuário';
-  if (path.startsWith('/app/favorites')) return 'Favoritos';
-  if (path.startsWith('/app/wins')) return 'Histórico de Arremates';
-  if (path.startsWith('/login')) return 'Página de Login';
-  if (path.startsWith('/register')) return 'Página de Cadastro';
-  if (path.startsWith('/how-it-works')) return 'Como Funciona';
-  if (path.startsWith('/contact')) return 'Contato';
+  if (path.includes('/vehicles')) return 'Catálogo de Veículos';
+  if (path.includes('/auctions/')) return 'Detalhes do Leilão';
+  if (path.includes('/auctions')) return 'Lista de Leilões';
+  if (path.includes('/admin')) return 'Painel Admin';
+  if (path.includes('/app/dashboard')) return 'Painel do Usuário';
+  if (path.includes('/app/profile')) return 'Perfil do Usuário';
+  if (path.includes('/app/favorites')) return 'Favoritos';
+  if (path.includes('/app/wins')) return 'Histórico de Arremates';
+  if (path.includes('/login')) return 'Página de Login';
+  if (path.includes('/register')) return 'Página de Cadastro';
+  if (path.includes('/how-it-works')) return 'Como Funciona';
+  if (path.includes('/contact')) return 'Contato';
   
   // Fallback caso seja uma rota desconhecida
   return path;

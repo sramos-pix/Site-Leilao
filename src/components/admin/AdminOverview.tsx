@@ -86,7 +86,17 @@ const AdminOverview = () => {
   const [messageText, setMessageText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
+  // Estados para rastrear o tempo online
+  const [currentTime, setCurrentTime] = useState(Date.now());
+  const userStartTimes = useRef<Record<string, number>>({});
+  
   const isFetchingRef = useRef(false);
+
+  // Atualiza o relógio a cada minuto para recalcular o tempo online
+  useEffect(() => {
+    const interval = setInterval(() => setCurrentTime(Date.now()), 60000);
+    return () => clearInterval(interval);
+  }, []);
 
   const fetchStats = useCallback(async (force = false) => {
     if (isFetchingRef.current && !force) return;
@@ -147,6 +157,56 @@ const AdminOverview = () => {
     }
   }, []);
 
+  useEffect(() => {
+    fetchStats(true);
+
+    // Escuta o evento global disparado pelo OnlinePresenceTracker
+    const handlePresenceUpdate = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      const users = customEvent.detail.users || [];
+      setOnlineUsers(customEvent.detail.count);
+      setOnlineUsersList(users);
+      
+      // Registra o momento em que vimos o usuário pela primeira vez
+      const now = Date.now();
+      const newStartTimes = { ...userStartTimes.current };
+      users.forEach((u: any) => {
+        const uid = u.id || u.sessionId || u.presence_ref || u.email || u.name;
+        if (uid && !newStartTimes[uid]) {
+          newStartTimes[uid] = u.online_at ? new Date(u.online_at).getTime() : now;
+        }
+      });
+      userStartTimes.current = newStartTimes;
+    };
+
+    window.addEventListener('presence-update', handlePresenceUpdate);
+
+    return () => {
+      window.removeEventListener('presence-update', handlePresenceUpdate);
+    };
+  }, [fetchStats]);
+
+  // Função para calcular o tempo online
+  const getUptime = useCallback((u: any) => {
+    const startTime = u.online_at || u.joined_at || u.connectedAt;
+    let startMs = 0;
+    
+    if (startTime) {
+      startMs = new Date(startTime).getTime();
+    } else {
+      const uid = u.id || u.sessionId || u.presence_ref || u.email || u.name;
+      startMs = userStartTimes.current[uid] || Date.now();
+    }
+    
+    const diffMs = currentTime - startMs;
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return '< 1 min';
+    if (diffMins < 60) return `${diffMins} min`;
+    const hours = Math.floor(diffMins / 60);
+    return `${hours}h ${diffMins % 60}m`;
+  }, [currentTime]);
+
   const handleContemplateBid = async (bid: any) => {
     if (!confirm(`Deseja CONTEMPLAR este lance de ${formatCurrency(bid.amount)} para o veículo "${bid.lots?.title}"? Isso encerrará o leilão deste item.`)) return;
     
@@ -206,18 +266,15 @@ const AdminOverview = () => {
     setIsProcessing(bidId);
 
     try {
-      // 1. Deleta o lance
       const { error: deleteError } = await supabase
         .from('bids')
         .delete()
         .eq('id', bidId);
 
       if (deleteError) {
-        console.error("Erro detalhado do Supabase ao deletar:", deleteError);
         throw new Error(deleteError.message || "Erro de permissão no banco de dados.");
       }
 
-      // 2. Busca o próximo maior lance para este lote
       const { data: nextHighestBid, error: nextBidError } = await supabase
         .from('bids')
         .select('amount')
@@ -226,9 +283,6 @@ const AdminOverview = () => {
         .limit(1)
         .maybeSingle();
 
-      if (nextBidError) console.error("Erro ao buscar próximo lance:", nextBidError);
-
-      // 3. Busca o valor inicial do lote caso não haja mais lances
       let newCurrentBid = nextHighestBid?.amount;
       
       if (!newCurrentBid) {
@@ -240,7 +294,6 @@ const AdminOverview = () => {
         newCurrentBid = lotData?.start_bid || 0;
       }
 
-      // 4. Atualiza o lote
       const { error: updateError } = await supabase
         .from('lots')
         .update({ 
@@ -251,40 +304,18 @@ const AdminOverview = () => {
         })
         .eq('id', lotId);
 
-      if (updateError) {
-        console.error("Erro ao atualizar lote após exclusão:", updateError);
-      }
-
       toast({ title: "Lance excluído", description: "O sistema foi atualizado com o próximo maior lance." });
       await fetchStats(true);
     } catch (error: any) {
-      console.error("Erro na função handleDeleteBid:", error);
       toast({ 
         variant: "destructive", 
         title: "Falha na Exclusão", 
-        description: "Verifique se você tem permissões de Admin no Supabase. Erro: " + error.message 
+        description: "Erro: " + error.message 
       });
     } finally {
       setIsProcessing(null);
     }
   };
-
-  useEffect(() => {
-    fetchStats(true);
-
-    // Escuta o evento global disparado pelo OnlinePresenceTracker
-    const handlePresenceUpdate = (e: Event) => {
-      const customEvent = e as CustomEvent;
-      setOnlineUsers(customEvent.detail.count);
-      setOnlineUsersList(customEvent.detail.users || []);
-    };
-
-    window.addEventListener('presence-update', handlePresenceUpdate);
-
-    return () => {
-      window.removeEventListener('presence-update', handlePresenceUpdate);
-    };
-  }, [fetchStats]);
 
   const handleUserClick = (userId: string) => {
     navigate(`/admin?id=${userId}`, { replace: true });
@@ -364,11 +395,24 @@ const AdminOverview = () => {
                             {!u.isGuest && u.email && (
                               <span className="text-xs text-slate-400 truncate">{u.email}</span>
                             )}
-                            {u.path && (
-                              <span className="text-[10px] text-blue-600 font-medium truncate mt-1 bg-blue-50 w-fit px-1.5 py-0.5 rounded-md flex items-center gap-1">
-                                📍 {formatPath(u.path)}
+                            <div className="flex items-center gap-2 mt-1">
+                              {u.path && (
+                                <a 
+                                  href={u.path}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-[10px] text-blue-600 font-medium truncate bg-blue-50 hover:bg-blue-100 w-fit px-1.5 py-0.5 rounded-md flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="Abrir página atual do usuário"
+                                >
+                                  📍 {formatPath(u.path)}
+                                  <ExternalLink size={8} className="ml-0.5" />
+                                </a>
+                              )}
+                              <span className="text-[10px] text-slate-500 flex items-center gap-1 bg-slate-100 px-1.5 py-0.5 rounded-md" title="Tempo online">
+                                <Clock size={10} />
+                                {getUptime(u)}
                               </span>
-                            )}
+                            </div>
                           </div>
                         </div>
                         {!u.isGuest && u.id && (

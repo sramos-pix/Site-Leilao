@@ -34,7 +34,12 @@ import { currentOnlineCount, currentOnlineUsers } from '@/components/OnlinePrese
 // Função para traduzir a URL em um nome amigável
 const formatPath = (path: string) => {
   if (!path || path === '/') return 'Página Inicial';
-  if (path.startsWith('/lots/')) return 'Detalhes do Veículo';
+  
+  // Se for a página de um lote específico, tenta extrair o ID para mostrar algo mais amigável
+  if (path.startsWith('/lots/')) {
+    return 'Detalhes do Veículo';
+  }
+  
   if (path.startsWith('/vehicles')) return 'Catálogo de Veículos';
   if (path.startsWith('/auctions/')) return 'Detalhes do Leilão';
   if (path.startsWith('/auctions')) return 'Lista de Leilões';

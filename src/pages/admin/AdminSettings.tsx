@@ -26,7 +26,9 @@ const AdminSettings = () => {
     min_increment: 500,
     maintenance_mode: false,
     require_kyc: true,
-    chat_enabled: true
+    chat_enabled: true,
+    whatsapp_enabled: false,
+    whatsapp_number: ""
   });
 
   useEffect(() => {
@@ -47,7 +49,9 @@ const AdminSettings = () => {
           min_increment: data.min_increment || 500,
           maintenance_mode: data.maintenance_mode || false,
           require_kyc: data.require_kyc !== false,
-          chat_enabled: data.chat_enabled !== false
+          chat_enabled: data.chat_enabled !== false,
+          whatsapp_enabled: data.whatsapp_enabled || false,
+          whatsapp_number: data.whatsapp_number || ""
         });
       }
     } catch (error) {
@@ -72,6 +76,8 @@ const AdminSettings = () => {
           maintenance_mode: settings.maintenance_mode,
           require_kyc: settings.require_kyc,
           chat_enabled: settings.chat_enabled,
+          whatsapp_enabled: settings.whatsapp_enabled,
+          whatsapp_number: settings.whatsapp_number,
           updated_at: new Date().toISOString()
         })
         .eq("id", 1);
@@ -87,7 +93,7 @@ const AdminSettings = () => {
       toast({
         variant: "destructive",
         title: "Erro ao salvar",
-        description: "Não foi possível salvar as configurações."
+        description: "Não foi possível salvar as configurações. Verifique se você rodou o comando SQL no Supabase."
       });
     } finally {
       setIsSaving(false);
@@ -115,7 +121,7 @@ const AdminSettings = () => {
         <p className="text-slate-500 mt-2 text-base">Selecione um módulo abaixo para gerenciar as preferências.</p>
       </div>
 
-      {/* GRID DE CARDS (HUB) - Mais delicado e compacto */}
+      {/* GRID DE CARDS (HUB) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 mb-8">
         {modules.map(mod => {
           const isActive = activeSection === mod.id;
@@ -143,11 +149,10 @@ const AdminSettings = () => {
         })}
       </div>
 
-      {/* ÁREA DE CONTEÚDO (Abaixo dos cards) */}
+      {/* ÁREA DE CONTEÚDO */}
       {activeModule && (
         <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 p-6 md:p-10 animate-in slide-in-from-bottom-4 fade-in duration-500">
           
-          {/* Cabeçalho da Seção Ativa */}
           <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
             <div className={`p-3 rounded-xl ${activeModule.bg} ${activeModule.color}`}>
               <ActiveIcon size={24} />
@@ -160,7 +165,7 @@ const AdminSettings = () => {
 
           {/* CONTEÚDO: INFORMAÇÕES GERAIS */}
           {activeSection === 'geral' && (
-            <div className="space-y-6 max-w-3xl">
+            <div className="space-y-8 max-w-3xl">
               <div className="space-y-2">
                 <Label className="font-bold text-slate-700">Nome da Plataforma</Label>
                 <Input 
@@ -189,6 +194,40 @@ const AdminSettings = () => {
                     value={settings.support_phone} 
                     onChange={(e) => setSettings({...settings, support_phone: e.target.value})} 
                   />
+                </div>
+              </div>
+
+              {/* NOVA SEÇÃO: WHATSAPP */}
+              <div className="pt-6 border-t border-slate-100">
+                <h4 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <div className="bg-[#25D366]/10 p-1.5 rounded-lg">
+                    <MessageSquare size={18} className="text-[#25D366]" />
+                  </div>
+                  Atendimento via WhatsApp
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="font-bold text-slate-700">Número do WhatsApp</Label>
+                    <Input 
+                      className="h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-colors text-base"
+                      placeholder="Ex: 11999999999"
+                      value={settings.whatsapp_number} 
+                      onChange={(e) => setSettings({...settings, whatsapp_number: e.target.value})} 
+                    />
+                    <p className="text-xs text-slate-400">Apenas números, com DDD.</p>
+                  </div>
+                  <div className="flex flex-col justify-center space-y-2">
+                    <Label className="font-bold text-slate-700">Botão Flutuante</Label>
+                    <div className="flex items-center gap-3 bg-slate-50 p-4 rounded-xl border border-slate-200 w-fit h-14">
+                      <Switch 
+                        checked={settings.whatsapp_enabled} 
+                        onCheckedChange={(checked) => setSettings({...settings, whatsapp_enabled: checked})} 
+                      />
+                      <span className="text-sm font-medium text-slate-600">
+                        {settings.whatsapp_enabled ? 'Ativado no site' : 'Desativado'}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -268,10 +307,10 @@ const AdminSettings = () => {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between p-6 bg-slate-50 rounded-2xl border border-slate-200 gap-4">
                 <div className="space-y-2">
                   <Label className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                    <MessageSquare size={20} className="text-blue-500" /> Chat de Suporte
+                    <MessageSquare size={20} className="text-blue-500" /> Chat de Suporte Interno
                   </Label>
                   <p className="text-sm text-slate-500 leading-relaxed max-w-md">
-                    Ativa o balão de chat flutuante no canto da tela para os usuários falarem diretamente com a administração.
+                    Ativa o balão de chat flutuante no canto direito da tela para os usuários falarem diretamente com a administração pelo painel.
                   </p>
                 </div>
                 <div className="flex items-center gap-4 shrink-0">
@@ -295,7 +334,7 @@ const AdminSettings = () => {
             </div>
           )}
 
-          {/* BOTÃO SALVAR (Oculto na aba de aparência pois ela tem o próprio botão) */}
+          {/* BOTÃO SALVAR */}
           {activeSection !== 'aparencia' && (
             <div className="mt-10 pt-8 border-t border-slate-100 flex justify-start">
               <Button

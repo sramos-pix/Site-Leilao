@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Search, Car, Calendar, Gauge, Loader2, Lock, Heart, Clock, Filter, X } from 'lucide-react';
+import { Search, Car, Calendar, Gauge, Loader2, Lock, Heart, Clock, Filter, X, ArrowUpDown } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { formatCurrency, cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
@@ -20,10 +20,14 @@ const Vehicles = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   
-  // Filtros
+  // Filtros e Ordenação
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [selectedModel, setSelectedModel] = useState<string>("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [sortBy, setSortBy] = useState<string>("random");
+  
+  // Semente aleatória para manter a ordem durante atualizações em tempo real (evita que a tela pule)
+  const [randomSeed, setRandomSeed] = useState<Record<string, number>>({});
   
   const { toast } = useToast();
 
@@ -43,13 +47,24 @@ const Vehicles = () => {
   const fetchData = async () => {
     setLoading(true);
     
-    // Busca os lotes. O valor real é o current_bid ou start_bid.
     const { data: lotsData, error: lotsError } = await supabase
       .from('lots')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select('*');
     
     if (!lotsError && lotsData) {
+      // Gera um número aleatório para cada lote novo para podermos embaralhar
+      setRandomSeed(prev => {
+        const newSeeds = { ...prev };
+        let changed = false;
+        lotsData.forEach(lot => {
+          if (newSeeds[lot.id] === undefined) {
+            newSeeds[lot.id] = Math.random();
+            changed = true;
+          }
+        });
+        return changed ? newSeeds : prev;
+      });
+      
       setLots(lotsData);
     }
 
@@ -101,6 +116,7 @@ const Vehicles = () => {
     }
   };
 
+  // 1. Primeiro filtramos
   const filteredLots = lots.filter(lot => {
     const matchesSearch = lot.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           lot.brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -110,6 +126,28 @@ const Vehicles = () => {
     const matchesModel = selectedModel === "all" || lot.model === selectedModel;
 
     return matchesSearch && matchesBrand && matchesModel;
+  });
+
+  // 2. Depois ordenamos
+  const sortedLots = [...filteredLots].sort((a, b) => {
+    // Regra de Ouro: Lotes finalizados SEMPRE vão para o final da lista
+    if (a.status === 'finished' && b.status !== 'finished') return 1;
+    if (a.status !== 'finished' && b.status === 'finished') return -1;
+    
+    // Se ambos têm o mesmo status, aplica a ordenação selecionada
+    switch (sortBy) {
+      case 'ending_soon':
+        return new Date(a.ends_at).getTime() - new Date(b.ends_at).getTime();
+      case 'newest':
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      case 'price_asc':
+        return (Math.max(a.current_bid || 0, a.start_bid || 0)) - (Math.max(b.current_bid || 0, b.start_bid || 0));
+      case 'price_desc':
+        return (Math.max(b.current_bid || 0, b.start_bid || 0)) - (Math.max(a.current_bid || 0, a.start_bid || 0));
+      case 'random':
+      default:
+        return (randomSeed[a.id] || 0) - (randomSeed[b.id] || 0);
+    }
   });
 
   const clearFilters = () => {
@@ -145,15 +183,32 @@ const Vehicles = () => {
           </div>
           
           <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
-            <div className="relative w-full sm:w-72">
+            <div className="relative w-full sm:w-64">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
               <Input
-                placeholder="Buscar por título, marca ou modelo..."
+                placeholder="Buscar veículo..."
                 className="pl-10 h-12 rounded-xl border-slate-200 bg-white shadow-sm"
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
+
+            {/* Novo Select de Ordenação */}
+            <div className="relative w-full sm:w-48">
+              <select
+                className="w-full h-12 pl-4 pr-10 rounded-xl border border-slate-200 bg-white shadow-sm text-sm font-bold text-slate-700 appearance-none outline-none focus:ring-2 focus:ring-orange-500 transition-all cursor-pointer"
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+              >
+                <option value="random">Aleatório</option>
+                <option value="ending_soon">Encerrando em Breve</option>
+                <option value="newest">Mais Recentes</option>
+                <option value="price_asc">Menor Preço</option>
+                <option value="price_desc">Maior Preço</option>
+              </select>
+              <ArrowUpDown className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+            </div>
+
             <Button
               onClick={() => setIsFilterOpen(!isFilterOpen)}
               variant={isFilterOpen || selectedBrand !== "all" || selectedModel !== "all" ? "default" : "outline"}
@@ -226,7 +281,7 @@ const Vehicles = () => {
             
             <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
               <span className="text-sm font-bold text-slate-500">
-                {filteredLots.length} {filteredLots.length === 1 ? 'veículo encontrado' : 'veículos encontrados'}
+                {sortedLots.length} {sortedLots.length === 1 ? 'veículo encontrado' : 'veículos encontrados'}
               </span>
               <Button
                 onClick={() => setIsFilterOpen(false)}
@@ -244,7 +299,7 @@ const Vehicles = () => {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {filteredLots.map((lot) => {
+            {sortedLots.map((lot) => {
               const isFinished = lot.status === 'finished';
               const isFav = favorites.includes(lot.id);
               const currentPrice = Math.max(lot.current_bid || 0, lot.start_bid || 0);

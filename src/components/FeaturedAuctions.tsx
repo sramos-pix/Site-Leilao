@@ -25,7 +25,17 @@ const FeaturedAuctions = () => {
         .order('created_at', { ascending: false });
 
       if (lotsError) throw lotsError;
-      setFeaturedLots(lotsData || []);
+      
+      let fetchedLots = lotsData || [];
+      // Embaralha os resultados (shuffle)
+      for (let i = fetchedLots.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [fetchedLots[i], fetchedLots[j]] = [fetchedLots[j], fetchedLots[i]];
+      }
+      // Limita a 12 itens
+      fetchedLots = fetchedLots.slice(0, 12);
+      
+      setFeaturedLots(fetchedLots);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {

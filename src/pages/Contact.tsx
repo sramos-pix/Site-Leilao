@@ -37,17 +37,41 @@ const Contact = () => {
     fetchSettings();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setTimeout(() => {
-      setIsSubmitting(false);
-      toast({
-        title: "Mensagem enviada!",
-        description: "Nossa equipe entrará em contato em até 24 horas úteis."
+
+    const formData = new FormData(e.currentTarget);
+
+    try {
+      // Usando FormSubmit via AJAX para não recarregar a página
+      const response = await fetch("https://formsubmit.co/ajax/contato@autobidbr.com.br", {
+        method: "POST",
+        headers: {
+          'Accept': 'application/json'
+        },
+        body: formData
       });
-      (e.target as HTMLFormElement).reset();
-    }, 1500);
+
+      if (response.ok) {
+        toast({
+          title: "Mensagem enviada!",
+          description: "Nossa equipe entrará em contato em até 24 horas úteis."
+        });
+        e.currentTarget.reset();
+      } else {
+        throw new Error("Erro na resposta do servidor");
+      }
+    } catch (error) {
+      console.error("Erro ao enviar formulário:", error);
+      toast({
+        variant: "destructive",
+        title: "Erro ao enviar",
+        description: "Ocorreu um erro ao enviar sua mensagem. Tente novamente mais tarde."
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Schema Markup para a página de Contato (ContactPage e LocalBusiness)
@@ -174,23 +198,27 @@ const Contact = () => {
                   </div>
                   
                   <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Campos ocultos para configuração do FormSubmit */}
+                    <input type="hidden" name="_template" value="table" />
+                    <input type="hidden" name="_captcha" value="false" />
+                    
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
                         <Label className="font-bold text-slate-700 ml-1">Nome Completo</Label>
-                        <Input placeholder="Seu nome" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
+                        <Input name="Nome" placeholder="Seu nome" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
                       </div>
                       <div className="space-y-2">
                         <Label className="font-bold text-slate-700 ml-1">E-mail</Label>
-                        <Input type="email" placeholder="seu@email.com" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
+                        <Input name="Email" type="email" placeholder="seu@email.com" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
                       </div>
                     </div>
                     <div className="space-y-2">
                       <Label className="font-bold text-slate-700 ml-1">Assunto</Label>
-                      <Input placeholder="Como podemos ajudar?" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
+                      <Input name="_subject" placeholder="Como podemos ajudar?" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
                     </div>
                     <div className="space-y-2">
                       <Label className="font-bold text-slate-700 ml-1">Mensagem</Label>
-                      <Textarea placeholder="Escreva sua dúvida ou sugestão detalhadamente..." required className="min-h-[150px] rounded-2xl border-slate-200 focus:border-orange-500" />
+                      <Textarea name="Mensagem" placeholder="Escreva sua dúvida ou sugestão detalhadamente..." required className="min-h-[150px] rounded-2xl border-slate-200 focus:border-orange-500" />
                     </div>
                     <Button type="submit" disabled={isSubmitting} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-8 rounded-2xl text-lg font-black shadow-lg shadow-orange-100 transition-all active:scale-[0.98]">
                       {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send className="mr-2" size={20} /> ENVIAR MENSAGEM AGORA</>}

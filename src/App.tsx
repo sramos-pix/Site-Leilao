@@ -26,6 +26,7 @@ import Vehicles from "./pages/Vehicles";
 import HowItWorks from "./pages/HowItWorks";
 import Contact from "./pages/Contact";
 import { OnlinePresenceTracker } from "./components/OnlinePresenceTracker";
+import { MaintenanceGuard } from "./components/MaintenanceGuard";
 
 const queryClient = new QueryClient();
 
@@ -34,39 +35,41 @@ const App = () => (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <TooltipProvider>
-          <OnlinePresenceTracker />
-          <Toaster />
-          <SupportChatWidget />
-          <WhatsAppWidget />
-          <Sonner />
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Index />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/auctions" element={<Auctions />} />
-            <Route path="/auctions/:id" element={<AuctionDetails />} />
-            <Route path="/lots/:id" element={<LotDetail />} />
-            <Route path="/vehicles" element={<Vehicles />} />
-            <Route path="/how-it-works" element={<HowItWorks />} />
-            <Route path="/contact" element={<Contact />} />
-            
-            {/* App / User Routes */}
-            <Route path="/app/dashboard" element={<Dashboard />} />
-            <Route path="/app/profile" element={<Profile />} />
-            <Route path="/app/favorites" element={<Favorites />} />
-            <Route path="/app/wins" element={<History />} />
-            <Route path="/app/notifications" element={<Notifications />} />
-            <Route path="/app/checkout/:id" element={<Checkout />} />
-            <Route path="/app/verify" element={<Verify />} />
-            
-            {/* Admin Routes */}
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/admin/lots/create" element={<AdminCreateLot />} />
-            
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
+          <MaintenanceGuard>
+            <OnlinePresenceTracker />
+            <Toaster />
+            <SupportChatWidget />
+            <WhatsAppWidget />
+            <Sonner />
+            <Routes>
+              {/* Public Routes */}
+              <Route path="/" element={<Index />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/register" element={<Register />} />
+              <Route path="/auctions" element={<Auctions />} />
+              <Route path="/auctions/:id" element={<AuctionDetails />} />
+              <Route path="/lots/:id" element={<LotDetail />} />
+              <Route path="/vehicles" element={<Vehicles />} />
+              <Route path="/how-it-works" element={<HowItWorks />} />
+              <Route path="/contact" element={<Contact />} />
+              
+              {/* App / User Routes */}
+              <Route path="/app/dashboard" element={<Dashboard />} />
+              <Route path="/app/profile" element={<Profile />} />
+              <Route path="/app/favorites" element={<Favorites />} />
+              <Route path="/app/wins" element={<History />} />
+              <Route path="/app/notifications" element={<Notifications />} />
+              <Route path="/app/checkout/:id" element={<Checkout />} />
+              <Route path="/app/verify" element={<Verify />} />
+              
+              {/* Admin Routes */}
+              <Route path="/admin" element={<Admin />} />
+              <Route path="/admin/lots/create" element={<AdminCreateLot />} />
+              
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </MaintenanceGuard>
         </TooltipProvider>
       </ThemeProvider>
     </QueryClientProvider>

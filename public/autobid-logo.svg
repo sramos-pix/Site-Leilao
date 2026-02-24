@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 60" width="400" height="120">
+  <!-- Fundo laranja do ícone -->
+  <rect x="10" y="10" width="40" height="40" rx="12" fill="#f97316" />
+  
+  <!-- Ícone do Martelo (Gavel) -->
+  <g transform="translate(18, 18)" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="m14 13-7.5 7.5c-.83.83-2.17.83-3 0 0 0 0 0 0 0a2.12 2.12 0 0 1 0-3L11 10"/>
+    <path d="m16 16 6-6"/>
+    <path d="m8 8 6-6"/>
+    <path d="m9 7 8 8"/>
+    <path d="m21 11-8-8"/>
+  </g>
+  
+  <!-- Texto AutoBid -->
+  <text x="60" y="38" font-family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" font-size="28" font-weight="900" fill="#0f172a" letter-spacing="-0.5">
+    Auto<tspan fill="#f97316">Bid</tspan>
+  </text>
+</svg>

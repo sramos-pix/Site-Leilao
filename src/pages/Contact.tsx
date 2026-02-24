@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { 
   Mail, Phone, MessageSquare, 
   Clock, Send, ShieldCheck, 
@@ -16,10 +17,21 @@ import Footer from '@/components/Footer';
 import { SEO } from '@/components/SEO';
 
 const Contact = () => {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [showSuccess, setShowSuccess] = useState(false);
   const [settings, setSettings] = useState({
     phone: '0800 123 4567',
     email: 'suporte@autobid.com.br'
   });
+
+  // Verifica se a URL tem o parâmetro de sucesso (vindo do FormSubmit)
+  useEffect(() => {
+    if (searchParams.get('success') === 'true') {
+      setShowSuccess(true);
+      // Limpa a URL para ficar limpa novamente
+      setSearchParams({});
+    }
+  }, [searchParams, setSearchParams]);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -33,6 +45,9 @@ const Contact = () => {
     };
     fetchSettings();
   }, []);
+
+  // URL de retorno após o envio com o parâmetro de sucesso
+  const nextUrl = typeof window !== 'undefined' ? `${window.location.origin}${window.location.pathname}?success=true` : '';
 
   // Schema Markup para a página de Contato (ContactPage e LocalBusiness)
   const schemaData = {
@@ -149,43 +164,63 @@ const Contact = () => {
                 </div>
               </div>
 
-              {/* Formulário */}
+              {/* Formulário ou Mensagem de Sucesso */}
               <div className="lg:col-span-2">
-                <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100">
-                  <div className="mb-10">
-                    <h3 className="text-2xl font-bold text-slate-900">Envie sua Mensagem</h3>
-                    <p className="text-slate-500 mt-2">Dúvidas sobre lotes, pagamentos ou retirada? Nossa equipe responde rápido.</p>
-                  </div>
-                  
-                  {/* Formulário atualizado para envio padrão HTML */}
-                  <form action="https://formsubmit.co/contato@autobidbr.com.br" method="POST" className="space-y-6">
-                    {/* Configurações do FormSubmit */}
-                    <input type="hidden" name="_template" value="table" />
-                    <input type="hidden" name="_captcha" value="false" />
-                    <input type="hidden" name="_next" value={typeof window !== 'undefined' ? window.location.href : ''} />
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div className="space-y-2">
-                        <Label className="font-bold text-slate-700 ml-1">Nome Completo</Label>
-                        <Input name="Nome" placeholder="Seu nome" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
+                <div className="bg-white p-10 rounded-[2.5rem] shadow-xl border border-slate-100 h-full">
+                  {showSuccess ? (
+                    <div className="flex flex-col items-center justify-center h-full text-center py-12 space-y-4 animate-in fade-in zoom-in duration-500">
+                      <div className="w-24 h-24 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-4 shadow-inner">
+                        <CheckCircle2 size={48} />
                       </div>
-                      <div className="space-y-2">
-                        <Label className="font-bold text-slate-700 ml-1">E-mail</Label>
-                        <Input name="Email" type="email" placeholder="seu@email.com" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
+                      <h3 className="text-3xl font-black text-slate-900">Mensagem Enviada!</h3>
+                      <p className="text-slate-500 text-lg max-w-md mx-auto leading-relaxed">
+                        Agradecemos o seu contato. Nossa equipe recebeu sua mensagem e responderá o mais breve possível.
+                      </p>
+                      <Button 
+                        onClick={() => setShowSuccess(false)} 
+                        variant="outline" 
+                        className="mt-8 rounded-xl h-12 px-8 font-bold border-slate-200 text-slate-600 hover:bg-slate-50"
+                      >
+                        Enviar nova mensagem
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="mb-10">
+                        <h3 className="text-2xl font-bold text-slate-900">Envie sua Mensagem</h3>
+                        <p className="text-slate-500 mt-2">Dúvidas sobre lotes, pagamentos ou retirada? Nossa equipe responde rápido.</p>
                       </div>
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-bold text-slate-700 ml-1">Assunto</Label>
-                      <Input name="_subject" placeholder="Como podemos ajudar?" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label className="font-bold text-slate-700 ml-1">Mensagem</Label>
-                      <Textarea name="Mensagem" placeholder="Escreva sua dúvida ou sugestão detalhadamente..." required className="min-h-[150px] rounded-2xl border-slate-200 focus:border-orange-500" />
-                    </div>
-                    <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white py-8 rounded-2xl text-lg font-black shadow-lg shadow-orange-100 transition-all active:scale-[0.98]">
-                      <Send className="mr-2" size={20} /> ENVIAR MENSAGEM AGORA
-                    </Button>
-                  </form>
+                      
+                      <form action="https://formsubmit.co/contato@autobidbr.com.br" method="POST" className="space-y-6">
+                        {/* Configurações do FormSubmit */}
+                        <input type="hidden" name="_template" value="table" />
+                        <input type="hidden" name="_captcha" value="false" />
+                        <input type="hidden" name="_next" value={nextUrl} />
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                          <div className="space-y-2">
+                            <Label className="font-bold text-slate-700 ml-1">Nome Completo</Label>
+                            <Input name="Nome" placeholder="Seu nome" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label className="font-bold text-slate-700 ml-1">E-mail</Label>
+                            <Input name="Email" type="email" placeholder="seu@email.com" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
+                          </div>
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-bold text-slate-700 ml-1">Assunto</Label>
+                          <Input name="_subject" placeholder="Como podemos ajudar?" required className="h-14 rounded-2xl border-slate-200 focus:border-orange-500" />
+                        </div>
+                        <div className="space-y-2">
+                          <Label className="font-bold text-slate-700 ml-1">Mensagem</Label>
+                          <Textarea name="Mensagem" placeholder="Escreva sua dúvida ou sugestão detalhadamente..." required className="min-h-[150px] rounded-2xl border-slate-200 focus:border-orange-500" />
+                        </div>
+                        <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white py-8 rounded-2xl text-lg font-black shadow-lg shadow-orange-100 transition-all active:scale-[0.98]">
+                          <Send className="mr-2" size={20} /> ENVIAR MENSAGEM AGORA
+                        </Button>
+                      </form>
+                    </>
+                  )}
                 </div>
               </div>
             </div>

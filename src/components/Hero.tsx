@@ -20,11 +20,11 @@ const Hero = () => {
           </div>
           
           <h1 className="text-5xl lg:text-7xl font-black text-white tracking-tight leading-[1.1] mb-6">
-            Encontre o seu <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">próximo veículo</span> aqui.
+            Seu próximo carro com até <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-400 to-orange-600">40% de desconto</span>.
           </h1>
           
           <p className="text-lg text-slate-300 mb-10 font-medium leading-relaxed max-w-xl">
-            Participe de leilões online com segurança, transparência e as melhores oportunidades do mercado. Cadastre-se e dê o seu lance!
+            Seguro, transparente e direto do leilão para a sua garagem. Cadastre-se agora e dê o seu lance nas melhores oportunidades do mercado!
           </p>
           
           <div className="flex flex-col sm:flex-row gap-4">

@@ -16,7 +16,12 @@ const WhatsAppWidget = () => {
           .eq('id', 1)
           .single();
 
-        if (data && !error) {
+        if (error) {
+          console.error("⚠️ ERRO WHATSAPP: As colunas não existem no banco de dados. Você precisa rodar o comando SQL no Supabase!", error.message);
+          return;
+        }
+
+        if (data) {
           setIsEnabled(data.whatsapp_enabled);
           setWaNumber(data.whatsapp_number || '');
         }

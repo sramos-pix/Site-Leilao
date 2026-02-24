@@ -3,22 +3,19 @@
 import React, { useEffect, useState } from 'react';
 import { 
   Mail, Phone, MessageSquare, 
-  Clock, Send, Loader2, ShieldCheck, 
+  Clock, Send, ShieldCheck, 
   Gavel, CheckCircle2, Building2, Award
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { useToast } from '@/components/ui/use-toast';
 import { supabase } from '@/lib/supabase';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
 import { SEO } from '@/components/SEO';
 
 const Contact = () => {
-  const { toast } = useToast();
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [settings, setSettings] = useState({
     phone: '0800 123 4567',
     email: 'suporte@autobid.com.br'
@@ -36,43 +33,6 @@ const Contact = () => {
     };
     fetchSettings();
   }, []);
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
-    const formData = new FormData(e.currentTarget);
-
-    try {
-      // Usando FormSubmit via AJAX para não recarregar a página
-      const response = await fetch("https://formsubmit.co/ajax/contato@autobidbr.com.br", {
-        method: "POST",
-        headers: {
-          'Accept': 'application/json'
-        },
-        body: formData
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Mensagem enviada!",
-          description: "Nossa equipe entrará em contato em até 24 horas úteis."
-        });
-        e.currentTarget.reset();
-      } else {
-        throw new Error("Erro na resposta do servidor");
-      }
-    } catch (error) {
-      console.error("Erro ao enviar formulário:", error);
-      toast({
-        variant: "destructive",
-        title: "Erro ao enviar",
-        description: "Ocorreu um erro ao enviar sua mensagem. Tente novamente mais tarde."
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
 
   // Schema Markup para a página de Contato (ContactPage e LocalBusiness)
   const schemaData = {
@@ -197,10 +157,12 @@ const Contact = () => {
                     <p className="text-slate-500 mt-2">Dúvidas sobre lotes, pagamentos ou retirada? Nossa equipe responde rápido.</p>
                   </div>
                   
-                  <form onSubmit={handleSubmit} className="space-y-6">
-                    {/* Campos ocultos para configuração do FormSubmit */}
+                  {/* Formulário atualizado para envio padrão HTML */}
+                  <form action="https://formsubmit.co/contato@autobidbr.com.br" method="POST" className="space-y-6">
+                    {/* Configurações do FormSubmit */}
                     <input type="hidden" name="_template" value="table" />
                     <input type="hidden" name="_captcha" value="false" />
+                    <input type="hidden" name="_next" value={typeof window !== 'undefined' ? window.location.href : ''} />
                     
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2">
@@ -220,8 +182,8 @@ const Contact = () => {
                       <Label className="font-bold text-slate-700 ml-1">Mensagem</Label>
                       <Textarea name="Mensagem" placeholder="Escreva sua dúvida ou sugestão detalhadamente..." required className="min-h-[150px] rounded-2xl border-slate-200 focus:border-orange-500" />
                     </div>
-                    <Button type="submit" disabled={isSubmitting} className="w-full bg-orange-500 hover:bg-orange-600 text-white py-8 rounded-2xl text-lg font-black shadow-lg shadow-orange-100 transition-all active:scale-[0.98]">
-                      {isSubmitting ? <Loader2 className="animate-spin" /> : <><Send className="mr-2" size={20} /> ENVIAR MENSAGEM AGORA</>}
+                    <Button type="submit" className="w-full bg-orange-500 hover:bg-orange-600 text-white py-8 rounded-2xl text-lg font-black shadow-lg shadow-orange-100 transition-all active:scale-[0.98]">
+                      <Send className="mr-2" size={20} /> ENVIAR MENSAGEM AGORA
                     </Button>
                   </form>
                 </div>

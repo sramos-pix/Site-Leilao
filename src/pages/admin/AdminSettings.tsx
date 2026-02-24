@@ -28,7 +28,10 @@ const AdminSettings = () => {
     require_kyc: true,
     chat_enabled: true,
     whatsapp_enabled: false,
-    whatsapp_number: ""
+    whatsapp_number: "",
+    auctioneer_name: "",
+    auctioneer_registry: "",
+    company_cnpj: ""
   });
 
   useEffect(() => {
@@ -51,7 +54,10 @@ const AdminSettings = () => {
           require_kyc: data.require_kyc !== false,
           chat_enabled: data.chat_enabled !== false,
           whatsapp_enabled: data.whatsapp_enabled || false,
-          whatsapp_number: data.whatsapp_number || ""
+          whatsapp_number: data.whatsapp_number || "",
+          auctioneer_name: data.auctioneer_name || "João Silva Leiloeiro",
+          auctioneer_registry: data.auctioneer_registry || "JUCESP Nº 1234",
+          company_cnpj: data.company_cnpj || "12.345.678/0001-90"
         });
       }
     } catch (error) {
@@ -78,6 +84,9 @@ const AdminSettings = () => {
           chat_enabled: settings.chat_enabled,
           whatsapp_enabled: settings.whatsapp_enabled,
           whatsapp_number: settings.whatsapp_number,
+          auctioneer_name: settings.auctioneer_name,
+          auctioneer_registry: settings.auctioneer_registry,
+          company_cnpj: settings.company_cnpj,
           updated_at: new Date().toISOString()
         })
         .eq("id", 1);
@@ -194,6 +203,45 @@ const AdminSettings = () => {
                     value={settings.support_phone} 
                     onChange={(e) => setSettings({...settings, support_phone: e.target.value})} 
                   />
+                </div>
+              </div>
+
+              {/* NOVA SEÇÃO: DADOS DO LEILOEIRO */}
+              <div className="pt-6 border-t border-slate-100">
+                <h4 className="text-lg font-bold text-slate-900 mb-4 flex items-center gap-2">
+                  <div className="bg-emerald-500/10 p-1.5 rounded-lg">
+                    <Shield size={18} className="text-emerald-500" />
+                  </div>
+                  Dados do Leiloeiro Oficial
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <Label className="font-bold text-slate-700">Nome do Leiloeiro</Label>
+                    <Input
+                      className="h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-colors text-base"
+                      placeholder="Ex: João Silva Leiloeiro"
+                      value={settings.auctioneer_name}
+                      onChange={(e) => setSettings({...settings, auctioneer_name: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="font-bold text-slate-700">Registro (JUCESP/Outros)</Label>
+                    <Input
+                      className="h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-colors text-base"
+                      placeholder="Ex: JUCESP Nº 1234"
+                      value={settings.auctioneer_registry}
+                      onChange={(e) => setSettings({...settings, auctioneer_registry: e.target.value})}
+                    />
+                  </div>
+                  <div className="space-y-2 md:col-span-2">
+                    <Label className="font-bold text-slate-700">CNPJ da Empresa</Label>
+                    <Input
+                      className="h-14 rounded-xl bg-slate-50 border-slate-200 focus:bg-white transition-colors text-base"
+                      placeholder="Ex: 12.345.678/0001-90"
+                      value={settings.company_cnpj}
+                      onChange={(e) => setSettings({...settings, company_cnpj: e.target.value})}
+                    />
+                  </div>
                 </div>
               </div>
 

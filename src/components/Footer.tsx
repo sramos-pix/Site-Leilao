@@ -9,17 +9,23 @@ const Footer = () => {
   const [settings, setSettings] = useState({
     phone: '0800 123 4567',
     email: 'contato@autobidbr.com.br',
-    name: 'AutoBid Leilões S.A.'
+    name: 'AutoBid Leilões S.A.',
+    auctioneer_name: 'João Silva Leiloeiro',
+    auctioneer_registry: 'JUCESP Nº 1234',
+    company_cnpj: '12.345.678/0001-90'
   });
 
   useEffect(() => {
     const fetchSettings = async () => {
-      const { data } = await supabase.from('platform_settings').select('support_phone, support_email, platform_name').eq('id', 1).single();
+      const { data } = await supabase.from('platform_settings').select('support_phone, support_email, platform_name, auctioneer_name, auctioneer_registry, company_cnpj').eq('id', 1).single();
       if (data) {
         setSettings({
           phone: data.support_phone || '0800 123 4567',
           email: data.support_email || 'contato@autobidbr.com.br',
-          name: data.platform_name || 'AutoBid Leilões S.A.'
+          name: data.platform_name || 'AutoBid Leilões S.A.',
+          auctioneer_name: data.auctioneer_name || 'João Silva Leiloeiro',
+          auctioneer_registry: data.auctioneer_registry || 'JUCESP Nº 1234',
+          company_cnpj: data.company_cnpj || '12.345.678/0001-90'
         });
       }
     };
@@ -97,8 +103,8 @@ const Footer = () => {
                 <span className="text-xs font-bold uppercase tracking-widest">Leiloeiro Oficial Registrado</span>
               </div>
               <p className="text-xs text-slate-500 leading-relaxed">
-                <strong className="text-slate-300">João Silva Leiloeiro</strong> - JUCESP Nº 1234<br/>
-                {settings.name} - CNPJ: 12.345.678/0001-90<br/>
+                <strong className="text-slate-300">{settings.auctioneer_name}</strong> - {settings.auctioneer_registry}<br/>
+                {settings.name} - CNPJ: {settings.company_cnpj}<br/>
                 © {new Date().getFullYear()} Todos os direitos reservados.
               </p>
             </div>

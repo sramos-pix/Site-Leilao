@@ -35,19 +35,12 @@ import { currentOnlineCount, currentOnlineUsers } from '@/components/OnlinePrese
 const formatPath = (path: string) => {
   if (!path || path === '/') return 'Página Inicial';
   
-  // Remove o domínio e a porta (ex: http://localhost:32102) se vier junto
   try {
     const url = new URL(path, window.location.origin);
     path = url.pathname;
-  } catch (e) {
-    // Se não for uma URL válida, continua com o path original
-  }
+  } catch (e) {}
   
-  // Se for a página de um lote específico, tenta extrair o ID para mostrar algo mais amigável
-  if (path.includes('/lots/')) {
-    return 'Detalhes do Veículo';
-  }
-  
+  if (path.includes('/lots/')) return 'Detalhes do Veículo';
   if (path.includes('/vehicles')) return 'Catálogo de Veículos';
   if (path.includes('/auctions/')) return 'Detalhes do Leilão';
   if (path.includes('/auctions')) return 'Lista de Leilões';
@@ -61,7 +54,6 @@ const formatPath = (path: string) => {
   if (path.includes('/how-it-works')) return 'Como Funciona';
   if (path.includes('/contact')) return 'Contato';
   
-  // Fallback caso seja uma rota desconhecida
   return path;
 };
 
@@ -80,19 +72,16 @@ const AdminOverview = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
   
-  // Estados para o modal de mensagem
   const [messageModalOpen, setMessageModalOpen] = useState(false);
   const [messageTarget, setMessageTarget] = useState<{id: string, name: string} | null>(null);
   const [messageText, setMessageText] = useState("");
   const [isSendingMessage, setIsSendingMessage] = useState(false);
   
-  // Estados para rastrear o tempo online
   const [currentTime, setCurrentTime] = useState(Date.now());
   const userStartTimes = useRef<Record<string, number>>({});
   
   const isFetchingRef = useRef(false);
 
-  // Atualiza o relógio a cada minuto para recalcular o tempo online
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 60000);
     return () => clearInterval(interval);
@@ -160,22 +149,49 @@ const AdminOverview = () => {
   useEffect(() => {
     fetchStats(true);
 
-    // Escuta o evento global disparado pelo OnlinePresenceTracker
     const handlePresenceUpdate = (e: Event) => {
       const customEvent = e as CustomEvent;
       const users = customEvent.detail.users || [];
       setOnlineUsers(customEvent.detail.count);
       setOnlineUsersList(users);
       
-      // Registra o momento em que vimos o usuário pela primeira vez
       const now = Date.now();
       const newStartTimes = { ...userStartTimes.current };
+      
+      let hasNewUser = false;
+      let newUserName = "";
+
       users.forEach((u: any) => {
         const uid = u.id || u.sessionId || u.presence_ref || u.email || u.name;
         if (uid && !newStartTimes[uid]) {
           newStartTimes[uid] = u.online_at ? new Date(u.online_at).getTime() : now;
+          hasNewUser = true;
+          newUserName = u.name || 'Visitante';
         }
       });
+      
+      // Se encontrou alguém novo E não é o primeiro carregamento da página
+      if (hasNewUser && Object.keys(userStartTimes.current).length > 0) {
+        // Toca o som de notificação
+        try {
+          const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+          audio.volume = 0.4;
+          const playPromise = audio.play();
+          if (playPromise !== undefined) {
+            playPromise.catch(error => console.log("Autoplay bloqueado pelo navegador", error));
+          }
+        } catch (err) {
+          console.error("Erro ao tocar som", err);
+        }
+        
+        // Mostra o alerta visual
+        toast({
+          title: "🟢 Novo usuário online!",
+          description: `${newUserName} acabou de entrar no site.`,
+          duration: 4000,
+        });
+      }
+
       userStartTimes.current = newStartTimes;
     };
 
@@ -184,9 +200,8 @@ const AdminOverview = () => {
     return () => {
       window.removeEventListener('presence-update', handlePresenceUpdate);
     };
-  }, [fetchStats]);
+  }, [fetchStats, toast]);
 
-  // Função para calcular o tempo online
   const getUptime = useCallback((u: any) => {
     const startTime = u.online_at || u.joined_at || u.connectedAt;
     let startMs = 0;

@@ -179,7 +179,7 @@ const SupportChatWidget = () => {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       
       {isOpen && (
-        <div className="mb-4 w-[340px] h-[520px] max-h-[75vh] bg-white/95 backdrop-blur-xl rounded-[1.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-white/50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-500 origin-bottom-right">
+        <div className="w-[340px] h-[520px] max-h-[75vh] bg-white/95 backdrop-blur-xl rounded-[1.5rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-white/50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-500 origin-bottom-right">
           
           {/* Cabeçalho */}
           <div className="bg-slate-900 p-4 flex items-center gap-3 relative overflow-hidden shrink-0">
@@ -302,40 +302,31 @@ const SupportChatWidget = () => {
         </div>
       )}
 
-      {/* Botão Flutuante */}
-      <button
-        onClick={() => {
-          setIsOpen(!isOpen);
-          if (!isOpen) setHasUnread(false);
-        }}
-        className={cn(
-          "relative group flex items-center justify-center w-14 h-14 rounded-full shadow-[0_8px_30px_rgb(249,115,22,0.3)] transition-all duration-500 hover:scale-110 active:scale-95 z-50",
-          isOpen
-            ? "bg-slate-900 rotate-90 shadow-xl"
-            : "bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600"
-        )}
-      >
-        {!isOpen && (
+      {/* Botão Flutuante (Só aparece quando o chat está fechado) */}
+      {!isOpen && (
+        <button
+          onClick={() => {
+            setIsOpen(true);
+            setHasUnread(false);
+          }}
+          className="relative group flex items-center justify-center w-14 h-14 rounded-full shadow-[0_8px_30px_rgb(249,115,22,0.3)] transition-all duration-500 hover:scale-110 active:scale-95 z-50 bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600"
+        >
           <span className={cn(
             "absolute inset-0 rounded-full animate-ping duration-1000",
             hasUnread ? "bg-red-500 opacity-50" : "bg-orange-500 opacity-30"
           )}></span>
-        )}
-        
-        {!isOpen && hasUnread && (
-          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full z-10 animate-bounce"></span>
-        )}
-        
-        {isOpen ? (
-          <X size={24} className="text-white -rotate-90 transition-transform duration-500" />
-        ) : (
+          
+          {hasUnread && (
+            <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 border-2 border-white rounded-full z-10 animate-bounce"></span>
+          )}
+          
           <div className="relative flex items-center justify-center">
             <Headset size={24} className="text-white drop-shadow-md group-hover:scale-110 transition-transform duration-300" />
             <Sparkles size={10} className="absolute -top-1 -right-2 text-orange-200 animate-pulse" />
             <span className="absolute top-0 right-0 w-3 h-3 bg-green-400 border-2 border-orange-500 rounded-full"></span>
           </div>
-        )}
-      </button>
+        </button>
+      )}
     </div>
   );
 };

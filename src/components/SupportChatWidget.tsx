@@ -161,11 +161,11 @@ const SupportChatWidget = () => {
       if (error) throw error;
       await loadMessages();
       
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao enviar:", error);
       toast({ 
         title: "Erro ao enviar", 
-        description: "Não foi possível enviar sua mensagem. Tente novamente.",
+        description: error.message || "Não foi possível enviar sua mensagem. Tente novamente.",
         variant: "destructive" 
       });
       setMessages(prev => prev.filter(m => m.id !== tempId));

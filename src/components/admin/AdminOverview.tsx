@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import {
   Gavel, Package, Users, TrendingUp,
-  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2, CheckCircle, Undo2, Activity, MessageSquare
+  RefreshCw, Loader2, Clock, User, ExternalLink, Trash2, CheckCircle, Undo2, Activity, MessageSquare, MapPin
 } from 'lucide-react';
 import {
   Dialog,
@@ -410,7 +410,13 @@ const AdminOverview = () => {
                             {!u.isGuest && u.email && (
                               <span className="text-xs text-slate-400 truncate">{u.email}</span>
                             )}
-                            <div className="flex items-center gap-2 mt-1">
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              {u.location && (
+                                <span className="text-[10px] text-emerald-700 font-medium bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded-md flex items-center gap-1" title="Localização">
+                                  <MapPin size={10} />
+                                  {u.location}
+                                </span>
+                              )}
                               {u.path && (
                                 <a 
                                   href={u.path}

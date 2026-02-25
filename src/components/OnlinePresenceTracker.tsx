@@ -1,105 +1,95 @@
-import { useEffect, useRef } from 'react';
-import { supabase } from '@/lib/supabase';
-import { useLocation } from 'react-router-dom';
+"use client";
 
-export let currentOnlineCount = 1;
+import { useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+
+export let currentOnlineCount = 0;
 export let currentOnlineUsers: any[] = [];
 
-export function OnlinePresenceTracker() {
+export const OnlinePresenceTracker = () => {
   const location = useLocation();
   const channelRef = useRef<any>(null);
-  const userDataRef = useRef<any>(null);
+  const locationDataRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const sessionId = 'user-' + Math.random().toString(36).substring(2, 15);
+    const initPresence = async () => {
+      // Busca a localização apenas uma vez por sessão para economizar requisições
+      if (!locationDataRef.current) {
+        try {
+          const res = await fetch('https://ipapi.co/json/');
+          const data = await res.json();
+          if (data.city && data.region) {
+            locationDataRef.current = `${data.city}, ${data.region}`;
+          } else {
+            locationDataRef.current = 'Brasil';
+          }
+        } catch (e) {
+          locationDataRef.current = 'Desconhecido';
+        }
+      }
 
-    const channel = supabase.channel('global-presence', {
-      config: {
-        presence: {
-          key: sessionId,
-        },
-      },
-    });
-    
-    channelRef.current = channel;
-
-    const setupPresence = async () => {
       const { data: { session } } = await supabase.auth.getSession();
-      
-      let userData: any = { 
-        isGuest: true, 
-        name: 'Visitante', 
-        email: '',
-        path: window.location.pathname // Captura a página inicial
+      const user = session?.user;
+
+      let profile = null;
+      if (user) {
+        const { data } = await supabase.from('profiles').select('full_name, email').eq('id', user.id).single();
+        profile = data;
+      }
+
+      const presenceData = {
+        id: user?.id || crypto.randomUUID(),
+        name: profile?.full_name || 'Visitante',
+        email: profile?.email || null,
+        isGuest: !user,
+        path: location.pathname,
+        online_at: new Date().toISOString(),
+        location: locationDataRef.current // Adicionando a localização ao payload
       };
 
-      if (session?.user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('full_name, email')
-          .eq('id', session.user.id)
-          .single();
-
-        userData = {
-          isGuest: false,
-          id: session.user.id,
-          name: profile?.full_name || 'Usuário Cadastrado',
-          email: profile?.email || session.user.email || '',
-          path: window.location.pathname // Captura a página inicial
-        };
-      }
-      
-      userDataRef.current = userData;
-
-      channel
-        .on('presence', { event: 'sync' }, () => {
-          const state = channel.presenceState();
-          const allUsers = Object.values(state).map((presences: any) => presences[0]);
-          
-          const uniqueUsers = allUsers.filter((user, index, self) => 
-            index === self.findIndex((t) => (
-              t.id === user.id && t.isGuest === user.isGuest && t.name === user.name
-            ))
-          );
-          
-          currentOnlineCount = uniqueUsers.length;
-          currentOnlineUsers = uniqueUsers;
-          
-          window.dispatchEvent(new CustomEvent('presence-update', { 
-            detail: { count: uniqueUsers.length, users: uniqueUsers } 
-          }));
-        })
-        .subscribe(async (status) => {
-          if (status === 'SUBSCRIBED') {
-            await channel.track({
-              online_at: new Date().toISOString(),
-              ...userDataRef.current
-            });
-          }
+      if (!channelRef.current) {
+        const channel = supabase.channel('online-users', {
+          config: {
+            presence: {
+              key: presenceData.id,
+            },
+          },
         });
+
+        channel
+          .on('presence', { event: 'sync' }, () => {
+            const state = channel.presenceState();
+            const users = Object.values(state).map((presence: any) => presence[0]);
+            
+            currentOnlineCount = users.length;
+            currentOnlineUsers = users;
+
+            window.dispatchEvent(new CustomEvent('presence-update', {
+              detail: { count: users.length, users }
+            }));
+          })
+          .subscribe(async (status) => {
+            if (status === 'SUBSCRIBED') {
+              await channel.track(presenceData);
+            }
+          });
+
+        channelRef.current = channel;
+      } else {
+        // Atualiza o caminho se o canal já existir
+        channelRef.current.track(presenceData);
+      }
     };
 
-    setupPresence();
+    initPresence();
 
     return () => {
-      supabase.removeChannel(channel);
+      // Mantemos a conexão viva entre as rotas
     };
-  }, []);
-
-  // Este useEffect é disparado toda vez que o usuário muda de página
-  useEffect(() => {
-    if (channelRef.current && userDataRef.current) {
-      userDataRef.current.path = location.pathname;
-      
-      // Se o canal já estiver conectado, atualiza o status com a nova página
-      if (channelRef.current.state === 'joined') {
-        channelRef.current.track({
-          online_at: new Date().toISOString(),
-          ...userDataRef.current
-        });
-      }
-    }
   }, [location.pathname]);
 
   return null;
-}
+};
+
+export default OnlinePresenceTracker;

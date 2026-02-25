@@ -13,11 +13,16 @@ const SupportChatWidget = () => {
   const [isEnabled, setIsEnabled] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [user, setUser] = useState<any>(null);
+  const [guestData, setGuestData] = useState<{id: string, name: string} | null>(null);
+  const [tempName, setTempName] = useState('');
+  
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  const chatUserId = user?.id || guestData?.id;
 
   useEffect(() => {
     const initChat = async () => {
@@ -31,6 +36,14 @@ const SupportChatWidget = () => {
 
       const { data: { user } } = await supabase.auth.getUser();
       setUser(user);
+
+      // Se não estiver logado, verifica se já tem uma sessão de visitante salva
+      if (!user) {
+        const storedGuest = localStorage.getItem('autobid_guest_session');
+        if (storedGuest) {
+          setGuestData(JSON.parse(storedGuest));
+        }
+      }
     };
 
     initChat();
@@ -39,27 +52,24 @@ const SupportChatWidget = () => {
   const [prevMsgCount, setPrevMsgCount] = useState(0);
   const [hasUnread, setHasUnread] = useState(false);
 
-  // Carrega as mensagens e configura o auto-refresh (agora roda sempre em background)
+  // Carrega as mensagens e configura o auto-refresh
   useEffect(() => {
-    if (user) {
+    if (chatUserId) {
       loadMessages();
       
-      // Sistema de Polling: Busca novas mensagens a cada 3 segundos
       const interval = setInterval(() => {
         loadMessages();
       }, 3000);
 
       return () => clearInterval(interval);
     }
-  }, [user]);
+  }, [chatUserId]);
 
   // Monitora novas mensagens para abrir o chat automaticamente
   useEffect(() => {
     if (messages.length > prevMsgCount) {
-      // Se não for o carregamento inicial
       if (prevMsgCount > 0) {
         const lastMsg = messages[messages.length - 1];
-        // Se a mensagem for do admin e o chat estiver fechado
         if (lastMsg.is_from_admin && !isOpen) {
           setIsOpen(true);
           setHasUnread(true);
@@ -74,16 +84,15 @@ const SupportChatWidget = () => {
   }, [messages]);
 
   const loadMessages = async () => {
-    if (!user) return;
+    if (!chatUserId) return;
     const { data } = await supabase
       .from('support_messages')
       .select('*')
-      .eq('user_id', user.id)
+      .eq('user_id', chatUserId)
       .order('created_at', { ascending: true });
     
     if (data) {
       setMessages(prev => {
-        // Só atualiza o estado se houver mensagens novas para evitar que a tela pisque
         const isDifferent = prev.length !== data.length || 
                            (prev.length > 0 && data.length > 0 && prev[prev.length-1].id !== data[data.length-1].id);
         
@@ -98,18 +107,39 @@ const SupportChatWidget = () => {
     }
   };
 
+  const handleStartGuestChat = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!tempName.trim()) return;
+
+    const newGuestData = {
+      id: crypto.randomUUID(), // Gera um ID único para o visitante
+      name: tempName.trim()
+    };
+
+    localStorage.setItem('autobid_guest_session', JSON.stringify(newGuestData));
+    setGuestData(newGuestData);
+  };
+
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !user) return;
+    if (!newMessage.trim() || !chatUserId) return;
 
-    const messageText = newMessage.trim();
+    let messageText = newMessage.trim();
     setNewMessage('');
     
-    // 1. ATUALIZAÇÃO OTIMISTA: Mostra a mensagem na tela IMEDIATAMENTE
+    // Se for a primeira mensagem de um visitante, adiciona o nome dele para o admin saber quem é
+    if (!user && guestData) {
+      const hasSentFirst = localStorage.getItem(`autobid_guest_sent_${guestData.id}`);
+      if (!hasSentFirst) {
+        messageText = `[Visitante: ${guestData.name}] ${messageText}`;
+        localStorage.setItem(`autobid_guest_sent_${guestData.id}`, 'true');
+      }
+    }
+
     const tempId = 'temp-' + Date.now();
     const tempMsg = {
       id: tempId,
-      user_id: user.id,
+      user_id: chatUserId,
       message: messageText,
       is_from_admin: false,
       created_at: new Date().toISOString()
@@ -117,33 +147,29 @@ const SupportChatWidget = () => {
     
     setMessages(prev => [...prev, tempMsg]);
     
-    // Rola para baixo instantaneamente
     setTimeout(() => {
       messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, 50);
 
     try {
-      // 2. Envia para o banco de dados em segundo plano
       const { error } = await supabase.from('support_messages').insert({
-        user_id: user.id,
+        user_id: chatUserId,
         message: messageText,
         is_from_admin: false
       });
 
       if (error) throw error;
-      
-      // 3. Recarrega para pegar o ID oficial gerado pelo banco
       await loadMessages();
       
     } catch (error) {
+      console.error("Erro ao enviar:", error);
       toast({ 
         title: "Erro ao enviar", 
         description: "Não foi possível enviar sua mensagem. Tente novamente.",
         variant: "destructive" 
       });
-      // Se der erro, remove a mensagem temporária e devolve o texto pro input
       setMessages(prev => prev.filter(m => m.id !== tempId));
-      setNewMessage(messageText);
+      setNewMessage(newMessage.trim()); // Devolve o texto original (sem a tag de visitante)
     }
   };
 
@@ -152,11 +178,10 @@ const SupportChatWidget = () => {
   return (
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end">
       
-      {/* Janela do Chat Premium */}
       {isOpen && (
         <div className="mb-6 w-[380px] h-[600px] max-h-[80vh] bg-white/95 backdrop-blur-xl rounded-[2rem] shadow-[0_20px_50px_-12px_rgba(0,0,0,0.25)] border border-white/50 flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 fade-in duration-500 origin-bottom-right">
           
-          {/* Cabeçalho Sofisticado */}
+          {/* Cabeçalho */}
           <div className="bg-slate-900 p-6 flex items-center gap-4 relative overflow-hidden shrink-0">
             <div className="absolute top-0 right-0 w-32 h-32 bg-orange-500/20 rounded-full blur-3xl -mr-10 -mt-10"></div>
             
@@ -183,23 +208,38 @@ const SupportChatWidget = () => {
             </button>
           </div>
 
-          {/* Área de Mensagens */}
+          {/* Área de Mensagens ou Formulário de Visitante */}
           <div className="flex-1 bg-slate-50/50 p-5 overflow-y-auto flex flex-col gap-4 scroll-smooth">
-            {!user ? (
+            {!user && !guestData ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center space-y-5 h-full p-2">
                 <div className="relative">
                   <div className="absolute inset-0 bg-orange-500 blur-xl opacity-20 rounded-full"></div>
                   <div className="relative w-20 h-20 bg-white border border-slate-100 shadow-xl rounded-full flex items-center justify-center mb-2">
-                    <User size={36} className="text-orange-500" />
+                    <Headset size={36} className="text-orange-500" />
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-black text-slate-900 text-xl mb-2">Identifique-se</h4>
-                  <p className="text-sm text-slate-500 leading-relaxed">Faça login ou cadastre-se para conversar em tempo real com nossa equipe de especialistas.</p>
+                  <h4 className="font-black text-slate-900 text-xl mb-2">Atendimento Online</h4>
+                  <p className="text-sm text-slate-500 leading-relaxed">Como podemos chamar você?</p>
                 </div>
-                <Button asChild className="bg-slate-900 hover:bg-orange-600 text-white rounded-full px-8 h-12 font-bold w-full transition-all duration-300 shadow-lg mt-4">
-                  <Link to="/login">Fazer Login</Link>
-                </Button>
+                <form onSubmit={handleStartGuestChat} className="w-full space-y-3 mt-4">
+                  <Input
+                    value={tempName}
+                    onChange={(e) => setTempName(e.target.value)}
+                    placeholder="Digite seu nome..."
+                    className="h-12 rounded-xl text-center bg-white border-slate-200 focus-visible:ring-orange-500"
+                    required
+                  />
+                  <Button type="submit" className="w-full h-12 rounded-xl bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-lg shadow-orange-500/20 transition-all">
+                    Iniciar Conversa
+                  </Button>
+                </form>
+                <div className="mt-4 pt-4 border-t border-slate-200 w-full">
+                  <p className="text-xs text-slate-400 mb-2">Já tem uma conta?</p>
+                  <Button asChild variant="outline" className="w-full rounded-xl h-10">
+                    <Link to="/login">Fazer Login</Link>
+                  </Button>
+                </div>
               </div>
             ) : messages.length === 0 ? (
               <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
@@ -207,7 +247,9 @@ const SupportChatWidget = () => {
                   <Headset size={32} className="text-slate-300" />
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-700 mb-1 text-lg">Como podemos ajudar?</h4>
+                  <h4 className="font-bold text-slate-700 mb-1 text-lg">
+                    Olá, {user ? user.user_metadata?.full_name?.split(' ')[0] : guestData?.name}!
+                  </h4>
                   <p className="text-sm text-slate-400">Envie sua dúvida e responderemos o mais rápido possível.</p>
                 </div>
               </div>
@@ -236,7 +278,7 @@ const SupportChatWidget = () => {
           </div>
 
           {/* Input de Envio */}
-          {user && (
+          {(user || guestData) && (
             <div className="p-4 bg-white border-t border-slate-100 shrink-0">
               <form onSubmit={sendMessage} className="flex items-center gap-3">
                 <Input
@@ -260,7 +302,7 @@ const SupportChatWidget = () => {
         </div>
       )}
 
-      {/* Botão Flutuante Premium */}
+      {/* Botão Flutuante */}
       <button
         onClick={() => {
           setIsOpen(!isOpen);
@@ -273,7 +315,6 @@ const SupportChatWidget = () => {
             : "bg-gradient-to-br from-orange-400 via-orange-500 to-orange-600"
         )}
       >
-        {/* Efeito de pulso quando fechado */}
         {!isOpen && (
           <span className={cn(
             "absolute inset-0 rounded-full animate-ping duration-1000",
@@ -281,7 +322,6 @@ const SupportChatWidget = () => {
           )}></span>
         )}
         
-        {/* Badge de notificação */}
         {!isOpen && hasUnread && (
           <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 border-2 border-white rounded-full z-10 animate-bounce"></span>
         )}

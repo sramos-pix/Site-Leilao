@@ -154,10 +154,21 @@ const Register = () => {
         if (profileError) throw profileError;
       }
 
-      toast({ 
-        title: "Cadastro realizado!", 
-        description: "Bem-vindo à plataforma AutoBid." 
+      toast({
+        title: "Cadastro realizado!",
+        description: "Bem-vindo à plataforma AutoBid."
       });
+      
+      // Rastreamento de Conversão (Google Ads e Meta Pixel)
+      if (typeof (window as any).gtag === 'function') {
+        (window as any).gtag('event', 'conversion', {
+          'send_to': 'AW-17981657405/sign_up'
+        });
+      }
+      
+      if (typeof (window as any).fbq === 'function') {
+        (window as any).fbq('track', 'CompleteRegistration');
+      }
       
       navigate('/app/dashboard');
     } catch (error: any) {

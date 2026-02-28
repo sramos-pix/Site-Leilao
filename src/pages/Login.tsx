@@ -42,14 +42,11 @@ const Login = () => {
       }
     } catch (error: any) {
       let msg = error.message || "Erro ao realizar login.";
-      
-      // Traduzindo o erro do Supabase para português
       if (msg.toLowerCase().includes('invalid login credentials')) {
         msg = "E-mail ou senha incorretos. Verifique seus dados e tente novamente.";
       } else if (msg.toLowerCase().includes('email not confirmed')) {
         msg = "Seu e-mail ainda não foi confirmado. Verifique sua caixa de entrada.";
       }
-      
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);
@@ -59,10 +56,15 @@ const Login = () => {
   const handleGoogleLogin = async () => {
     setIsGoogleLoading(true);
     try {
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      // Usando window.location.origin para garantir que volte para o site atual
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/app/dashboard`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
@@ -102,7 +104,6 @@ const Login = () => {
             </Alert>
           )}
 
-          {/* Botão de Login com Google */}
           <Button
             onClick={handleGoogleLogin}
             disabled={isGoogleLoading}

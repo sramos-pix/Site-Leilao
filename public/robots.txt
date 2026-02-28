@@ -1,11 +1,11 @@
 User-agent: *
 Allow: /
 
-# Bloquear páginas de sistema/usuário logado
-Disallow: /app/
+# Bloqueia a indexação de áreas privadas e administrativas
 Disallow: /admin/
+Disallow: /app/
 Disallow: /login
 Disallow: /register
 
-# Sitemaps
+# Aponta para o mapa do site
 Sitemap: https://autobidbr.com/sitemap.xml

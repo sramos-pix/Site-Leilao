@@ -253,7 +253,7 @@ const LotDetail = () => {
     const currentIndex = allPhotos.indexOf(activePhoto);
     if (currentIndex > 0) {
       setActivePhoto(allPhotos[currentIndex - 1]);
-    } else {
+    } else if (allPhotos.length > 0) {
       setActivePhoto(allPhotos[allPhotos.length - 1]);
     }
   };
@@ -261,9 +261,9 @@ const LotDetail = () => {
   const handleNextPhoto = () => {
     const allPhotos = [lot.cover_image_url, ...photos.map(p => p.public_url)].filter(Boolean);
     const currentIndex = allPhotos.indexOf(activePhoto);
-    if (currentIndex < allPhotos.length - 1) {
+    if (currentIndex !== -1 && currentIndex < allPhotos.length - 1) {
       setActivePhoto(allPhotos[currentIndex + 1]);
-    } else {
+    } else if (allPhotos.length > 0) {
       setActivePhoto(allPhotos[0]);
     }
   };
@@ -311,14 +311,24 @@ const LotDetail = () => {
               
               {/* Navigation Arrows */}
               <button
-                onClick={handlePrevPhoto}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handlePrevPhoto();
+                }}
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm z-10"
               >
                 <ChevronLeft size={24} />
               </button>
               <button
-                onClick={handleNextPhoto}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm"
+                type="button"
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  handleNextPhoto();
+                }}
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm z-10"
               >
                 <ChevronRight size={24} />
               </button>

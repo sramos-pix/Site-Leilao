@@ -16,7 +16,7 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search, Download, Filter, X } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search, Download, Filter, X, Clock, AlertCircle } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
 import BulkImportLots from './BulkImportLots';
@@ -38,6 +38,7 @@ const LotManager = () => {
   const [selectedBrand, setSelectedBrand] = useState<string>("all");
   const [selectedModel, setSelectedModel] = useState<string>("all");
   const [selectedAuction, setSelectedAuction] = useState<string>("all");
+  const [timeStatus, setTimeStatus] = useState<string>("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
   const { toast } = useToast();
@@ -104,13 +105,34 @@ const LotManager = () => {
     const matchesModel = selectedModel === "all" || lot.model === selectedModel;
     const matchesAuction = selectedAuction === "all" || lot.auction_id === selectedAuction;
 
-    return matchesSearch && matchesBrand && matchesModel && matchesAuction;
+    // Filtro de Status Temporal
+    let matchesTime = true;
+    if (timeStatus !== "all") {
+      if (!lot.ends_at) {
+        matchesTime = false;
+      } else {
+        const now = new Date();
+        const endsAt = new Date(lot.ends_at);
+        
+        if (timeStatus === "finished") {
+          matchesTime = endsAt < now;
+        } else if (timeStatus === "ending_soon") {
+          const diffHours = (endsAt.getTime() - now.getTime()) / (1000 * 60 * 60);
+          matchesTime = diffHours > 0 && diffHours <= 24;
+        } else if (timeStatus === "active") {
+          matchesTime = endsAt > now;
+        }
+      }
+    }
+
+    return matchesSearch && matchesBrand && matchesModel && matchesAuction && matchesTime;
   });
 
   const clearFilters = () => {
     setSelectedBrand("all");
     setSelectedModel("all");
     setSelectedAuction("all");
+    setTimeStatus("all");
     setSearchTerm("");
   };
 
@@ -453,17 +475,17 @@ const LotManager = () => {
           </div>
           <Button
             onClick={() => setIsFilterOpen(!isFilterOpen)}
-            variant={isFilterOpen || selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all" ? "default" : "outline"}
+            variant={isFilterOpen || selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all" || timeStatus !== "all" ? "default" : "outline"}
             className={cn(
               "h-12 rounded-xl gap-2 font-bold transition-all px-6",
-              (isFilterOpen || selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all")
+              (isFilterOpen || selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all" || timeStatus !== "all")
                 ? "bg-orange-500 hover:bg-orange-600 text-white border-none"
                 : "bg-white text-slate-700 border-slate-200 hover:bg-slate-50"
             )}
           >
             <Filter size={18} />
             Filtros
-            {(selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all") && (
+            {(selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all" || timeStatus !== "all") && (
               <Badge className="ml-1 bg-white/20 text-white hover:bg-white/30 border-none px-1.5 py-0.5 text-[10px]">
                 Ativos
               </Badge>
@@ -479,14 +501,14 @@ const LotManager = () => {
                 <Filter size={16} className="text-orange-500" />
                 Filtros Avançados
               </h3>
-              {(selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all" || searchTerm !== "") && (
+              {(selectedBrand !== "all" || selectedModel !== "all" || selectedAuction !== "all" || timeStatus !== "all" || searchTerm !== "") && (
                 <Button variant="ghost" size="sm" onClick={clearFilters} className="text-slate-500 hover:text-red-500 h-8 px-2 text-xs font-bold">
                   <X size={14} className="mr-1" /> Limpar Filtros
                 </Button>
               )}
             </div>
             
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="space-y-2">
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Leilão</label>
                 <select
@@ -532,6 +554,20 @@ const LotManager = () => {
                   ))}
                 </select>
               </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Status Temporal</label>
+                <select
+                  className="w-full h-10 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm text-slate-700 font-medium focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none transition-all"
+                  value={timeStatus}
+                  onChange={(e) => setTimeStatus(e.target.value)}
+                >
+                  <option value="all">Todos os Status</option>
+                  <option value="active">Em Andamento</option>
+                  <option value="ending_soon">Encerra em 24h</option>
+                  <option value="finished">Encerrados</option>
+                </select>
+              </div>
             </div>
           </div>
         )}
@@ -564,58 +600,72 @@ const LotManager = () => {
             ) : filteredLots.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-10 text-slate-500">
-                  Nenhum veículo encontrado para "{searchTerm}".
+                  Nenhum veículo encontrado para os filtros selecionados.
                 </TableCell>
               </TableRow>
-            ) : filteredLots.map((lot) => (
-              <TableRow key={lot.id} className={`hover:bg-slate-50/50 transition-colors ${selectedIds.includes(lot.id) ? 'bg-orange-50/30' : ''}`}>
-                <TableCell>
-                  <Checkbox 
-                    checked={selectedIds.includes(lot.id)}
-                    onCheckedChange={() => toggleSelect(lot.id)}
-                  />
-                </TableCell>
-                <TableCell className="font-mono text-xs">
-                  <Link 
-                    to={`/lots/${lot.id}`} 
-                    target="_blank"
-                    className="flex items-center gap-1 text-orange-600 hover:text-orange-700 font-bold"
-                  >
-                    #{lot.lot_number}
-                    <ExternalLink size={10} />
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <Link 
-                    to={`/lots/${lot.id}`} 
-                    target="_blank"
-                    className="flex items-center gap-3 group"
-                  >
-                    <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
-                      {lot.cover_image_url ? <img src={lot.cover_image_url} className="w-full h-full object-cover" /> : <Car className="w-full h-full p-2 text-slate-300" />}
+            ) : filteredLots.map((lot) => {
+              const isFinished = lot.ends_at && new Date(lot.ends_at) < new Date();
+              const isEndingSoon = lot.ends_at && !isFinished && (new Date(lot.ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60) <= 24;
+
+              return (
+                <TableRow key={lot.id} className={`hover:bg-slate-50/50 transition-colors ${selectedIds.includes(lot.id) ? 'bg-orange-50/30' : ''} ${isFinished ? 'opacity-75 grayscale-[0.5]' : ''}`}>
+                  <TableCell>
+                    <Checkbox 
+                      checked={selectedIds.includes(lot.id)}
+                      onCheckedChange={() => toggleSelect(lot.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <Link 
+                      to={`/lots/${lot.id}`} 
+                      target="_blank"
+                      className="flex items-center gap-1 text-orange-600 hover:text-orange-700 font-bold"
+                    >
+                      #{lot.lot_number}
+                      <ExternalLink size={10} />
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <Link 
+                      to={`/lots/${lot.id}`} 
+                      target="_blank"
+                      className="flex items-center gap-3 group"
+                    >
+                      <div className="w-10 h-10 rounded-lg bg-slate-100 overflow-hidden flex-shrink-0">
+                        {lot.cover_image_url ? <img src={lot.cover_image_url} className="w-full h-full object-cover" /> : <Car className="w-full h-full p-2 text-slate-300" />}
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="font-bold group-hover:text-orange-600 transition-colors">{lot.title}</span>
+                        <span className="text-[10px] text-slate-400">{lot.transmission || 'N/I'} • {lot.fuel_type || 'N/I'}</span>
+                      </div>
+                    </Link>
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {isFinished ? (
+                        <Badge className="bg-red-100 text-red-600 border-none text-[10px] flex items-center gap-1">
+                          <AlertCircle size={10} /> Encerrado
+                        </Badge>
+                      ) : isEndingSoon ? (
+                        <Badge className="bg-amber-100 text-amber-600 border-none text-[10px] flex items-center gap-1 animate-pulse">
+                          <Clock size={10} /> Encerra em breve
+                        </Badge>
+                      ) : null}
+                      {lot.is_featured && <Badge className="bg-orange-100 text-orange-600 border-none text-[10px]">Destaque</Badge>}
+                      {lot.is_weekly_highlight && <Badge className="bg-blue-100 text-blue-600 border-none text-[10px]">Semana</Badge>}
                     </div>
-                    <div className="flex flex-col">
-                      <span className="font-bold group-hover:text-orange-600 transition-colors">{lot.title}</span>
-                      <span className="text-[10px] text-slate-400">{lot.transmission || 'N/I'} • {lot.fuel_type || 'N/I'}</span>
+                  </TableCell>
+                  <TableCell className="font-bold">{formatCurrency(lot.start_bid)}</TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => handleManagePhotos(lot)} title="Gerenciar Fotos" className="text-orange-500"><ImageIcon size={18} /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEdit(lot)} title="Editar Veículo" className="text-blue-500"><Edit size={18} /></Button>
+                      <Button variant="ghost" size="icon" onClick={() => { if(confirm('Excluir?')) supabase.from('lots').delete().eq('id', lot.id).then(() => fetchData()); }} title="Excluir" className="text-red-500"><Trash2 size={18} /></Button>
                     </div>
-                  </Link>
-                </TableCell>
-                <TableCell>
-                  <div className="flex gap-1">
-                    {lot.is_featured && <Badge className="bg-orange-100 text-orange-600 border-none text-[10px]">Destaque</Badge>}
-                    {lot.is_weekly_highlight && <Badge className="bg-blue-100 text-blue-600 border-none text-[10px]">Semana</Badge>}
-                  </div>
-                </TableCell>
-                <TableCell className="font-bold">{formatCurrency(lot.start_bid)}</TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-2">
-                    <Button variant="ghost" size="icon" onClick={() => handleManagePhotos(lot)} className="text-orange-500"><ImageIcon size={18} /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => handleEdit(lot)} className="text-blue-500"><Edit size={18} /></Button>
-                    <Button variant="ghost" size="icon" onClick={() => { if(confirm('Excluir?')) supabase.from('lots').delete().eq('id', lot.id).then(() => fetchData()); }} className="text-red-500"><Trash2 size={18} /></Button>
-                  </div>
-                </TableCell>
-              </TableRow>
-            ))}
+                  </TableCell>
+                </TableRow>
+              );
+            })}
           </TableBody>
         </Table>
       </div>

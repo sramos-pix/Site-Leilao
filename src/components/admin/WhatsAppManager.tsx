@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { MessageCircle, User, Sparkles, Loader2 } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { cn } from '@/lib/utils';
 
 interface WhatsAppManagerProps {
   user: {
@@ -62,19 +63,18 @@ const WhatsAppManager = ({ user }: WhatsAppManagerProps) => {
       </div>
 
       <div className="space-y-3">
-        <Label className="text-xs font-black text-slate-400 uppercase ml-1">Templates Rápidos</Card.Label>
+        <Label className="text-xs font-black text-slate-400 uppercase ml-1">Templates Rápidos</Label>
         <div className="flex flex-wrap gap-2">
           {loading ? <Loader2 className="animate-spin h-4 w-4 text-slate-300" /> : 
             templates.map((t) => (
-              <Button
+              <button
                 key={t.id}
-                variant="outline"
-                size="sm"
+                type="button"
                 onClick={() => handleApplyTemplate(t.content)}
-                className="text-[10px] h-8 rounded-xl border-green-100 hover:bg-green-50 hover:text-green-600 hover:border-green-200 transition-all"
+                className="inline-flex items-center px-3 py-1.5 text-[10px] font-bold rounded-xl border border-green-100 bg-white text-green-600 hover:bg-green-50 hover:border-green-200 transition-all"
               >
                 <Sparkles size={10} className="mr-1.5" /> {t.name}
-              </Button>
+              </button>
             ))
           }
         </div>
@@ -102,10 +102,10 @@ const WhatsAppManager = ({ user }: WhatsAppManagerProps) => {
   );
 };
 
-const Label = ({ children, className }: any) => <label className={cn("block text-sm font-medium text-slate-700", className)}>{children}</label>;
-
-function cn(...classes: any[]) {
-  return classes.filter(Boolean).join(' ');
-}
+const Label = ({ children, className }: any) => (
+  <label className={cn("block text-sm font-medium text-slate-700", className)}>
+    {children}
+  </label>
+);
 
 export default WhatsAppManager;

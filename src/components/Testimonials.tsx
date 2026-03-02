@@ -9,21 +9,21 @@ const testimonials = [
     name: "Ricardo Oliveira",
     role: "Arrematante Frequente",
     content: "O AutoBid facilitou muito a minha vida. O sistema de lances em tempo real é muito preciso e a transparência em todo o processo me dá a segurança que preciso para investir.",
-    avatar: "https://i.pravatar.cc/150?u=ricardo",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces",
     rating: 5
   },
   {
     name: "Juliana Costa",
     role: "Primeira Compra",
     content: "Estava com receio de participar de leilões online, mas o suporte do AutoBid foi incrível. Arrematei meu primeiro carro com um preço excelente e toda a documentação foi resolvida rápido.",
-    avatar: "https://i.pravatar.cc/150?u=juliana",
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=faces",
     rating: 5
   },
   {
     name: "Marcos Vinícius",
     role: "Investidor",
     content: "Plataforma extremamente intuitiva. Os filtros de busca e as notificações de lances superados me ajudam a não perder nenhuma oportunidade de negócio. Recomendo!",
-    avatar: "https://i.pravatar.cc/150?u=marcos",
+    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=faces",
     rating: 5
   }
 ];

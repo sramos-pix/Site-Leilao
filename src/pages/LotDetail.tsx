@@ -47,7 +47,10 @@ const LotDetail = () => {
 
   const currentPrice = useMemo(() => {
     if (!lot) return 0;
-    return Math.max(Number(lot.current_bid) || 0, Number(lot.start_bid) || 0);
+    // Prioriza o current_bid se ele existir e for maior que o start_bid
+    const start = Number(lot.start_bid) || 0;
+    const current = Number(lot.current_bid) || 0;
+    return Math.max(current, start);
   }, [lot]);
 
   // Gerenciamento de sessão robusto e independente
@@ -110,7 +113,8 @@ const LotDetail = () => {
       }
 
       const increment = lotData.bid_increment || 500;
-      const currentVal = lotData.current_bid || lotData.start_bid || 0;
+      // O valor base para lances fictícios e cálculo de próximo lance deve ser o maior entre start e current
+      const currentVal = Math.max(Number(lotData.current_bid) || 0, Number(lotData.start_bid) || 0);
 
       // 3. Formata os lances reais mesclando com os e-mails encontrados
       const formattedReals = (realBids || []).map(b => ({
@@ -125,9 +129,11 @@ const LotDetail = () => {
       let finalBids = [...formattedReals];
       
       // 4. Geração Determinística de Lances Fictícios (Não muda no F5)
+      // Se o valor atual for o start_bid e não houver lances reais,
+      // garantimos que o histórico mostre o valor atualizado.
       if (finalBids.length < 10) {
         const needed = 10 - finalBids.length;
-        let nextFakeAmount = finalBids.length > 0 
+        let nextFakeAmount = finalBids.length > 0
           ? finalBids[finalBids.length - 1].amount - increment
           : currentVal;
 
@@ -159,10 +165,9 @@ const LotDetail = () => {
       finalBids.sort((a, b) => b.amount - a.amount);
       setDisplayBids(finalBids);
       
-      setBidAmount(prev => {
-        const nextMin = currentVal + increment;
-        return prev < nextMin ? nextMin : prev;
-      });
+      // Atualiza o valor sugerido para o próximo lance
+      const nextMin = currentVal + increment;
+      setBidAmount(nextMin);
       
       const { data: ph } = await supabase.from('lot_photos').select('*').eq('lot_id', id);
       setPhotos(ph || []);

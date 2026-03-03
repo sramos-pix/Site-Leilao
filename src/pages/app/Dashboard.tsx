@@ -29,6 +29,21 @@ const Dashboard = () => {
   const [winsCount, setWinsCount] = React.useState(0);
   const [isLoading, setIsLoading] = React.useState(true);
 
+  // Lógica de Conversão Google Ads
+  React.useEffect(() => {
+    if (window.location.search.includes('newSignup=1')) {
+      // Dispara o evento de conversão
+      if (typeof (window as any).gtag === 'function') {
+        (window as any).gtag('event', 'conversion', {
+          'send_to': 'AW-17981657405/yxFPCO7e3oEcEL2iqf5C'
+        });
+      }
+
+      // Limpa a URL sem recarregar a página
+      window.history.replaceState({}, document.title, "/app/dashboard");
+    }
+  }, []);
+
   const fetchDashboardData = React.useCallback(async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -151,7 +166,7 @@ const Dashboard = () => {
       color: 'bg-orange-500',
       badge: 'text-orange-600',
       description: 'Documentos em verificação',
-      buttonText: '' // Removido o botão quando está em análise
+      buttonText: '' 
     };
   }
 

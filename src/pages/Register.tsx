@@ -159,26 +159,13 @@ const Register = () => {
         description: "Bem-vindo à plataforma AutoBid."
       });
       
-      // Rastreamento de Conversão (Google Ads e Meta Pixel)
-      if (typeof (window as any).gtag === 'function') {
-        (window as any).gtag('event', 'conversion', {
-          'send_to': 'AW-17981657405/sign_up'
-        });
-      }
-      
-      if (typeof (window as any).fbq === 'function') {
-        (window as any).fbq('track', 'CompleteRegistration');
-      }
-      
-      navigate('/app/dashboard');
+      // Redireciona com o parâmetro de nova conversão
+      navigate('/app/dashboard?newSignup=1');
     } catch (error: any) {
       let msg = error.message || "Erro ao realizar cadastro.";
-      
-      // Traduzindo o erro do Supabase para português
       if (msg.toLowerCase().includes('already registered') || msg.toLowerCase().includes('user already exists')) {
         msg = "Este e-mail já está cadastrado em nosso sistema. Por favor, faça login.";
       }
-      
       setErrorMessage(msg);
     } finally {
       setIsLoading(false);

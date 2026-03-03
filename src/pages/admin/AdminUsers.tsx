@@ -54,16 +54,35 @@ const AdminUsers = () => {
   }, [searchParams]);
 
   const handleDeleteUser = async (userId: string, userName: string) => {
-    if (!confirm(`Tem certeza que deseja excluir o usuário "${userName}"?`)) return;
+    // Confirmação de segurança para evitar exclusão acidental
+    const confirmed = window.confirm(`ATENÇÃO: Você tem certeza que deseja excluir permanentemente o usuário "${userName || 'Sem nome'}"? Esta ação não pode ser desfeita.`);
+    
+    if (!confirmed) return;
 
     setIsDeleting(userId);
     try {
-      const { error } = await supabase.from('profiles').delete().eq('id', userId);
+      // Tenta excluir o perfil na tabela pública
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+
       if (error) throw error;
-      toast({ title: "Usuário excluído" });
+
+      toast({ 
+        title: "Usuário removido", 
+        description: `O perfil de ${userName} foi excluído com sucesso.` 
+      });
+      
+      // Atualiza a lista local imediatamente
       setUsers(prev => prev.filter(u => u.id !== userId));
     } catch (error: any) {
-      toast({ variant: "destructive", title: "Erro ao excluir", description: error.message });
+      console.error("Erro ao excluir usuário:", error);
+      toast({ 
+        variant: "destructive", 
+        title: "Erro na exclusão", 
+        description: error.message || "Não foi possível excluir o registro no banco de dados." 
+      });
     } finally {
       setIsDeleting(null);
     }
@@ -121,7 +140,6 @@ const AdminUsers = () => {
                         <div className="flex items-center justify-between">
                           <div className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12} /> {u.phone || '-'}</div>
                           
-                          {/* BOTÃO WHATSAPP INTEGRADO */}
                           {u.phone && (
                             <Dialog>
                               <DialogTrigger asChild>
@@ -153,8 +171,23 @@ const AdminUsers = () => {
                     </TableCell>
                     <TableCell className="text-right pr-6">
                       <div className="flex justify-end gap-2">
-                        <Button variant="ghost" size="icon" className="text-orange-500 hover:bg-orange-50 rounded-full" onClick={() => { setSelectedUser(u); setIsEditOpen(true); }}><Edit size={18} /></Button>
-                        <Button variant="ghost" size="icon" className="text-red-400 hover:bg-red-50 rounded-full" onClick={() => handleDeleteUser(u.id, u.full_name)} disabled={isDeleting === u.id}><Trash2 size={18} /></Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-orange-500 hover:bg-orange-50 rounded-full" 
+                          onClick={() => { setSelectedUser(u); setIsEditOpen(true); }}
+                        >
+                          <Edit size={18} />
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-red-400 hover:bg-red-50 rounded-full" 
+                          onClick={() => handleDeleteUser(u.id, u.full_name)} 
+                          disabled={isDeleting === u.id}
+                        >
+                          {isDeleting === u.id ? <Loader2 className="animate-spin" size={18} /> : <Trash2 size={18} />}
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>

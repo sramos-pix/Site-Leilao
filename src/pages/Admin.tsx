@@ -59,17 +59,22 @@ const Admin = () => {
           filter: 'is_from_admin=eq.false' // Apenas mensagens enviadas por usuários
         },
         (payload) => {
+          console.log("Nova mensagem recebida no Admin:", payload);
           // Se não estiver na aba de chat, incrementa o contador e notifica
           if (activeTabRef.current !== 'chat') {
             setUnreadChatCount(prev => prev + 1);
             
             // Toca som de notificação de mensagem
             try {
-              const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-              audio.volume = 0.5;
+              // Usando um som mais garantido e curto
+              const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+              audio.volume = 0.7;
               const playPromise = audio.play();
               if (playPromise !== undefined) {
-                playPromise.catch(e => console.log("Áudio bloqueado pelo navegador", e));
+                playPromise.catch(e => {
+                  console.warn("Áudio bloqueado pelo navegador. O usuário precisa interagir com a página primeiro.", e);
+                  // Fallback: Notificação visual já existe via toast
+                });
               }
             } catch (err) {
               console.error("Erro ao tocar som", err);
@@ -79,12 +84,14 @@ const Admin = () => {
             toast({
               title: "💬 Nova mensagem no chat!",
               description: "Um usuário acabou de enviar uma mensagem de suporte.",
-              duration: 5000,
+              duration: 8000,
             });
           }
         }
       )
-      .subscribe();
+      .subscribe((status) => {
+        console.log("Status da inscrição Realtime (Admin Chat):", status);
+      });
 
     return () => {
       supabase.removeChannel(channel);

@@ -22,7 +22,10 @@ const Admin = () => {
   const [searchParams] = useSearchParams();
   const userIdParam = searchParams.get('id');
 
-  const [activeTab, setActiveTab] = useState<"dashboard" | "auctions" | "lots" | "users" | "settings" | "payments" | "chat" | "notifications">("dashboard");
+  const [activeTab, setActiveTab] = useState<"dashboard" | "auctions" | "lots" | "users" | "settings" | "payments" | "chat" | "notifications">(() => {
+    const savedTab = localStorage.getItem('adminActiveTab');
+    return (savedTab as any) || "dashboard";
+  });
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   
   // Usamos uma ref para acessar o valor atual da aba dentro do listener do Supabase
@@ -34,9 +37,10 @@ const Admin = () => {
     }
   }, [userIdParam]);
 
-  // Atualiza a ref sempre que a aba muda e zera o contador se entrar no chat
+  // Atualiza a ref sempre que a aba muda, zera o contador se entrar no chat e salva no localStorage
   useEffect(() => {
     activeTabRef.current = activeTab;
+    localStorage.setItem('adminActiveTab', activeTab);
     if (activeTab === "chat") {
       setUnreadChatCount(0);
     }

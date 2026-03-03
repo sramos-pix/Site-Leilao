@@ -282,6 +282,7 @@ const LotManager = () => {
     const formData = new FormData(e.currentTarget);
     
     const endsAtValue = formData.get('ends_at') as string;
+    const mileageValue = formData.get('mileage_km') as string;
 
     const lotData: any = {
       auction_id: formData.get('auction_id'),
@@ -290,7 +291,7 @@ const LotManager = () => {
       brand: formData.get('brand'),
       model: formData.get('model'),
       year: parseInt(formData.get('year') as string),
-      mileage_km: parseInt(formData.get('mileage_km') as string),
+      mileage_km: mileageValue ? parseInt(mileageValue) : null,
       transmission: formData.get('transmission') === "none" ? null : formData.get('transmission'),
       fuel_type: formData.get('fuel_type') === "none" ? null : formData.get('fuel_type'),
       start_bid: parseFloat(formData.get('start_bid') as string),
@@ -390,7 +391,16 @@ const LotManager = () => {
                 <div className="space-y-2"><Label>Marca</Label><Input name="brand" defaultValue={editingLot?.brand} className="rounded-xl" required /></div>
                 <div className="space-y-2"><Label>Modelo</Label><Input name="model" defaultValue={editingLot?.model} className="rounded-xl" required /></div>
                 <div className="space-y-2"><Label>Ano</Label><Input name="year" type="number" defaultValue={editingLot?.year} className="rounded-xl" required /></div>
-                <div className="space-y-2"><Label>KM</Label><Input name="mileage_km" type="number" defaultValue={editingLot?.mileage_km} className="rounded-xl" required /></div>
+                <div className="space-y-2">
+                  <Label>KM (Opcional)</Label>
+                  <Input 
+                    name="mileage_km" 
+                    type="number" 
+                    defaultValue={editingLot?.mileage_km} 
+                    placeholder="Km não informado"
+                    className="rounded-xl" 
+                  />
+                </div>
                 
                 <div className="space-y-2">
                   <Label className="flex items-center gap-2"><Settings2 size={14} /> Câmbio</Label>

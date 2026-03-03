@@ -48,6 +48,8 @@ const Admin = () => {
 
   // Listener para novas mensagens de suporte
   useEffect(() => {
+    console.log("Iniciando listener de mensagens no Admin...");
+    
     const channel = supabase
       .channel('admin-chat-notifications')
       .on(
@@ -56,31 +58,28 @@ const Admin = () => {
           event: 'INSERT',
           schema: 'public',
           table: 'support_messages',
-          filter: 'is_from_admin=eq.false' // Apenas mensagens enviadas por usuários
+          // Removido o filtro temporariamente para testar se QUALQUER inserção chega
         },
         (payload) => {
-          console.log("Nova mensagem recebida no Admin:", payload);
-          // Se não estiver na aba de chat, incrementa o contador e notifica
-          if (activeTabRef.current !== 'chat') {
+          console.log("RECEBIDO PAYLOAD REALTIME:", payload);
+          
+          const isFromAdmin = payload.new.is_from_admin;
+          
+          // Se não for do admin e não estiver na aba de chat, notifica
+          if (!isFromAdmin && activeTabRef.current !== 'chat') {
+            console.log("Notificando nova mensagem de usuário...");
             setUnreadChatCount(prev => prev + 1);
             
-            // Toca som de notificação de mensagem
+            // Toca som de notificação
             try {
-              // Usando um som mais garantido e curto
               const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-              audio.volume = 0.7;
-              const playPromise = audio.play();
-              if (playPromise !== undefined) {
-                playPromise.catch(e => {
-                  console.warn("Áudio bloqueado pelo navegador. O usuário precisa interagir com a página primeiro.", e);
-                  // Fallback: Notificação visual já existe via toast
-                });
-              }
+              audio.volume = 0.8;
+              audio.play().catch(e => console.warn("Áudio bloqueado:", e));
             } catch (err) {
               console.error("Erro ao tocar som", err);
             }
 
-            // Mostra o alerta visual
+            // Alerta visual
             toast({
               title: "💬 Nova mensagem no chat!",
               description: "Um usuário acabou de enviar uma mensagem de suporte.",
@@ -94,6 +93,7 @@ const Admin = () => {
       });
 
     return () => {
+      console.log("Limpando listener de mensagens...");
       supabase.removeChannel(channel);
     };
   }, [toast]);

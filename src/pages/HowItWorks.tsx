@@ -32,26 +32,73 @@ const HowItWorks = () => {
     }
   ];
 
-  // Schema Markup para a página de Como Funciona (HowTo)
-  const schemaData = {
-    "@context": "https://schema.org",
-    "@type": "HowTo",
-    "name": "Como participar de leilões de veículos na AutoBid",
-    "description": "Aprenda passo a passo como se cadastrar, habilitar, dar lances e arrematar veículos em nossos leilões online.",
-    "step": steps.map((step, index) => ({
-      "@type": "HowToStep",
-      "position": index + 1,
-      "name": step.title,
-      "text": step.description
-    }))
-  };
+  const schemaData = [
+    {
+      "@context": "https://schema.org",
+      "@type": "HowTo",
+      "name": "Como participar de leilões de veículos na AutoBid",
+      "description": "Aprenda passo a passo como se cadastrar, habilitar, dar lances e arrematar veículos em nossos leilões online.",
+      "step": steps.map((step, index) => ({
+        "@type": "HowToStep",
+        "position": index + 1,
+        "name": step.title,
+        "text": step.description
+      }))
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Como funciona o leilão de veículos online?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "O leilão online funciona de forma simples: você se cadastra gratuitamente, envia seus documentos para verificação, se habilita no leilão desejado e começa a dar lances em tempo real pelo site. O maior lance no encerramento ganha o veículo."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Preciso pagar para participar do leilão?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Não. O cadastro e a participação nos leilões da AutoBid são totalmente gratuitos. Você só paga se arrematar um veículo, e nesse caso é cobrada uma taxa do comprador sobre o valor do arremate."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Quanto tempo leva para minha conta ser verificada?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "A verificação de documentos geralmente é concluída em até 24 horas úteis após o envio."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Posso visitar o veículo antes de dar meu lance?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Sim! Você pode agendar uma visita ao nosso pátio para inspecionar os veículos antes do leilão. Entre em contato com nossa equipe para agendar."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Como funciona o pagamento após arrematar um veículo?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Após o arremate, você recebe as instruções de pagamento via Pix bancário judicial. O prazo para pagamento é informado no edital de cada leilão."
+          }
+        }
+      ]
+    }
+  ];
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <SEO
-        title="Como Funciona o Leilão de Veículos | AutoBid"
-        description="Aprenda como participar dos leilões de veículos da AutoBid. Passo a passo simples: cadastro, habilitação, lances e arremate seguro."
-        keywords="como funciona leilão, participar de leilão, arrematar carro, leilão seguro, passo a passo leilão"
+        title="Como Funciona o Leilão de Veículos Online | AutoBid"
+        description="Aprenda como comprar carros em leilão online: cadastro grátis, habilitação simples, lances em tempo real e arremate seguro. Veja o passo a passo completo da AutoBid."
+        keywords="como funciona leilão de carros, como comprar carro em leilão, participar de leilão online, arrematar carro, leilão seguro, passo a passo leilão, leilão de veículos como funciona, cadastro leilão online"
         schema={schemaData}
       />
       <Navbar />

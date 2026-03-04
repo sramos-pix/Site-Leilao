@@ -71,9 +71,9 @@ const Contact = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <SEO
-        title="Fale Conosco | Suporte AutoBid Leilões"
-        description="Tem dúvidas sobre como participar dos nossos leilões de veículos? Entre em contato com nossa equipe de suporte. Atendimento rápido e seguro."
-        keywords="contato leilão, suporte autobid, telefone leilão, tirar dúvidas leilão de carros"
+        title="Fale Conosco | Suporte e Atendimento | AutoBid Leilões"
+        description="Dúvidas sobre leilão de veículos? Nossa equipe está pronta para te ajudar. Atendimento via chat, e-mail e telefone. Resposta rápida e segura. Entre em contato agora!"
+        keywords="contato leilão de carros, suporte autobid, atendimento leilão, ajuda leilão de veículos, telefone autobid, email autobid, tirar dúvidas leilão, leilão de carros suporte"
         schema={schemaData}
       />
       <Navbar />

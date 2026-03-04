@@ -1,14 +1,36 @@
-import { Router, Request, Response } from 'express';
+import { Router, Request, Response, NextFunction } from 'express';
+import { createClient } from '@supabase/supabase-js';
 import { AdminService } from '../services/admin.service';
 import { createAuctionSchema, createLotSchema } from '../validations/admin.schema';
 import { authenticate, AuthRequest } from '../middleware/auth.middleware';
 
 const router = Router();
 
-// Middleware simples para verificar se é admin (em produção, checar campo 'role' no banco)
-const isAdmin = (req: Request, res: Response, next: any) => {
-  // Por enquanto, validamos apenas se está autenticado. 
-  // Em um sistema real, verificaríamos profile.role === 'admin'
+const supabaseAdmin = createClient(
+  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
+
+const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  const userId = (req as AuthRequest).user?.id;
+  if (!userId) {
+    return res.status(401).json({ error: 'Não autenticado.' });
+  }
+
+  const { data: profile, error } = await supabaseAdmin
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .single();
+
+  if (error || !profile) {
+    return res.status(403).json({ error: 'Perfil não encontrado.' });
+  }
+
+  if (profile.role !== 'admin' && profile.role !== 'finance') {
+    return res.status(403).json({ error: 'Acesso restrito a administradores.' });
+  }
+
   next();
 };
 

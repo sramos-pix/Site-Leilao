@@ -1,6 +1,7 @@
 "use client";
 
 import React from 'react';
+import { supabase } from '@/lib/supabase';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -38,16 +39,19 @@ const AuctionForm = ({ onSuccess }: AuctionFormProps) => {
   });
 
   const onSubmit = async (data: AuctionFormValues) => {
-    setIsLoading(false);
     setIsLoading(true);
     try {
-      // Chamada para o nosso novo backend profissional
-      const response = await fetch('http://localhost:3001/api/admin/auctions', {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+      const response = await fetch(`${apiUrl}/api/admin/auctions`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          // Em produção, aqui iria o token JWT do admin
-          'Authorization': `Bearer ${localStorage.getItem('admin_token') || 'mock-token'}`
+          'Authorization': `Bearer ${session.access_token}`,
         },
         body: JSON.stringify(data),
       });

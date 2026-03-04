@@ -12,13 +12,28 @@ import adminRoutes from './routes/admin.routes';
 dotenv.config();
 const logger = pino({ transport: { target: 'pino-pretty' } });
 
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+  : ['http://localhost:5173', 'http://localhost:8080'];
+
+const corsOptions = {
+  origin: (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error(`Origem não permitida pelo CORS: ${origin}`));
+    }
+  },
+  credentials: true,
+};
+
 const app = express();
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-  cors: { origin: "*" }
+  cors: { origin: allowedOrigins, credentials: true }
 });
 
-app.use(cors());
+app.use(cors(corsOptions));
 app.use(express.json());
 
 // Registro de Rotas

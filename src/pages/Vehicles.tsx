@@ -168,9 +168,9 @@ const Vehicles = () => {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       <SEO
-        title="Todos os Veículos em Leilão | AutoBid"
-        description="Explore nossa frota completa de veículos disponíveis para leilão. Filtre por marca, modelo e encontre o carro ideal. Carros, motos e caminhões."
-        keywords="leilão de carros, leilão de motos, comprar carro barato, carros de frota, leilão de veículos, autobid, veículos seminovos"
+        title="Veículos em Leilão | Compre Carros, Motos e Caminhões Baratos | AutoBid"
+        description="Encontre carros, motos e caminhões com até 70% de desconto em leilão. Filtre por marca, modelo e preço. Veículos de frota com documentação garantida. Confira agora!"
+        keywords="comprar carro barato, carros em leilão, leilão de carros SP, leilão de motos baratas, leilão de caminhões, veículos de frota leilão, carros seminovos leilão, Honda leilão, Toyota leilão, Chevrolet leilão, Ford leilão, Volkswagen leilão, carro leilão banco"
         schema={schemaData}
       />
       <Navbar />

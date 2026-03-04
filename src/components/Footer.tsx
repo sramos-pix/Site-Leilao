@@ -61,6 +61,7 @@ const Footer = () => {
               <li><Link to="/auctions" className="hover:text-orange-500 transition-colors flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Leilões Ativos</Link></li>
               <li><Link to="/vehicles" className="hover:text-orange-500 transition-colors flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Todos os Veículos</Link></li>
               <li><Link to="/how-it-works" className="hover:text-orange-500 transition-colors flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Como Funciona</Link></li>
+              <li><Link to="/faq" className="hover:text-orange-500 transition-colors flex items-center gap-2"><span className="w-1.5 h-1.5 rounded-full bg-orange-500" /> Perguntas Frequentes</Link></li>
             </ul>
           </div>
 

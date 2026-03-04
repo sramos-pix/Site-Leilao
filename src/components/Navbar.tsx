@@ -39,6 +39,7 @@ const Navbar = () => {
     { name: 'Leilões', href: '/auctions' },
     { name: 'Veículos', href: '/vehicles' },
     { name: 'Como Funciona', href: '/how-it-works' },
+    { name: 'FAQ', href: '/faq' },
     { name: 'Contato', href: '/contact' },
   ];
 

@@ -95,9 +95,9 @@ const Auctions = () => {
   return (
     <div className="bg-slate-50 min-h-screen flex flex-col">
       <SEO
-        title="Leilões Ativos de Veículos | AutoBid"
-        description="Confira os leilões de veículos ativos na AutoBid. Participe e dê seu lance em carros, motos e caminhões de frota e recuperados."
-        keywords="leilões ativos, leilão de carros hoje, leilão online, participar de leilão, autobid"
+        title="Leilões de Veículos Online Hoje | Carros, Motos e Caminhões | AutoBid"
+        description="Leilões de carros, motos e caminhões acontecendo agora. Dê seu lance e arremate veículos com até 70% de desconto. Leilões 100% online e seguros na AutoBid."
+        keywords="leilão de carros online, leilão de veículos hoje, leilão ao vivo, leilão de motos, leilão de caminhões, leilão de frota, carros recuperados leilão, dar lance online, autobid leilões, leilão de carros ao vivo"
         schema={schemaData}
       />
       <Navbar />

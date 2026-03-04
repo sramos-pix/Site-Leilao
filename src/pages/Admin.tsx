@@ -28,7 +28,6 @@ const Admin = () => {
   });
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   
-  // Usamos uma ref para acessar o valor atual da aba dentro do listener do Supabase
   const activeTabRef = useRef(activeTab);
 
   useEffect(() => {
@@ -37,7 +36,6 @@ const Admin = () => {
     }
   }, [userIdParam]);
 
-  // Atualiza a ref sempre que a aba muda, zera o contador se entrar no chat e salva no localStorage
   useEffect(() => {
     activeTabRef.current = activeTab;
     localStorage.setItem('adminActiveTab', activeTab);
@@ -48,52 +46,53 @@ const Admin = () => {
 
   // Listener para novas mensagens de suporte
   useEffect(() => {
-    console.log("Iniciando listener de mensagens no Admin...");
+    console.log("[Admin] Iniciando monitoramento de mensagens em tempo real...");
     
     const channel = supabase
-      .channel('admin-chat-notifications')
+      .channel('admin_support_notifications')
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
           schema: 'public',
-          table: 'support_messages',
-          // Removido o filtro temporariamente para testar se QUALQUER inserção chega
+          table: 'support_messages'
         },
         (payload) => {
-          console.log("RECEBIDO PAYLOAD REALTIME:", payload);
+          console.log("[Admin] Evento Realtime recebido:", payload);
           
-          const isFromAdmin = payload.new.is_from_admin;
+          const newMessage = payload.new;
           
-          // Se não for do admin e não estiver na aba de chat, notifica
-          if (!isFromAdmin && activeTabRef.current !== 'chat') {
-            console.log("Notificando nova mensagem de usuário...");
+          // Só notifica se:
+          // 1. Não for uma mensagem enviada pelo próprio admin
+          // 2. O admin não estiver com a aba de chat aberta no momento
+          if (!newMessage.is_from_admin && activeTabRef.current !== 'chat') {
+            console.log("[Admin] Notificando nova mensagem de usuário...");
+            
             setUnreadChatCount(prev => prev + 1);
             
-            // Toca som de notificação
-            try {
-              const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
-              audio.volume = 0.8;
-              audio.play().catch(e => console.warn("Áudio bloqueado:", e));
-            } catch (err) {
-              console.error("Erro ao tocar som", err);
-            }
+            // Tenta tocar o som (requer interação prévia do usuário com a página)
+            const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2358/2358-preview.mp3');
+            audio.volume = 0.6;
+            audio.play().catch(err => {
+              console.warn("[Admin] Áudio bloqueado pelo navegador. Clique na página para habilitar sons.", err);
+            });
 
-            // Alerta visual
+            // Alerta visual persistente
             toast({
-              title: "💬 Nova mensagem no chat!",
-              description: "Um usuário acabou de enviar uma mensagem de suporte.",
-              duration: 8000,
+              title: "💬 Novo Chat de Suporte",
+              description: "Um cliente enviou uma mensagem. Clique para responder.",
+              duration: 10000,
+              variant: "default",
             });
           }
         }
       )
       .subscribe((status) => {
-        console.log("Status da inscrição Realtime (Admin Chat):", status);
+        console.log("[Admin] Status da conexão Realtime:", status);
       });
 
     return () => {
-      console.log("Limpando listener de mensagens...");
+      console.log("[Admin] Encerrando monitoramento de mensagens.");
       supabase.removeChannel(channel);
     };
   }, [toast]);
@@ -128,7 +127,7 @@ const Admin = () => {
             >
               <MessageSquare size={18} className="mr-3" /> Chat Suporte
               {unreadChatCount > 0 && (
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-pulse shadow-lg shadow-red-500/50">
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 bg-red-500 text-white text-[10px] font-black px-2 py-0.5 rounded-full animate-bounce shadow-lg shadow-red-500/50">
                   {unreadChatCount}
                 </span>
               )}

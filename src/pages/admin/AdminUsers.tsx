@@ -121,6 +121,7 @@ const AdminUsers = () => {
                 <TableRow>
                   <TableHead className="pl-6">Usuário</TableHead>
                   <TableHead>Contato</TableHead>
+                  <TableHead>Cadastro</TableHead>
                   <TableHead>Status KYC</TableHead>
                   <TableHead className="text-right pr-6">Ações</TableHead>
                 </TableRow>
@@ -158,6 +159,16 @@ const AdminUsers = () => {
                             </Dialog>
                           )}
                         </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-slate-700">
+                          {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-'}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {u.created_at ? new Date(u.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
                       </div>
                     </TableCell>
                     <TableCell>

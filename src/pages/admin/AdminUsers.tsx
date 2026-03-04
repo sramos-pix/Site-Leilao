@@ -15,7 +15,8 @@ import {
   ArrowUp,
   ArrowDown,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Bell
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { 

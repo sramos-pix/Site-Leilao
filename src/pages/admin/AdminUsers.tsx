@@ -13,7 +13,9 @@ import {
   Calendar,
   UserCircle,
   ArrowUp,
-  ArrowDown
+  ArrowDown,
+  Trash2,
+  AlertTriangle
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { 
@@ -39,8 +41,11 @@ import {
   DialogContent, 
   DialogHeader, 
   DialogTitle, 
-  DialogTrigger 
+  DialogTrigger,
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
+import { toast } from "react-hot-toast";
 import WhatsAppManager from "@/components/admin/WhatsAppManager";
 import UserDetailsDialog from "@/components/admin/UserDetailsDialog";
 
@@ -51,11 +56,18 @@ const AdminUsers = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  
+  // Estados de ordenação
+  const [sortField, setSortField] = useState<"created_at" | "full_name">("created_at");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
+  
+  // Estado para exclusão
+  const [userToDelete, setUserToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     fetchUsers();
-  }, [sortOrder]);
+  }, [sortField, sortOrder]);
 
   const fetchUsers = async () => {
     try {
@@ -63,19 +75,52 @@ const AdminUsers = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .order("created_at", { ascending: sortOrder === "asc" });
+        .order(sortField, { ascending: sortOrder === "asc" });
 
       if (error) throw error;
       setUsers(data || []);
     } catch (error) {
       console.error("Erro ao buscar usuários:", error);
+      toast.error("Erro ao carregar usuários");
     } finally {
       setLoading(false);
     }
   };
 
-  const toggleSort = () => {
-    setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+  const handleSort = (field: "created_at" | "full_name") => {
+    if (sortField === field) {
+      setSortOrder(prev => prev === "asc" ? "desc" : "asc");
+    } else {
+      setSortField(field);
+      setSortOrder("asc");
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (!userToDelete) return;
+    
+    try {
+      setIsDeleting(true);
+      
+      // Nota: Para deletar do auth.users via client-side, você precisaria de uma Edge Function 
+      // ou o usuário ser deletado via cascata se o profile for deletado (depende da config do banco).
+      // Aqui deletamos o profile.
+      const { error } = await supabase
+        .from("profiles")
+        .delete()
+        .eq("id", userToDelete.id);
+
+      if (error) throw error;
+
+      toast.success("Usuário removido com sucesso");
+      setUserToDelete(null);
+      fetchUsers();
+    } catch (error: any) {
+      console.error("Erro ao deletar:", error);
+      toast.error("Erro ao remover usuário: " + error.message);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const filteredUsers = users.filter((u) => {
@@ -85,7 +130,6 @@ const AdminUsers = () => {
       (u.email?.toLowerCase() || "").includes(searchLower) ||
       (u.document_id || "").includes(searchTerm);
     
-    // Normalização do filtro de status para bater com o banco
     let matchesStatus = statusFilter === "all";
     if (!matchesStatus) {
       const s = u.kyc_status?.toLowerCase();
@@ -115,8 +159,6 @@ const AdminUsers = () => {
 
   const getStatusBadge = (status: string) => {
     const s = status?.toLowerCase();
-    
-    // Mapeamento flexível para aceitar 'verified' ou 'approved'
     if (s === "verified" || s === "approved") {
       return <Badge className="bg-emerald-500 hover:bg-emerald-600 border-none"><ShieldCheck size={12} className="mr-1" /> Aprovado</Badge>;
     }
@@ -204,12 +246,25 @@ const AdminUsers = () => {
         <Table>
           <TableHeader className="bg-slate-50/50">
             <TableRow>
-              <TableHead className="pl-6">Usuário</TableHead>
+              <TableHead 
+                className="pl-6 cursor-pointer hover:bg-slate-100 transition-colors"
+                onClick={() => handleSort("full_name")}
+              >
+                <div className="flex items-center gap-1">
+                  Usuário
+                  {sortField === "full_name" && (sortOrder === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                  {sortField !== "full_name" && <ArrowUp size={14} className="text-slate-300" />}
+                </div>
+              </TableHead>
               <TableHead>Contato</TableHead>
-              <TableHead className="cursor-pointer hover:bg-slate-100 transition-colors" onClick={toggleSort}>
+              <TableHead 
+                className="cursor-pointer hover:bg-slate-100 transition-colors" 
+                onClick={() => handleSort("created_at")}
+              >
                 <div className="flex items-center gap-1">
                   Cadastro
-                  {sortOrder === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                  {sortField === "created_at" && (sortOrder === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />)}
+                  {sortField !== "created_at" && <ArrowUp size={14} className="text-slate-300" />}
                 </div>
               </TableHead>
               <TableHead>Papel</TableHead>
@@ -284,7 +339,46 @@ const AdminUsers = () => {
                     {getStatusBadge(u.kyc_status)}
                   </TableCell>
                   <TableCell className="text-right pr-6">
-                    <UserDetailsDialog user={u} onUpdate={fetchUsers} />
+                    <div className="flex items-center justify-end gap-2">
+                      <UserDetailsDialog user={u} onUpdate={fetchUsers} />
+                      
+                      <Dialog open={userToDelete?.id === u.id} onOpenChange={(open) => !open && setUserToDelete(null)}>
+                        <DialogTrigger asChild>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="text-slate-400 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => setUserToDelete(u)}
+                          >
+                            <Trash2 size={18} />
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="rounded-[2rem]">
+                          <DialogHeader>
+                            <DialogTitle className="flex items-center gap-2 text-red-600">
+                              <AlertTriangle size={20} /> Confirmar Exclusão
+                            </DialogTitle>
+                            <DialogDescription className="pt-4">
+                              Tem certeza que deseja excluir o usuário <span className="font-bold text-slate-900">{u.full_name}</span>? 
+                              Esta ação removerá o perfil do banco de dados e não pode ser desfeita.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <DialogFooter className="gap-2 sm:gap-0">
+                            <Button variant="outline" onClick={() => setUserToDelete(null)} className="rounded-xl">
+                              Cancelar
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              onClick={handleDeleteUser} 
+                              disabled={isDeleting}
+                              className="rounded-xl bg-red-600 hover:bg-red-700"
+                            >
+                              {isDeleting ? "Excluindo..." : "Sim, Excluir"}
+                            </Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))

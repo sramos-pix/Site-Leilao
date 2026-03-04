@@ -12,7 +12,6 @@ import {
   Filter,
   Calendar,
   UserCircle,
-  ArrowUpDown,
   ArrowUp,
   ArrowDown
 } from "lucide-react";
@@ -56,7 +55,7 @@ const AdminUsers = () => {
 
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [sortOrder]);
 
   const fetchUsers = async () => {
     try {
@@ -75,22 +74,26 @@ const AdminUsers = () => {
     }
   };
 
-  // Re-fetch ou re-sort quando a ordem mudar
-  useEffect(() => {
-    fetchUsers();
-  }, [sortOrder]);
-
   const toggleSort = () => {
     setSortOrder(prev => prev === "asc" ? "desc" : "asc");
   };
 
   const filteredUsers = users.filter((u) => {
+    const searchLower = searchTerm.toLowerCase();
     const matchesSearch = 
-      (u.full_name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (u.email?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (u.full_name?.toLowerCase() || "").includes(searchLower) ||
+      (u.email?.toLowerCase() || "").includes(searchLower) ||
       (u.document_id || "").includes(searchTerm);
     
-    const matchesStatus = statusFilter === "all" || u.kyc_status === statusFilter;
+    // Normalização do filtro de status para bater com o banco
+    let matchesStatus = statusFilter === "all";
+    if (!matchesStatus) {
+      const s = u.kyc_status?.toLowerCase();
+      if (statusFilter === "verified") matchesStatus = s === "verified" || s === "approved";
+      else if (statusFilter === "pending") matchesStatus = s === "pending" || !s;
+      else if (statusFilter === "rejected") matchesStatus = s === "rejected";
+    }
+
     const matchesRole = roleFilter === "all" || u.role === roleFilter;
     
     let matchesDate = true;
@@ -111,22 +114,19 @@ const AdminUsers = () => {
   });
 
   const getStatusBadge = (status: string) => {
-    // Normalização para evitar problemas de case-sensitive ou valores nulos
-    const normalizedStatus = status?.toLowerCase();
+    const s = status?.toLowerCase();
     
-    switch (normalizedStatus) {
-      case "approved":
-      case "aprovado":
-        return <Badge className="bg-green-500 hover:bg-green-600"><ShieldCheck size={12} className="mr-1" /> Aprovado</Badge>;
-      case "rejected":
-      case "rejeitado":
-        return <Badge variant="destructive"><ShieldAlert size={12} className="mr-1" /> Rejeitado</Badge>;
-      case "pending":
-      case "pendente":
-        return <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200"><ShieldQuestion size={12} className="mr-1" /> Pendente</Badge>;
-      default:
-        return <Badge variant="outline" className="text-slate-400">Não Iniciado</Badge>;
+    // Mapeamento flexível para aceitar 'verified' ou 'approved'
+    if (s === "verified" || s === "approved") {
+      return <Badge className="bg-emerald-500 hover:bg-emerald-600 border-none"><ShieldCheck size={12} className="mr-1" /> Aprovado</Badge>;
     }
+    if (s === "rejected") {
+      return <Badge variant="destructive" className="border-none"><ShieldAlert size={12} className="mr-1" /> Rejeitado</Badge>;
+    }
+    if (s === "pending" || !s) {
+      return <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200 border-none"><ShieldQuestion size={12} className="mr-1" /> Pendente</Badge>;
+    }
+    return <Badge variant="outline" className="text-slate-400 border-slate-200">{status}</Badge>;
   };
 
   return (
@@ -164,7 +164,7 @@ const AdminUsers = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os Status</SelectItem>
-            <SelectItem value="approved">Aprovados</SelectItem>
+            <SelectItem value="verified">Aprovados</SelectItem>
             <SelectItem value="pending">Pendentes</SelectItem>
             <SelectItem value="rejected">Rejeitados</SelectItem>
           </SelectContent>

@@ -11,7 +11,10 @@ import {
   MessageCircle, 
   Filter,
   Calendar,
-  UserCircle
+  UserCircle,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown
 } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 import { 
@@ -49,6 +52,7 @@ const AdminUsers = () => {
   const [statusFilter, setStatusFilter] = useState("all");
   const [roleFilter, setRoleFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   useEffect(() => {
     fetchUsers();
@@ -60,7 +64,7 @@ const AdminUsers = () => {
       const { data, error } = await supabase
         .from("profiles")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: sortOrder === "asc" });
 
       if (error) throw error;
       setUsers(data || []);
@@ -69,6 +73,15 @@ const AdminUsers = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Re-fetch ou re-sort quando a ordem mudar
+  useEffect(() => {
+    fetchUsers();
+  }, [sortOrder]);
+
+  const toggleSort = () => {
+    setSortOrder(prev => prev === "asc" ? "desc" : "asc");
   };
 
   const filteredUsers = users.filter((u) => {
@@ -98,15 +111,21 @@ const AdminUsers = () => {
   });
 
   const getStatusBadge = (status: string) => {
-    switch (status) {
+    // Normalização para evitar problemas de case-sensitive ou valores nulos
+    const normalizedStatus = status?.toLowerCase();
+    
+    switch (normalizedStatus) {
       case "approved":
+      case "aprovado":
         return <Badge className="bg-green-500 hover:bg-green-600"><ShieldCheck size={12} className="mr-1" /> Aprovado</Badge>;
       case "rejected":
+      case "rejeitado":
         return <Badge variant="destructive"><ShieldAlert size={12} className="mr-1" /> Rejeitado</Badge>;
       case "pending":
+      case "pendente":
         return <Badge variant="secondary" className="bg-orange-100 text-orange-700 hover:bg-orange-200"><ShieldQuestion size={12} className="mr-1" /> Pendente</Badge>;
       default:
-        return <Badge variant="outline">Não Iniciado</Badge>;
+        return <Badge variant="outline" className="text-slate-400">Não Iniciado</Badge>;
     }
   };
 
@@ -187,7 +206,12 @@ const AdminUsers = () => {
             <TableRow>
               <TableHead className="pl-6">Usuário</TableHead>
               <TableHead>Contato</TableHead>
-              <TableHead>Cadastro</TableHead>
+              <TableHead className="cursor-pointer hover:bg-slate-100 transition-colors" onClick={toggleSort}>
+                <div className="flex items-center gap-1">
+                  Cadastro
+                  {sortOrder === "asc" ? <ArrowUp size={14} /> : <ArrowDown size={14} />}
+                </div>
+              </TableHead>
               <TableHead>Papel</TableHead>
               <TableHead>Status KYC</TableHead>
               <TableHead className="text-right pr-6">Ações</TableHead>
@@ -243,7 +267,7 @@ const AdminUsers = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col">
-                      <span className="text-sm text-slate-700">
+                      <span className="text-sm text-slate-700 font-medium">
                         {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-'}
                       </span>
                       <span className="text-[10px] text-slate-400">

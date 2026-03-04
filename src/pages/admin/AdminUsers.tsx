@@ -48,9 +48,11 @@ import {
 import { toast } from "react-hot-toast";
 import WhatsAppManager from "@/components/admin/WhatsAppManager";
 import UserDetailsDialog from "@/components/admin/UserDetailsDialog";
+import DirectNotificationDialog from "@/components/admin/DirectNotificationDialog";
 
 const AdminUsers = () => {
   const [users, setUsers] = useState<any[]>([]);
+  const [onlineUsers, setOnlineUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -65,9 +67,45 @@ const AdminUsers = () => {
   const [userToDelete, setUserToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // Estado para notificação direta
+  const [notifyingUser, setNotifyingUser] = useState<any>(null);
+
   useEffect(() => {
     fetchUsers();
+
+    const handlePresence = (e: any) => {
+      setOnlineUsers(e.detail.users || []);
+    };
+
+    window.addEventListener('presence-update', handlePresence);
+    return () => window.removeEventListener('presence-update', handlePresence);
   }, [sortField, sortOrder]);
+
+  const isUserOnline = (userId: string) => {
+    return onlineUsers.find(u => u.id === userId);
+  };
+
+  const getUserPath = (userId: string) => {
+    const online = onlineUsers.find(u => u.id === userId);
+    if (!online?.path) return null;
+    
+    // Tradução simples de caminhos comuns
+    const paths: Record<string, string> = {
+      '/': 'Início',
+      '/auctions': 'Leilões',
+      '/vehicles': 'Veículos',
+      '/how-it-works': 'Como Funciona',
+      '/faq': 'FAQ',
+      '/contact': 'Contato',
+      '/profile': 'Perfil',
+      '/admin': 'Painel Admin',
+      '/login': 'Login',
+      '/register': 'Cadastro'
+    };
+
+    if (online.path.startsWith('/lot/')) return 'Visualizando Lote';
+    return paths[online.path] || online.path;
+  };
 
   const fetchUsers = async () => {
     try {
@@ -286,106 +324,158 @@ const AdminUsers = () => {
                 </TableCell>
               </TableRow>
             ) : (
-              filteredUsers.map((u) => (
-                <TableRow key={u.id} className="hover:bg-slate-50/50 transition-colors group">
-                  <TableCell className="pl-6">
-                    <div className="flex flex-col">
-                      <span className="font-bold text-slate-900">{u.full_name || 'Sem nome'}</span>
-                      <span className="text-xs text-slate-400">{u.document_id || 'CPF não informado'}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-1">
-                      <div className="flex items-center gap-1 text-xs text-slate-500"><Mail size={12} /> {u.email}</div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12} /> {u.phone || '-'}</div>
-                        
-                        {u.phone && (
-                          <Dialog>
-                            <DialogTrigger asChild>
-                              <button className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition-all opacity-0 group-hover:opacity-100">
-                                <MessageCircle size={14} />
-                              </button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
-                              <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2">
-                                  <MessageCircle className="text-green-500" /> WhatsApp Business
-                                </DialogTitle>
-                              </DialogHeader>
-                              <WhatsAppManager user={u} />
-                            </DialogContent>
-                          </Dialog>
-                        )}
+              filteredUsers.map((u) => {
+                const onlineInfo = isUserOnline(u.id);
+                const currentPath = getUserPath(u.id);
+                
+                return (
+                  <TableRow key={u.id} className={`hover:bg-slate-50/50 transition-colors group ${onlineInfo ? 'bg-orange-50/30' : ''}`}>
+                    <TableCell className="pl-6">
+                      <div className="flex items-center gap-3">
+                        <div className="relative">
+                          <div className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center text-slate-400 font-bold">
+                            {u.full_name?.charAt(0) || <UserCircle size={20} />}
+                          </div>
+                          {onlineInfo && (
+                            <span className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white rounded-full animate-pulse" />
+                          )}
+                        </div>
+                        <div className="flex flex-col">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900">{u.full_name || 'Sem nome'}</span>
+                            {onlineInfo && (
+                              <Badge variant="outline" className="text-[10px] h-4 px-1.5 bg-green-50 text-green-600 border-green-200 font-medium">
+                                ONLINE
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-400">{u.document_id || 'CPF não informado'}</span>
+                            {currentPath && (
+                              <span className="text-[10px] text-orange-500 font-medium bg-orange-50 px-1.5 rounded">
+                                em: {currentPath}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex flex-col">
-                      <span className="text-sm text-slate-700 font-medium">
-                        {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-'}
-                      </span>
-                      <span className="text-[10px] text-slate-400">
-                        {u.created_at ? new Date(u.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={u.role === 'admin' ? 'default' : 'outline'} className={u.role === 'admin' ? 'bg-purple-600' : ''}>
-                      {u.role === 'admin' ? 'Admin' : 'Cliente'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {getStatusBadge(u.kyc_status)}
-                  </TableCell>
-                  <TableCell className="text-right pr-6">
-                    <div className="flex items-center justify-end gap-2">
-                      <UserDetailsDialog user={u} onUpdate={fetchUsers} />
-                      
-                      <Dialog open={userToDelete?.id === u.id} onOpenChange={(open) => !open && setUserToDelete(null)}>
-                        <DialogTrigger asChild>
-                          <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="text-slate-400 hover:text-red-600 hover:bg-red-50"
-                            onClick={() => setUserToDelete(u)}
-                          >
-                            <Trash2 size={18} />
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent className="rounded-[2rem]">
-                          <DialogHeader>
-                            <DialogTitle className="flex items-center gap-2 text-red-600">
-                              <AlertTriangle size={20} /> Confirmar Exclusão
-                            </DialogTitle>
-                            <DialogDescription className="pt-4">
-                              Tem certeza que deseja excluir o usuário <span className="font-bold text-slate-900">{u.full_name}</span>? 
-                              Esta ação removerá o perfil do banco de dados e não pode ser desfeita.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <DialogFooter className="gap-2 sm:gap-0">
-                            <Button variant="outline" onClick={() => setUserToDelete(null)} className="rounded-xl">
-                              Cancelar
-                            </Button>
-                            <Button 
-                              variant="destructive" 
-                              onClick={handleDeleteUser} 
-                              disabled={isDeleting}
-                              className="rounded-xl bg-red-600 hover:bg-red-700"
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1 text-xs text-slate-500"><Mail size={12} /> {u.email}</div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1 text-xs text-slate-500"><Phone size={12} /> {u.phone || '-'}</div>
+                          
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-all">
+                            {u.phone && (
+                              <Dialog>
+                                <DialogTrigger asChild>
+                                  <button
+                                    title="WhatsApp"
+                                    className="p-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-500 hover:text-white transition-all"
+                                  >
+                                    <MessageCircle size={14} />
+                                  </button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px] rounded-[2rem]">
+                                  <DialogHeader>
+                                    <DialogTitle className="flex items-center gap-2">
+                                      <MessageCircle className="text-green-500" /> WhatsApp Business
+                                    </DialogTitle>
+                                  </DialogHeader>
+                                  <WhatsAppManager user={u} />
+                                </DialogContent>
+                              </Dialog>
+                            )}
+
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Enviar Notificação"
+                              className="h-7 w-7 rounded-lg bg-orange-50 text-orange-600 hover:bg-orange-500 hover:text-white"
+                              onClick={() => setNotifyingUser(u)}
                             >
-                              {isDeleting ? "Excluindo..." : "Sim, Excluir"}
+                              <Bell size={14} />
                             </Button>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+                          </div>
+                        </div>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col">
+                        <span className="text-sm text-slate-700 font-medium">
+                          {u.created_at ? new Date(u.created_at).toLocaleDateString('pt-BR') : '-'}
+                        </span>
+                        <span className="text-[10px] text-slate-400">
+                          {u.created_at ? new Date(u.created_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={u.role === 'admin' ? 'default' : 'outline'} className={u.role === 'admin' ? 'bg-purple-600' : ''}>
+                        {u.role === 'admin' ? 'Admin' : 'Cliente'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(u.kyc_status)}
+                    </TableCell>
+                    <TableCell className="text-right pr-6">
+                      <div className="flex items-center justify-end gap-2">
+                        <UserDetailsDialog user={u} onUpdate={fetchUsers} />
+                        
+                        <Dialog open={userToDelete?.id === u.id} onOpenChange={(open) => !open && setUserToDelete(null)}>
+                          <DialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-slate-400 hover:text-red-600 hover:bg-red-50"
+                              onClick={() => setUserToDelete(u)}
+                            >
+                              <Trash2 size={18} />
+                            </Button>
+                          </DialogTrigger>
+                          <DialogContent className="rounded-[2rem]">
+                            <DialogHeader>
+                              <DialogTitle className="flex items-center gap-2 text-red-600">
+                                <AlertTriangle size={20} /> Confirmar Exclusão
+                              </DialogTitle>
+                              <DialogDescription className="pt-4">
+                                Tem certeza que deseja excluir o usuário <span className="font-bold text-slate-900">{u.full_name}</span>?
+                                Esta ação removerá o perfil do banco de dados e não pode ser desfeita.
+                              </DialogDescription>
+                            </DialogHeader>
+                            <DialogFooter className="gap-2 sm:gap-0">
+                              <Button variant="outline" onClick={() => setUserToDelete(null)} className="rounded-xl">
+                                Cancelar
+                              </Button>
+                              <Button
+                                variant="destructive"
+                                onClick={handleDeleteUser}
+                                disabled={isDeleting}
+                                className="rounded-xl bg-red-600 hover:bg-red-700"
+                              >
+                                {isDeleting ? "Excluindo..." : "Sim, Excluir"}
+                              </Button>
+                            </DialogFooter>
+                          </DialogContent>
+                        </Dialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
+
+      {notifyingUser && (
+        <DirectNotificationDialog
+          user={notifyingUser}
+          open={!!notifyingUser}
+          onOpenChange={(open) => !open && setNotifyingUser(null)}
+        />
+      )}
     </div>
   );
 };

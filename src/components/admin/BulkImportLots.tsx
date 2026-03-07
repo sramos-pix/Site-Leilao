@@ -50,7 +50,9 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
     let insertedCount = 0;
 
     try {
+      console.log("[BulkImport] Iniciando processamento de", previewData.length, "linhas");
       for (const row of previewData) {
+        console.log("[BulkImport] Processando linha:", row);
         const lotNumber = parseInt(row.Lote || row.lote || row["Número do Lote"] || 0);
         const lotIdFromCsv = row["ID do Lote"] || row.id || null;
         const rawCover = String(row.FotoCapa || row.foto_capa || "").trim();
@@ -75,6 +77,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
         // Adiciona data de encerramento se presente na planilha
         const rawEndsAt = row.Encerramento || row.volvimento || row.Data || row.data || row["Data de Encerramento"];
+        console.log("[BulkImport] Data bruta encontrada:", rawEndsAt);
         if (rawEndsAt) {
           try {
             let date: Date | null = null;
@@ -107,9 +110,12 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
             if (date && !isNaN(date.getTime())) {
               lotData.ends_at = date.toISOString();
+              console.log("[BulkImport] Data convertida com sucesso:", lotData.ends_at);
+            } else {
+              console.warn("[BulkImport] Falha ao converter data:", rawEndsAt);
             }
           } catch (e) {
-            console.error("Erro ao processar data:", rawEndsAt);
+            console.error("[BulkImport] Erro ao processar data:", rawEndsAt, e);
           }
         }
 
@@ -117,6 +123,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         let existingLot = null;
         
         if (lotIdFromCsv) {
+          console.log("[BulkImport] Buscando por ID do Lote:", lotIdFromCsv);
           const { data } = await supabase
             .from('lots')
             .select('id')
@@ -127,6 +134,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
         // Se não achou pelo ID (ou não tinha ID), tenta pelo número do lote no leilão selecionado
         if (!existingLot && lotNumber > 0) {
+          console.log("[BulkImport] Buscando por Número do Lote:", lotNumber, "no leilão:", selectedAuctionId);
           const { data } = await supabase
             .from('lots')
             .select('id')
@@ -139,22 +147,30 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         let lotId;
 
         if (existingLot) {
+          console.log("[BulkImport] Atualizando lote existente ID:", existingLot.id, "com dados:", lotData);
           const { error: updateError } = await supabase
             .from('lots')
             .update(lotData)
             .eq('id', existingLot.id);
           
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error("[BulkImport] Erro no update:", updateError);
+            throw updateError;
+          }
           lotId = existingLot.id;
           updatedCount++;
         } else {
+          console.log("[BulkImport] Inserindo novo lote com dados:", lotData);
           const { data: newLot, error: insertError } = await supabase
             .from('lots')
             .insert(lotData)
             .select()
             .single();
           
-          if (insertError) throw insertError;
+          if (insertError) {
+            console.error("[BulkImport] Erro no insert:", insertError);
+            throw insertError;
+          }
           lotId = newLot.id;
           insertedCount++;
         }

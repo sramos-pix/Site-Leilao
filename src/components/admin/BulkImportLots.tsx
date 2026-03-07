@@ -1,13 +1,12 @@
 "use client";
 
 import React, { useState } from 'react';
-import * as XLSX from 'xlsx';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { useToast } from '@/components/ui/use-toast';
-import { FileSpreadsheet, Upload, Loader2, AlertCircle, CheckCircle2 } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Upload, Loader2, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import * as XLSX from 'xlsx';
 
 interface BulkImportLotsProps {
   auctions: any[];
@@ -15,75 +14,55 @@ interface BulkImportLotsProps {
 }
 
 const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
-  const { toast } = useToast();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
-  const [selectedAuctionId, setSelectedAuctionId] = useState<string>('');
-  const [isOpen, setIsOpen] = useState(false);
+  const [selectedAuctionId, setSelectedAuctionId] = useState<string>("");
+  const { toast } = useToast();
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
-    reader.onload = (evt) => {
-      const bstr = evt.target?.result;
-      const wb = XLSX.read(bstr, { type: 'binary' });
-      const wsname = wb.SheetNames[0];
-      const ws = wb.Sheets[wsname];
-      const data = XLSX.utils.sheet_to_json(ws);
-      setPreviewData(data);
+    reader.onload = (event) => {
+      const data = new Uint8Array(event.target?.result as ArrayBuffer);
+      const workbook = XLSX.read(data, { type: 'array' });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json(worksheet);
+      setPreviewData(json);
     };
-    reader.readAsBinaryString(file);
+    reader.readAsArrayBuffer(file);
   };
 
-  const processImport = async () => {
+  const handleImport = async () => {
     if (!selectedAuctionId) {
-      toast({ variant: "destructive", title: "Selecione um leilão" });
+      toast({ variant: "destructive", title: "Selecione um leilão", description: "É necessário vincular os veículos a um leilão." });
       return;
     }
 
-    if (previewData.length === 0) return;
-
     setIsImporting(true);
-    let updatedCount = 0;
     let insertedCount = 0;
+    let updatedCount = 0;
 
     try {
       console.log("[BulkImport] Iniciando processamento de", previewData.length, "linhas");
+      
       for (const row of previewData) {
-        console.log("[BulkImport] Processando linha:", row);
         const lotNumber = parseInt(row.Lote || row.lote || row["Número do Lote"] || 0);
         const lotIdFromCsv = row["ID do Lote"] || row.id || null;
-        const rawCover = String(row.FotoCapa || row.foto_capa || "").trim();
         
-        const lotData: any = {
-          auction_id: selectedAuctionId,
-          lot_number: lotNumber,
-          title: String(row.Titulo || row.titulo || row.Title || row["Título"] || "").trim(),
-          brand: String(row.Marca || row.marca || "").trim(),
-          model: String(row.Modelo || row.modelo || "").trim(),
-          year: parseInt(row.Ano || row.ano || 2024),
-          mileage_km: parseInt(row.KM || row.km || row.Quilometragem || row.quilometragem || 0),
-          start_bid: parseFloat(row.LanceInicial || row.lance_inicial || row.Valor || row.valor || row["Lance Inicial"] || 0),
-          current_bid: parseFloat(row.LanceInicial || row.lance_inicial || row.Valor || row.valor || row["Lance Inicial"] || 0),
-          bid_increment: parseFloat(row.Incremento || row.incremento || 500),
-          description: String(row.Descricao || row.descricao || "").trim(),
-          cover_image_url: rawCover || null,
-          status: 'active',
-          transmission: String(row.Cambio || row.cambio || row["Câmbio"] || "Automático").trim(),
-          fuel_type: String(row.Combustivel || row.combustivel || row["Combustível"] || "Flex").trim()
-        };
+        // Processamento robusto da data de encerramento
+        const rawEndsAt = row.Encerramento || row.Data || row["Data de Encerramento"];
+        let endsAtIso = null;
 
-        // Adiciona data de encerramento se presente na planilha
-        const rawEndsAt = row.Encerramento || row.volvimento || row.Data || row.data || row["Data de Encerramento"];
-        console.log("[BulkImport] Data bruta encontrada:", rawEndsAt);
         if (rawEndsAt) {
           try {
             let date: Date | null = null;
             
-            // Tenta tratar formato brasileiro: 08/03/2026, 14:00:00
             if (typeof rawEndsAt === 'string' && rawEndsAt.includes('/')) {
+              // Formato BR: DD/MM/YYYY HH:mm:ss
               const parts = rawEndsAt.split(/[\s,]+/);
               const dateParts = parts[0].split('/');
               if (dateParts.length === 3) {
@@ -98,108 +77,64 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
                   minutes = parseInt(timeParts[1]) || 0;
                   seconds = parseInt(timeParts[2]) || 0;
                 }
-                
                 date = new Date(year, month, day, hours, minutes, seconds);
               }
-            }
-
-            // Fallback para conversão padrão se o formato BR falhar ou não for detectado
-            if (!date || isNaN(date.getTime())) {
+            } else if (typeof rawEndsAt === 'number') {
+              // Formato Excel (número de série)
+              date = new Date((rawEndsAt - 25569) * 86400 * 1000);
+            } else {
               date = new Date(rawEndsAt);
             }
 
             if (date && !isNaN(date.getTime())) {
-              lotData.ends_at = date.toISOString();
-              console.log("[BulkImport] Data convertida com sucesso:", lotData.ends_at);
-            } else {
-              console.warn("[BulkImport] Falha ao converter data:", rawEndsAt);
+              endsAtIso = date.toISOString();
             }
           } catch (e) {
             console.error("[BulkImport] Erro ao processar data:", rawEndsAt, e);
           }
         }
 
-        // Busca o lote existente priorizando o ID se ele vier na planilha
+        // Determina o status baseado na nova data
+        const now = new Date();
+        const newStatus = (endsAtIso && new Date(endsAtIso) > now) ? 'active' : 'finished';
+
+        const lotData: any = {
+          auction_id: selectedAuctionId,
+          lot_number: lotNumber,
+          title: String(row.Titulo || row.titulo || row["Título"] || "").trim(),
+          brand: String(row.Marca || row.marca || "").trim(),
+          model: String(row.Modelo || row.modelo || "").trim(),
+          year: parseInt(row.Ano || row.ano || 2024),
+          mileage_km: parseInt(row.KM || row.km || row.Quilometragem || 0),
+          start_bid: parseFloat(row.LanceInicial || row["Lance Inicial"] || 0),
+          bid_increment: parseFloat(row.Incremento || 500),
+          description: String(row.Descricao || row.descricao || "").trim(),
+          transmission: String(row.Cambio || row["Câmbio"] || "Automático").trim(),
+          fuel_type: String(row.Combustivel || row["Combustível"] || "Flex").trim(),
+          ends_at: endsAtIso,
+          status: newStatus
+        };
+
+        // Busca o lote existente
         let existingLot = null;
-        
         if (lotIdFromCsv) {
-          console.log("[BulkImport] Buscando por ID do Lote:", lotIdFromCsv);
-          const { data } = await supabase
-            .from('lots')
-            .select('id')
-            .eq('id', lotIdFromCsv)
-            .maybeSingle();
+          const { data } = await supabase.from('lots').select('id').eq('id', lotIdFromCsv).maybeSingle();
           existingLot = data;
         }
 
-        // Se não achou pelo ID (ou não tinha ID), tenta pelo número do lote no leilão selecionado
         if (!existingLot && lotNumber > 0) {
-          console.log("[BulkImport] Buscando por Número do Lote:", lotNumber, "no leilão:", selectedAuctionId);
-          const { data } = await supabase
-            .from('lots')
-            .select('id')
-            .eq('auction_id', selectedAuctionId)
-            .eq('lot_number', lotNumber)
-            .maybeSingle();
+          const { data } = await supabase.from('lots').select('id').eq('auction_id', selectedAuctionId).eq('lot_number', lotNumber).maybeSingle();
           existingLot = data;
         }
-
-        let lotId;
 
         if (existingLot) {
-          console.log("[BulkImport] Atualizando lote existente ID:", existingLot.id, "com dados:", lotData);
-          const { error: updateError } = await supabase
-            .from('lots')
-            .update({
-              ...lotData,
-              status: lotData.ends_at && new Date(lotData.ends_at) > new Date() ? 'active' : 'finished'
-            })
-            .eq('id', existingLot.id);
-          
-          if (updateError) {
-            console.error("[BulkImport] Erro no update:", updateError);
-            throw updateError;
-          }
-          lotId = existingLot.id;
+          const { error } = await supabase.from('lots').update(lotData).eq('id', existingLot.id);
+          if (error) throw error;
           updatedCount++;
         } else {
-          console.log("[BulkImport] Inserindo novo lote com dados:", lotData);
-          const { data: newLot, error: insertError } = await supabase
-            .from('lots')
-            .insert(lotData)
-            .select()
-            .single();
-          
-          if (insertError) {
-            console.error("[BulkImport] Erro no insert:", insertError);
-            throw insertError;
-          }
-          lotId = newLot.id;
+          const { error } = await supabase.from('lots').insert(lotData);
+          if (error) throw error;
           insertedCount++;
-        }
-
-        // Processa Galeria
-        const galleryString = String(row.Galeria || row.galeria || "");
-        if (galleryString && lotId) {
-          const photoUrls = galleryString
-            .split(/[;,]+/)
-            .map((url: string) => url.trim())
-            .filter(url => url.length > 10);
-          
-          if (photoUrls.length > 0) {
-            // Limpa galeria antiga
-            await supabase.from('lot_photos').delete().eq('lot_id', lotId);
-
-            const photosToInsert = photoUrls.map((url: string) => ({
-              lot_id: lotId,
-              public_url: url,
-              storage_path: `external/${lotNumber}/${crypto.randomUUID()}`, // Preenche campo obrigatório
-              is_cover: url === lotData.cover_image_url
-            }));
-
-            const { error: photoError } = await supabase.from('lot_photos').insert(photosToInsert);
-            if (photoError) console.error("Erro ao inserir fotos:", photoError);
-          }
         }
       }
 
@@ -207,108 +142,78 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         title: "Importação concluída!", 
         description: `${insertedCount} novos veículos e ${updatedCount} atualizados.` 
       });
-      setIsOpen(false);
+      
+      setIsDialogOpen(false);
       setPreviewData([]);
       onSuccess();
     } catch (error: any) {
-      console.error("Erro na importação:", error);
+      console.error("[BulkImport] Erro fatal:", error);
       toast({ variant: "destructive", title: "Erro na importação", description: error.message });
     } finally {
       setIsImporting(false);
     }
   };
 
-  const downloadTemplate = () => {
-    const header = ["Lote", "Titulo", "Marca", "Modelo", "Ano", "KM", "LanceInicial", "Incremento", "Cambio", "Combustivel", "Encerramento", "FotoCapa", "Galeria", "Descricao"];
-    const exampleRow = {
-      "Lote": 70,
-      "Titulo": "Fiat Punto SPORTING 1.8 2011",
-      "Marca": "Fiat",
-      "Modelo": "Punto",
-      "Ano": 2011,
-      "KM": 120000,
-      "LanceInicial": 15000,
-      "Incremento": 500,
-      "Cambio": "Manual",
-      "Combustivel": "Flex",
-      "Encerramento": new Date(Date.now() + 86400000).toISOString(),
-      "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG",
-      "Galeria": "https://link1.com/foto1.png, https://link2.com/foto2.png",
-      "Descricao": "Veículo em bom estado."
-    };
-    const ws = XLSX.utils.json_to_sheet([exampleRow], { header });
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Importar Veiculos");
-    XLSX.writeFile(wb, "modelo_importacao.xlsx");
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="rounded-xl border-slate-200 gap-2 font-bold">
-          <FileSpreadsheet size={18} className="text-emerald-600" /> Importar Planilha
+        <Button variant="outline" className="rounded-xl gap-2 border-slate-200 text-slate-700 hover:bg-slate-50">
+          <Upload size={18} />
+          Importar Planilha
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl rounded-3xl">
+      <DialogContent className="max-w-xl rounded-3xl">
         <DialogHeader>
-          <DialogTitle>Importação Inteligente</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <FileSpreadsheet className="text-green-600" />
+            Importar Veículos em Massa
+          </DialogTitle>
         </DialogHeader>
         
-        <div className="space-y-6 py-4">
-          <Alert className="bg-blue-50 border-blue-100 rounded-2xl">
-            <AlertCircle className="h-4 w-4 text-blue-600" />
-            <AlertTitle className="text-blue-900 font-bold">Atualização Automática</AlertTitle>
-            <AlertDescription className="text-blue-700 text-xs">
-              O sistema identifica veículos pelo <b>Número do Lote</b>. Se você subir um lote que já existe no leilão, os dados serão atualizados.
-            </AlertDescription>
-          </Alert>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase">1. Vincular ao Leilão</label>
-              <select 
-                className="w-full h-12 rounded-xl border border-slate-200 bg-slate-50 px-4 text-sm font-bold focus:bg-white outline-none transition-all"
-                value={selectedAuctionId}
-                onChange={(e) => setSelectedAuctionId(e.target.value)}
-              >
-                <option value="">Selecione o evento...</option>
-                {auctions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
-              </select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-xs font-black text-slate-400 uppercase">2. Baixar Modelo</label>
-              <Button variant="secondary" onClick={downloadTemplate} className="w-full h-12 rounded-xl font-bold gap-2">
-                <Upload size={16} className="rotate-180" /> Download Modelo
-              </Button>
-            </div>
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <label className="text-sm font-bold text-slate-700">1. Selecione o Leilão de Destino</label>
+            <select 
+              className="w-full h-11 rounded-xl border border-slate-200 bg-slate-50 px-3 text-sm focus:ring-2 focus:ring-orange-500 outline-none"
+              value={selectedAuctionId}
+              onChange={(e) => setSelectedAuctionId(e.target.value)}
+            >
+              <option value="">Selecione um leilão...</option>
+              {auctions.map(a => <option key={a.id} value={a.id}>{a.title}</option>)}
+            </select>
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-black text-slate-400 uppercase">3. Selecionar Arquivo</label>
-            <div className="relative h-32 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-slate-50 hover:bg-slate-100 transition-colors cursor-pointer">
-              <input 
-                type="file" 
-                accept=".xlsx, .xls, .csv" 
-                onChange={handleFileUpload}
-                className="absolute inset-0 opacity-0 cursor-pointer"
-              />
-              <FileSpreadsheet size={32} className="text-slate-300 mb-2" />
-              <p className="text-sm font-bold text-slate-500">
-                {previewData.length > 0 ? `${previewData.length} linhas detectadas` : "Clique ou arraste sua planilha aqui"}
-              </p>
+            <label className="text-sm font-bold text-slate-700">2. Selecione o Arquivo (.xlsx ou .csv)</label>
+            <div className="flex items-center justify-center w-full">
+              <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed border-slate-200 rounded-2xl cursor-pointer hover:bg-slate-50 transition-colors">
+                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                  <Upload className="w-8 h-8 text-slate-400 mb-2" />
+                  <p className="text-sm text-slate-500">Clique para selecionar o arquivo</p>
+                </div>
+                <input type="file" className="hidden" accept=".xlsx, .xls, .csv" onChange={handleFileChange} />
+              </label>
             </div>
           </div>
 
+          {previewData.length > 0 && (
+            <div className="bg-blue-50 p-3 rounded-xl flex items-center gap-3 text-blue-700 text-sm">
+              <CheckCircle2 size={18} />
+              <span>{previewData.length} veículos detectados na planilha.</span>
+            </div>
+          )}
+        </div>
+
+        <DialogFooter>
           <Button 
-            onClick={processImport} 
-            disabled={isImporting || previewData.length === 0 || !selectedAuctionId}
-            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-14 rounded-2xl font-black shadow-lg shadow-emerald-100 transition-all"
+            onClick={handleImport} 
+            disabled={isImporting || previewData.length === 0}
+            className="w-full bg-orange-500 hover:bg-orange-600 text-white rounded-xl h-12 font-bold"
           >
             {isImporting ? <Loader2 className="animate-spin mr-2" /> : <CheckCircle2 className="mr-2" />}
-            INICIAR IMPORTAÇÃO / ATUALIZAÇÃO
+            Confirmar Importação
           </Button>
-        </div>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );

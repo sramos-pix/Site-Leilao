@@ -13,30 +13,43 @@ import { MaintenanceGuard } from "./components/MaintenanceGuard";
 import AdminGuard from "./components/admin/AdminGuard";
 import { Loader2 } from "lucide-react";
 
-// Páginas públicas — carregadas sob demanda
-const Index = lazy(() => import("./pages/Index"));
-const Login = lazy(() => import("./pages/Login"));
-const Register = lazy(() => import("./pages/Register"));
-const Auctions = lazy(() => import("./pages/Auctions"));
-const AuctionDetails = lazy(() => import("./pages/AuctionDetails"));
-const LotDetail = lazy(() => import("./pages/LotDetail"));
-const Vehicles = lazy(() => import("./pages/Vehicles"));
-const HowItWorks = lazy(() => import("./pages/HowItWorks"));
-const Contact = lazy(() => import("./pages/Contact"));
-const FAQ = lazy(() => import("./pages/FAQ"));
+// Importações com tratamento de erro para o carregamento dinâmico
+const lazyRetry = (componentImport: () => Promise<any>) => {
+  return lazy(async () => {
+    try {
+      return await componentImport();
+    } catch (error) {
+      console.error("Erro ao carregar componente, tentando recarregar a página...", error);
+      window.location.reload();
+      return { default: () => null };
+    }
+  });
+};
+
+// Páginas públicas
+const Index = lazyRetry(() => import("./pages/Index"));
+const Login = lazyRetry(() => import("./pages/Login"));
+const Register = lazyRetry(() => import("./pages/Register"));
+const Auctions = lazyRetry(() => import("./pages/Auctions"));
+const AuctionDetails = lazyRetry(() => import("./pages/AuctionDetails"));
+const LotDetail = lazyRetry(() => import("./pages/LotDetail"));
+const Vehicles = lazyRetry(() => import("./pages/Vehicles"));
+const HowItWorks = lazyRetry(() => import("./pages/HowItWorks"));
+const Contact = lazyRetry(() => import("./pages/Contact"));
+const FAQ = lazyRetry(() => import("./pages/FAQ"));
 
 // Área do usuário
-const Dashboard = lazy(() => import("./pages/app/Dashboard"));
-const Profile = lazy(() => import("./pages/app/Profile"));
-const Favorites = lazy(() => import("./pages/app/Favorites"));
-const History = lazy(() => import("./pages/app/History"));
-const Notifications = lazy(() => import("./pages/Notifications"));
-const Checkout = lazy(() => import("./pages/Checkout"));
-const Verify = lazy(() => import("./pages/app/Verify"));
+const Dashboard = lazyRetry(() => import("./pages/app/Dashboard"));
+const Profile = lazyRetry(() => import("./pages/app/Profile"));
+const Favorites = lazyRetry(() => import("./pages/app/Favorites"));
+const History = lazyRetry(() => import("./pages/app/History"));
+const Notifications = lazyRetry(() => import("./pages/Notifications"));
+const Checkout = lazyRetry(() => import("./pages/Checkout"));
+const Verify = lazyRetry(() => import("./pages/app/Verify"));
 
-// Área admin (carregada só para admins)
-const Admin = lazy(() => import("./pages/Admin"));
-const AdminCreateLot = lazy(() => import("./pages/AdminCreateLot"));
+// Área admin
+const Admin = lazyRetry(() => import("./pages/Admin"));
+const AdminCreateLot = lazyRetry(() => import("./pages/AdminCreateLot"));
 
 const PageLoader = () => (
   <div className="min-h-screen flex items-center justify-center bg-slate-50">

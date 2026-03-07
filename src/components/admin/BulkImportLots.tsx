@@ -54,7 +54,7 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         const lotNumber = parseInt(row.Lote || row.lote || 0);
         const rawCover = String(row.FotoCapa || row.foto_capa || "").trim();
         
-        const lotData = {
+        const lotData: any = {
           auction_id: selectedAuctionId,
           lot_number: lotNumber,
           title: String(row.Titulo || row.titulo || row.Title || "").trim(),
@@ -62,8 +62,8 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           model: String(row.Modelo || row.modelo || "").trim(),
           year: parseInt(row.Ano || row.ano || 2024),
           mileage_km: parseInt(row.KM || row.km || 0),
-          start_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
-          current_bid: parseFloat(row.LanceInicial || row.lance_inicial || 0),
+          start_bid: parseFloat(row.LanceInicial || row.lance_inicial || row.Valor || row.valor || 0),
+          current_bid: parseFloat(row.LanceInicial || row.lance_inicial || row.Valor || row.valor || 0),
           bid_increment: parseFloat(row.Incremento || row.incremento || 500),
           description: String(row.Descricao || row.descricao || "").trim(),
           cover_image_url: rawCover || null,
@@ -71,6 +71,20 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           transmission: String(row.Cambio || row.cambio || "Automático").trim(),
           fuel_type: String(row.Combustivel || row.combustivel || "Flex").trim()
         };
+
+        // Adiciona data de encerramento se presente na planilha
+        const rawEndsAt = row.Encerramento || row.encerramento || row.Data || row.data;
+        if (rawEndsAt) {
+          try {
+            // Tenta converter para ISO string se for uma data válida
+            const date = new Date(rawEndsAt);
+            if (!isNaN(date.getTime())) {
+              lotData.ends_at = date.toISOString();
+            }
+          } catch (e) {
+            console.error("Erro ao processar data:", rawEndsAt);
+          }
+        }
 
         const { data: existingLot } = await supabase
           .from('lots')
@@ -143,21 +157,22 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
   };
 
   const downloadTemplate = () => {
-    const header = ["Lote", "Titulo", "Marca", "Modelo", "Ano", "KM", "LanceInicial", "Incremento", "Cambio", "Combustivel", "FotoCapa", "Galeria", "Descricao"];
-    const exampleRow = { 
-      "Lote": 70, 
-      "Titulo": "Fiat Punto SPORTING 1.8 2011", 
-      "Marca": "Fiat", 
-      "Modelo": "Punto", 
-      "Ano": 2011, 
-      "KM": 120000, 
-      "LanceInicial": 15000, 
-      "Incremento": 500, 
+    const header = ["Lote", "Titulo", "Marca", "Modelo", "Ano", "KM", "LanceInicial", "Incremento", "Cambio", "Combustivel", "Encerramento", "FotoCapa", "Galeria", "Descricao"];
+    const exampleRow = {
+      "Lote": 70,
+      "Titulo": "Fiat Punto SPORTING 1.8 2011",
+      "Marca": "Fiat",
+      "Modelo": "Punto",
+      "Ano": 2011,
+      "KM": 120000,
+      "LanceInicial": 15000,
+      "Incremento": 500,
       "Cambio": "Manual",
       "Combustivel": "Flex",
+      "Encerramento": new Date(Date.now() + 86400000).toISOString(),
       "FotoCapa": "https://guimaraeslimaleiloes.com/web/fotos/img1_1727377758954_959499.PNG",
       "Galeria": "https://link1.com/foto1.png, https://link2.com/foto2.png",
-      "Descricao": "Veículo em bom estado." 
+      "Descricao": "Veículo em bom estado."
     };
     const ws = XLSX.utils.json_to_sheet([exampleRow], { header });
     const wb = XLSX.utils.book_new();

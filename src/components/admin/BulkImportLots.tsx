@@ -51,7 +51,8 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
 
     try {
       for (const row of previewData) {
-        const lotNumber = parseInt(row.Lote || row.lote || 0);
+        const lotNumber = parseInt(row.Lote || row.lote || row["Número do Lote"] || 0);
+        const lotIdFromCsv = row["ID do Lote"] || row.id || null;
         const rawCover = String(row.FotoCapa || row.foto_capa || "").trim();
         
         const lotData: any = {
@@ -112,12 +113,28 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           }
         }
 
-        const { data: existingLot } = await supabase
-          .from('lots')
-          .select('id')
-          .eq('auction_id', selectedAuctionId)
-          .eq('lot_number', lotNumber)
-          .maybeSingle();
+        // Busca o lote existente priorizando o ID se ele vier na planilha
+        let existingLot = null;
+        
+        if (lotIdFromCsv) {
+          const { data } = await supabase
+            .from('lots')
+            .select('id')
+            .eq('id', lotIdFromCsv)
+            .maybeSingle();
+          existingLot = data;
+        }
+
+        // Se não achou pelo ID (ou não tinha ID), tenta pelo número do lote no leilão selecionado
+        if (!existingLot && lotNumber > 0) {
+          const { data } = await supabase
+            .from('lots')
+            .select('id')
+            .eq('auction_id', selectedAuctionId)
+            .eq('lot_number', lotNumber)
+            .maybeSingle();
+          existingLot = data;
+        }
 
         let lotId;
 

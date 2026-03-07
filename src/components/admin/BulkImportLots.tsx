@@ -57,28 +57,54 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         const lotData: any = {
           auction_id: selectedAuctionId,
           lot_number: lotNumber,
-          title: String(row.Titulo || row.titulo || row.Title || "").trim(),
+          title: String(row.Titulo || row.titulo || row.Title || row["Título"] || "").trim(),
           brand: String(row.Marca || row.marca || "").trim(),
           model: String(row.Modelo || row.modelo || "").trim(),
           year: parseInt(row.Ano || row.ano || 2024),
-          mileage_km: parseInt(row.KM || row.km || 0),
-          start_bid: parseFloat(row.LanceInicial || row.lance_inicial || row.Valor || row.valor || 0),
-          current_bid: parseFloat(row.LanceInicial || row.lance_inicial || row.Valor || row.valor || 0),
+          mileage_km: parseInt(row.KM || row.km || row.Quilometragem || row.quilometragem || 0),
+          start_bid: parseFloat(row.LanceInicial || row.lance_inicial || row.Valor || row.valor || row["Lance Inicial"] || 0),
+          current_bid: parseFloat(row.LanceInicial || row.lance_inicial || row.Valor || row.valor || row["Lance Inicial"] || 0),
           bid_increment: parseFloat(row.Incremento || row.incremento || 500),
           description: String(row.Descricao || row.descricao || "").trim(),
           cover_image_url: rawCover || null,
           status: 'active',
-          transmission: String(row.Cambio || row.cambio || "Automático").trim(),
-          fuel_type: String(row.Combustivel || row.combustivel || "Flex").trim()
+          transmission: String(row.Cambio || row.cambio || row["Câmbio"] || "Automático").trim(),
+          fuel_type: String(row.Combustivel || row.combustivel || row["Combustível"] || "Flex").trim()
         };
 
         // Adiciona data de encerramento se presente na planilha
-        const rawEndsAt = row.Encerramento || row.encerramento || row.Data || row.data;
+        const rawEndsAt = row.Encerramento || row.volvimento || row.Data || row.data || row["Data de Encerramento"];
         if (rawEndsAt) {
           try {
-            // Tenta converter para ISO string se for uma data válida
-            const date = new Date(rawEndsAt);
-            if (!isNaN(date.getTime())) {
+            let date: Date | null = null;
+            
+            // Tenta tratar formato brasileiro: 08/03/2026, 14:00:00
+            if (typeof rawEndsAt === 'string' && rawEndsAt.includes('/')) {
+              const parts = rawEndsAt.split(/[\s,]+/);
+              const dateParts = parts[0].split('/');
+              if (dateParts.length === 3) {
+                const day = parseInt(dateParts[0]);
+                const month = parseInt(dateParts[1]) - 1;
+                const year = parseInt(dateParts[2]);
+                
+                let hours = 0, minutes = 0, seconds = 0;
+                if (parts[1]) {
+                  const timeParts = parts[1].split(':');
+                  hours = parseInt(timeParts[0]) || 0;
+                  minutes = parseInt(timeParts[1]) || 0;
+                  seconds = parseInt(timeParts[2]) || 0;
+                }
+                
+                date = new Date(year, month, day, hours, minutes, seconds);
+              }
+            }
+
+            // Fallback para conversão padrão se o formato BR falhar ou não for detectado
+            if (!date || isNaN(date.getTime())) {
+              date = new Date(rawEndsAt);
+            }
+
+            if (date && !isNaN(date.getTime())) {
               lotData.ends_at = date.toISOString();
             }
           } catch (e) {

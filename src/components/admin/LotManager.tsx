@@ -58,10 +58,12 @@ const LotManager = () => {
 
   const fetchData = async () => {
     setIsLoading(true);
+    console.log("[LotManager] Buscando dados atualizados...");
     const [lotsRes, auctionsRes] = await Promise.all([
       supabase.from('lots').select('*').order('lot_number', { ascending: true }),
       supabase.from('auctions').select('id, title')
     ]);
+    console.log("[LotManager] Lotes recebidos:", lotsRes.data?.length);
     setLots(lotsRes.data || []);
     setAuctions(auctionsRes.data || []);
     setIsLoading(false);

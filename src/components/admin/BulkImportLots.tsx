@@ -150,7 +150,10 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           console.log("[BulkImport] Atualizando lote existente ID:", existingLot.id, "com dados:", lotData);
           const { error: updateError } = await supabase
             .from('lots')
-            .update(lotData)
+            .update({
+              ...lotData,
+              status: lotData.ends_at && new Date(lotData.ends_at) > new Date() ? 'active' : 'finished'
+            })
             .eq('id', existingLot.id);
           
           if (updateError) {

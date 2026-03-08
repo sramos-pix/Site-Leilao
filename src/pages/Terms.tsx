@@ -152,7 +152,7 @@ const sections = [
       },
       {
         subtitle: '7.3 Seus Direitos',
-        text: 'Você tem direito a: acessar seus dados, corrigir informações incorretas, solicitar a exclusão de dados (quando aplicável), revogar consentimento e portabilidade de dados, conforme previsto na LGPD. Para exercer esses direitos, entre em contato pelo e-mail contato@autobidbr.com.',
+        text: 'Você tem direito a: acessar seus dados, corrigir informações incorretas, solicitar a exclusão de dados (quando aplicável), revogar consentimento e portabilidade de dados, conforme previsto na LGPD. Para exercer esses direitos, entre em contato pelo e-mail contato@autobidbr.com.br.',
       },
     ],
   },
@@ -171,7 +171,7 @@ const sections = [
       },
       {
         subtitle: '8.3 Contato',
-        text: 'Dúvidas, solicitações ou reclamações relacionadas a estes Termos podem ser encaminhadas pelo e-mail contato@autobidbr.com ou pelo telefone indicado no rodapé do site, nos horários de atendimento disponíveis.',
+        text: 'Dúvidas, solicitações ou reclamações relacionadas a estes Termos podem ser encaminhadas pelo e-mail contato@autobidbr.com.br ou pelo telefone indicado no rodapé do site, nos horários de atendimento disponíveis.',
       },
     ],
   },

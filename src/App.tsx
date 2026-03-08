@@ -51,6 +51,8 @@ const History = lazyRetry(() => import("./pages/app/History"));
 const Notifications = lazyRetry(() => import("./pages/Notifications"));
 const Checkout = lazyRetry(() => import("./pages/Checkout"));
 const Verify = lazyRetry(() => import("./pages/app/Verify"));
+const AuthCallback = lazyRetry(() => import("./pages/AuthCallback"));
+const CompleteProfile = lazyRetry(() => import("./pages/app/CompleteProfile"));
 
 // Área admin
 const Admin = lazyRetry(() => import("./pages/Admin"));
@@ -95,6 +97,9 @@ const App = () => (
                 <Route path="/lp" element={<LandingPage />} />
                 <Route path="/oferta" element={<LandingPage />} />
 
+                {/* OAuth Callback — Google login redirect handler */}
+                <Route path="/auth/callback" element={<AuthCallback />} />
+
                 {/* App / User Routes */}
                 <Route path="/app/dashboard" element={<Dashboard />} />
                 <Route path="/app/profile" element={<Profile />} />
@@ -103,6 +108,7 @@ const App = () => (
                 <Route path="/app/notifications" element={<Notifications />} />
                 <Route path="/app/checkout/:id" element={<Checkout />} />
                 <Route path="/app/verify" element={<Verify />} />
+                <Route path="/app/complete-profile" element={<CompleteProfile />} />
 
                 {/* Admin Routes */}
                 <Route path="/admin" element={<AdminGuard><Admin /></AdminGuard>} />

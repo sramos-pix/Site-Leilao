@@ -1,27 +1,43 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
-import { Loader2 } from 'lucide-react';
+import { Loader2, AlertCircle } from 'lucide-react';
 
 /**
  * AuthCallback.tsx
  * ----------------
- * Corrigido: race condition onde getSession() processava o código PKCE
- * antes do onAuthStateChange ser registrado, causando evento perdido.
+ * Trata o retorno do OAuth do Google (PKCE flow).
  *
- * Estratégia dupla:
- *  1. getSession() — captura a sessão se o código já foi trocado
- *  2. onAuthStateChange(SIGNED_IN) — captura se a troca ainda está em andamento
+ * Casos tratados:
+ *  1. ?error= na URL → exibe mensagem de erro amigável (ex: Database error)
+ *  2. Sessão disponível via getSession() → captura após troca PKCE concluída
+ *  3. SIGNED_IN via onAuthStateChange → captura se troca ainda em andamento
+ *  4. Fallback 10s → redireciona pro login se nada acontecer
  */
 
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [message, setMessage] = useState('Concluindo login com Google...');
+  const [hasError, setHasError] = useState(false);
 
   useEffect(() => {
     let handled = false;
+
+    // ── ERRO NA URL (ex: Database error saving new user) ─────────────────────
+    // O Supabase redireciona com ?error= quando algo falha no servidor
+    const urlParams = new URLSearchParams(window.location.search);
+    const oauthError = urlParams.get('error');
+    if (oauthError) {
+      handled = true;
+      const desc = urlParams.get('error_description') || 'Erro ao autenticar com Google.';
+      const friendlyMsg = desc.replace(/\+/g, ' ');
+      console.error('[AuthCallback] Erro OAuth na URL:', oauthError, friendlyMsg);
+      setMessage('Ocorreu um erro ao conectar sua conta Google. Tente novamente.');
+      setHasError(true);
+      return;
+    }
 
     const redirectUser = async (userId: string) => {
       if (handled) return;
@@ -49,8 +65,6 @@ const AuthCallback = () => {
     };
 
     // ── ESTRATÉGIA 1: getSession() ──────────────────────────────────────────
-    // O Supabase JS processa o ?code= da URL quando getSession() é chamado.
-    // Se o código já foi trocado antes do componente montar, isso captura a sessão.
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session?.user) {
         redirectUser(session.user.id);
@@ -58,18 +72,13 @@ const AuthCallback = () => {
     });
 
     // ── ESTRATÉGIA 2: onAuthStateChange ────────────────────────────────────
-    // Captura o SIGNED_IN se a troca ainda estiver em andamento quando o
-    // componente montou (ou se vier logo depois).
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
         redirectUser(session.user.id);
       }
-      // NOTA: não redireciona em SIGNED_OUT aqui para evitar falso-positivo
-      // durante a inicialização (INITIAL_SESSION com null antes do SIGNED_IN)
     });
 
     // ── FALLBACK ────────────────────────────────────────────────────────────
-    // Se após 10s nada aconteceu, provavelmente houve erro — manda pro login
     const fallbackTimer = setTimeout(() => {
       if (!handled) {
         console.warn('[AuthCallback] Timeout: nenhuma sessão detectada em 10s');
@@ -82,6 +91,26 @@ const AuthCallback = () => {
       clearTimeout(fallbackTimer);
     };
   }, [navigate]);
+
+  if (hasError) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-6 p-4">
+        <div className="bg-red-100 w-16 h-16 rounded-2xl flex items-center justify-center shadow-sm">
+          <AlertCircle className="text-red-500" size={32} />
+        </div>
+        <div className="text-center max-w-sm">
+          <h2 className="text-slate-900 font-bold text-xl mb-2">Falha no login com Google</h2>
+          <p className="text-slate-500 text-sm">{message}</p>
+        </div>
+        <Link
+          to="/login"
+          className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-8 py-3 rounded-xl transition-colors shadow-lg shadow-orange-200"
+        >
+          Voltar ao Login
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">

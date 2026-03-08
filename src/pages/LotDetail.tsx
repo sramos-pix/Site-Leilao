@@ -5,7 +5,7 @@ import { useParams, Link } from 'react-router-dom';
 import {
   Clock, Gavel, Gauge, Calendar,
   Settings2, Fuel, Loader2, History, Info, ShieldCheck, TrendingUp, FileText, CheckCircle2,
-  ChevronLeft, ChevronRight, Upload, X
+  ChevronLeft, ChevronRight, Upload, X, Zap
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,10 @@ const LotDetail = () => {
   const [userProfile, setUserProfile] = useState<any>(null);
   const [displayBids, setDisplayBids] = useState<any[]>([]);
   const [showVerifyModal, setShowVerifyModal] = useState(false);
+  const [userAutoBid, setUserAutoBid] = useState<any>(null);
+  const [maxBidAmount, setMaxBidAmount] = useState<number>(0);
+  const [showAutoBidSection, setShowAutoBidSection] = useState(false);
+  const [isSettingAutoBid, setIsSettingAutoBid] = useState(false);
 
   const isFinished = lot?.force_finished || (lot?.ends_at ? new Date(lot.ends_at) < new Date() : lot?.status === 'finished');
 
@@ -200,16 +204,34 @@ const LotDetail = () => {
     }
   }, [id]);
 
+  const fetchUserAutoBid = useCallback(async () => {
+    if (!currentUser || !id) return;
+    const { data } = await supabase
+      .from('auto_bids')
+      .select('*')
+      .eq('lot_id', id)
+      .eq('user_id', currentUser.id)
+      .eq('is_active', true)
+      .maybeSingle();
+    setUserAutoBid(data || null);
+    if (data) setMaxBidAmount(data.max_amount);
+  }, [currentUser, id]);
+
+  useEffect(() => {
+    fetchUserAutoBid();
+  }, [fetchUserAutoBid]);
+
   useEffect(() => {
     fetchLotData();
-    
+
     const channel = supabase.channel(`lot-realtime-${id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, fetchLotData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bids', filter: `lot_id=eq.${id}` }, () => { fetchLotData(); fetchUserAutoBid(); })
       .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'lots', filter: `id=eq.${id}` }, fetchLotData)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'auto_bids', filter: `lot_id=eq.${id}` }, fetchUserAutoBid)
       .subscribe();
-      
+
     return () => { supabase.removeChannel(channel); };
-  }, [id, fetchLotData]);
+  }, [id, fetchLotData, fetchUserAutoBid]);
 
   const handleBid = async () => {
     if (!currentUser) {
@@ -276,6 +298,62 @@ const LotDetail = () => {
       fetchLotData(); // Reverte a UI em caso de erro
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSetAutoBid = async () => {
+    if (!currentUser) {
+      toast({ title: "Login necessário", description: "Faça login para usar lance automático.", variant: "destructive" });
+      return;
+    }
+    if (!userProfile || userProfile.kyc_status !== 'verified') {
+      setShowVerifyModal(true);
+      return;
+    }
+
+    const increment = lot.bid_increment || 500;
+    const minAutoBid = currentPrice + increment;
+
+    if (maxBidAmount < minAutoBid) {
+      toast({ title: "Valor inválido", description: `O limite mínimo é ${formatCurrency(minAutoBid)}`, variant: "destructive" });
+      return;
+    }
+
+    setIsSettingAutoBid(true);
+    try {
+      const { error } = await supabase
+        .from('auto_bids')
+        .upsert(
+          { lot_id: lot.id, user_id: currentUser.id, max_amount: maxBidAmount, is_active: true, updated_at: new Date().toISOString() },
+          { onConflict: 'lot_id,user_id' }
+        );
+      if (error) throw error;
+      toast({ title: "Lance automático ativado!", description: `Seu limite: ${formatCurrency(maxBidAmount)}` });
+      await fetchUserAutoBid();
+      setShowAutoBidSection(false);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message });
+    } finally {
+      setIsSettingAutoBid(false);
+    }
+  };
+
+  const handleCancelAutoBid = async () => {
+    if (!userAutoBid) return;
+    setIsSettingAutoBid(true);
+    try {
+      const { error } = await supabase
+        .from('auto_bids')
+        .update({ is_active: false })
+        .eq('id', userAutoBid.id);
+      if (error) throw error;
+      toast({ title: "Lance automático cancelado" });
+      setUserAutoBid(null);
+      setShowAutoBidSection(false);
+    } catch (error: any) {
+      toast({ variant: "destructive", title: "Erro", description: error.message });
+    } finally {
+      setIsSettingAutoBid(false);
     }
   };
 
@@ -508,6 +586,76 @@ const LotDetail = () => {
                       {isSubmitting ? <Loader2 className="animate-spin" /> : "CONFIRMAR LANCE"}
                     </Button>
                     <p className="text-[10px] text-center text-white/40">Ao dar um lance, você concorda com os termos do edital.</p>
+
+                    {/* ── Lance Automático ── */}
+                    <div className="pt-2 border-t border-white/10">
+                      {userAutoBid ? (
+                        // Estado: Lance Automático ATIVO
+                        <div className="bg-orange-500/10 rounded-2xl p-4 space-y-2 border border-orange-500/20">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] font-bold text-orange-400 flex items-center gap-1.5">
+                              <Zap size={12} className="animate-pulse" /> Lance Automático ATIVO
+                            </p>
+                            <button
+                              onClick={handleCancelAutoBid}
+                              disabled={isSettingAutoBid}
+                              className="text-[10px] font-bold text-white/40 hover:text-red-400 transition-colors disabled:opacity-40"
+                            >
+                              {isSettingAutoBid ? <Loader2 size={12} className="animate-spin" /> : "Cancelar"}
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-white/50">
+                            Limite máximo: <span className="text-white font-bold">{formatCurrency(userAutoBid.max_amount)}</span>
+                          </p>
+                        </div>
+                      ) : !showAutoBidSection ? (
+                        // Estado: botão para ativar
+                        <button
+                          onClick={() => setShowAutoBidSection(true)}
+                          className="w-full flex items-center justify-center gap-2 text-[11px] font-bold text-white/40 hover:text-orange-400 transition-colors py-1"
+                        >
+                          <Zap size={12} /> Ativar Lance Automático
+                        </button>
+                      ) : (
+                        // Estado: formulário de configuração
+                        <div className="bg-white/5 rounded-2xl p-4 space-y-3 border border-white/10">
+                          <div className="flex items-center justify-between">
+                            <p className="text-[11px] font-bold text-orange-400 flex items-center gap-1.5">
+                              <Zap size={12} /> Lance Automático
+                            </p>
+                            <button
+                              onClick={() => setShowAutoBidSection(false)}
+                              className="text-white/30 hover:text-white/60 transition-colors"
+                            >
+                              <X size={14} />
+                            </button>
+                          </div>
+                          <p className="text-[10px] text-white/40 leading-relaxed">
+                            O sistema dará lances em incrementos mínimos automaticamente até seu limite.
+                          </p>
+                          <div className="space-y-2">
+                            <Label className="text-[10px] font-bold text-white/40 uppercase ml-1">Valor máximo</Label>
+                            <div className="relative">
+                              <span className="absolute left-4 top-1/2 -translate-y-1/2 font-bold text-slate-400 text-sm">R$</span>
+                              <Input
+                                type="number"
+                                value={maxBidAmount || ''}
+                                onChange={(e) => setMaxBidAmount(Number(e.target.value))}
+                                placeholder={String(currentPrice + (lot.bid_increment || 500))}
+                                className="w-full bg-white/5 border-white/10 text-white font-bold h-12 pl-12 rounded-xl focus:ring-orange-500 transition-all"
+                              />
+                            </div>
+                          </div>
+                          <Button
+                            onClick={handleSetAutoBid}
+                            disabled={isSettingAutoBid}
+                            className="w-full h-10 bg-orange-500/80 hover:bg-orange-500 text-white rounded-xl font-bold text-sm shadow-none"
+                          >
+                            {isSettingAutoBid ? <Loader2 className="animate-spin" size={16} /> : "Confirmar Automático"}
+                          </Button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </CardContent>

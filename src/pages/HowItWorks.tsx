@@ -3,6 +3,7 @@
 import React from 'react';
 import { Gavel, UserPlus, ShieldCheck, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Link } from 'react-router-dom';
 import Navbar from '@/components/Navbar';
 import Footer from '@/components/Footer';
@@ -18,7 +19,8 @@ const HowItWorks = () => {
     {
       icon: ShieldCheck,
       title: "2. Habilitação",
-      description: "Após a aprovação do seu perfil, você poderá se habilitar nos leilões de seu interesse e ler os editais específicos."
+      description: "Após sua conta ser verificada, escolha o leilão que deseja participar e clique em 'Habilitar' — é gratuito, instantâneo e feito em 1 clique. Você também pode ler o edital completo para ver todas as condições do leilão.",
+      badge: "Gratuito e Instantâneo"
     },
     {
       icon: Gavel,
@@ -75,14 +77,6 @@ const HowItWorks = () => {
         },
         {
           "@type": "Question",
-          "name": "Posso visitar o veículo antes de dar meu lance?",
-          "acceptedAnswer": {
-            "@type": "Answer",
-            "text": "Sim! Você pode agendar uma visita ao nosso pátio para inspecionar os veículos antes do leilão. Entre em contato com nossa equipe para agendar."
-          }
-        },
-        {
-          "@type": "Question",
           "name": "Como funciona o pagamento após arrematar um veículo?",
           "acceptedAnswer": {
             "@type": "Answer",
@@ -115,12 +109,19 @@ const HowItWorks = () => {
         <section className="py-20">
           <div className="container mx-auto px-4">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {steps.map((step, index) => (
+              {steps.map((step: any, index) => (
                 <div key={index} className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100 relative group hover:shadow-xl transition-all">
                   <div className="w-16 h-16 bg-orange-100 text-orange-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-500 group-hover:text-white transition-colors">
                     <step.icon size={32} />
                   </div>
-                  <h3 className="text-xl font-bold mb-4">{step.title}</h3>
+                  <div className="flex items-center gap-2 mb-4">
+                    <h3 className="text-xl font-bold">{step.title}</h3>
+                    {step.badge && (
+                      <Badge className="bg-emerald-100 text-emerald-700 border-none text-[10px] font-bold px-2 py-0.5 shrink-0">
+                        {step.badge}
+                      </Badge>
+                    )}
+                  </div>
                   <p className="text-slate-600 leading-relaxed">{step.description}</p>
                 </div>
               ))}

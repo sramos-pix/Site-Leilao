@@ -1,11 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 
 const WhatsAppWidget = () => {
   const [isEnabled, setIsEnabled] = useState(false);
   const [waNumber, setWaNumber] = useState('');
+  const location = useLocation();
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -50,7 +52,20 @@ const WhatsAppWidget = () => {
 
   // Limpa o número deixando apenas os dígitos para o link do WhatsApp
   const cleanNumber = waNumber.replace(/\D/g, '');
-  const waLink = `https://wa.me/55${cleanNumber}?text=Olá! Gostaria de tirar uma dúvida sobre os leilões.`;
+
+  // Mensagem contextual baseada na página atual
+  let waMessage = 'Olá! Gostaria de tirar uma dúvida sobre os leilões.';
+  const path = location.pathname;
+  if (path.startsWith('/lots/')) {
+    const lotId = path.split('/lots/')[1];
+    waMessage = `Olá! Tenho interesse no lote ${lotId ? `#${lotId.slice(0, 8)}` : ''} que vi no site. Pode me dar mais detalhes?`;
+  } else if (path.startsWith('/auctions/')) {
+    waMessage = 'Olá! Estou vendo um leilão no site e gostaria de mais informações.';
+  } else if (path === '/register' || path === '/app/verify') {
+    waMessage = 'Olá! Estou tendo dificuldades com meu cadastro/verificação. Podem me ajudar?';
+  }
+
+  const waLink = `https://wa.me/55${cleanNumber}?text=${encodeURIComponent(waMessage)}`;
 
   return (
     <a

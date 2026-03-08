@@ -97,12 +97,8 @@ const categories = [
         a: 'Sim. Todos os veículos disponíveis na AutoBid passam por vistoria e têm a situação do documento verificada antes de entrar em leilão. As informações relevantes constam no edital.'
       },
       {
-        q: 'Posso visitar e inspecionar o veículo antes de dar o lance?',
-        a: 'Sim! Você pode agendar uma visita ao nosso pátio para inspecionar os veículos antes do leilão. Entre em contato com nossa equipe pelo chat ou pela página de Contato para agendar.'
-      },
-      {
-        q: 'O veículo está em boas condições? Como sei o estado do carro?',
-        a: 'Cada lote possui fotos detalhadas, descrição completa e informações de quilometragem, ano e condição. Recomendamos sempre visitar o pátio antes de dar lances em veículos de maior valor.'
+        q: 'Como sei o estado real do veículo antes de dar meu lance?',
+        a: 'Cada lote possui fotos detalhadas de todos os ângulos, descrição completa do estado de conservação, quilometragem, ano e condição. Avalie tudo pelo site antes de dar seu lance — 100% online e transparente.'
       },
       {
         q: 'Como funciona a retirada do veículo após o arremate?',

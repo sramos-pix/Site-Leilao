@@ -5,6 +5,7 @@ import Navbar from '@/components/Navbar';
 import Hero from '@/components/Hero';
 import FeaturedAuctions from '@/components/FeaturedAuctions';
 import Testimonials from '@/components/Testimonials';
+import StatsSection from '@/components/StatsSection';
 import Footer from '@/components/Footer';
 import { SEO } from '@/components/SEO';
 
@@ -89,6 +90,7 @@ const Index = () => {
       />
       <Navbar />
       <Hero />
+      <StatsSection />
       <FeaturedAuctions />
       <Testimonials />
       <Footer />

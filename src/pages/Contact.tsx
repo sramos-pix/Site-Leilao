@@ -101,7 +101,7 @@ const Contact = () => {
               {[
                 { icon: ShieldCheck, title: "Procedência Garantida", desc: "Todos os veículos são periciados e possuem laudo cautelar aprovado." },
                 { icon: Gavel, title: "Leilão Auditado", desc: "Processos transparentes com acompanhamento jurídico em todas as etapas." },
-                { icon: Award, title: "Excelência no Pátio", desc: "Infraestrutura completa para armazenamento e visitação dos lotes." }
+                { icon: Award, title: "Suporte Especializado", desc: "Equipe disponível para tirar dúvidas e orientar você em cada etapa do processo." }
               ].map((item, i) => (
                 <div key={i} className="bg-white p-8 rounded-[2rem] shadow-xl border border-slate-100 flex flex-col items-center text-center group hover:border-orange-200 transition-all">
                   <div className="w-16 h-16 bg-orange-50 text-orange-600 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-orange-500 group-hover:text-white transition-colors">

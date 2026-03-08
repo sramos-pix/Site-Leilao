@@ -22,10 +22,17 @@ const Auctions = () => {
     try {
       const { data: auctionsData } = await supabase
         .from('auctions')
-        .select('*, lots(id)')
+        .select('*, lots(id, cover_image_url)')
         .order('starts_at', { ascending: false });
-      
-      setAuctions(auctionsData || []);
+
+      // Sempre usa foto real do primeiro lote como capa do leilão
+      // Se nenhum lote tem foto, mostra placeholder da AutoBid (null)
+      const enriched = (auctionsData || []).map(auction => {
+        const firstLotWithImage = auction.lots?.find((l: any) => l.cover_image_url);
+        return { ...auction, image_url: firstLotWithImage?.cover_image_url || null };
+      });
+
+      setAuctions(enriched);
     } catch (error) {
       console.error(error);
     } finally {
@@ -124,11 +131,18 @@ const Auctions = () => {
             return (
               <Card key={auction.id} className="group overflow-hidden border-none shadow-sm hover:shadow-md transition-all duration-300 rounded-2xl bg-white">
                 <Link to={`/auctions/${auction.id}`} className="relative aspect-[16/9] overflow-hidden bg-slate-100 block">
-                  <img 
-                    src={auction.image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
-                    className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                    alt={auction.title}
-                  />
+                  {auction.image_url ? (
+                    <img
+                      src={auction.image_url}
+                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
+                      alt={auction.title}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center gap-2">
+                      <Car size={40} className="text-orange-500" />
+                      <span className="text-white/60 font-bold text-sm">AutoBid</span>
+                    </div>
+                  )}
                   <div className="absolute top-3 left-3">
                     <Badge className={cn(
                       "border-none font-bold px-3 py-0.5 rounded-full text-[10px] tracking-wider",

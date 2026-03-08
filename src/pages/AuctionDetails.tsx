@@ -29,16 +29,26 @@ const AuctionDetails = () => {
         .select('*')
         .eq('id', id)
         .single();
-      
-      setAuction(auctionData);
 
       const { data: lotsData } = await supabase
         .from('lots')
         .select('*')
         .eq('auction_id', id)
         .order('lot_number', { ascending: true });
-      
+
       setLots(lotsData || []);
+
+      // Se o leilão não tem imagem própria, usa a foto do primeiro lote como capa
+      if (auctionData && (!auctionData.image_url || auctionData.image_url.includes('unsplash.com'))) {
+        const firstWithImage = (lotsData || []).find((l: any) => l.cover_image_url);
+        if (firstWithImage) {
+          auctionData.image_url = firstWithImage.cover_image_url;
+        } else {
+          auctionData.image_url = null;
+        }
+      }
+
+      setAuction(auctionData);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
@@ -118,11 +128,18 @@ const AuctionDetails = () => {
         <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-slate-100 mb-10">
           <div className="flex flex-col md:flex-row gap-8 items-start">
             <div className="w-full md:w-1/3 aspect-video rounded-xl overflow-hidden bg-slate-100">
-              <img 
-                src={auction.image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
-                className="w-full h-full object-cover"
-                alt={auction.title}
-              />
+              {auction.image_url ? (
+                <img
+                  src={auction.image_url}
+                  className="w-full h-full object-cover"
+                  alt={auction.title}
+                />
+              ) : (
+                <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center gap-2">
+                  <Car size={40} className="text-orange-500" />
+                  <span className="text-white/60 font-bold text-sm">AutoBid</span>
+                </div>
+              )}
             </div>
             <div className="flex-1 space-y-4">
               <div className="flex items-center gap-3">
@@ -160,11 +177,18 @@ const AuctionDetails = () => {
           {lots.map((lot) => (
             <Card key={lot.id} className="group border-none shadow-lg hover:shadow-2xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white">
               <Link to={`/lots/${lot.id}`} className="block relative aspect-[4/3] overflow-hidden cursor-pointer">
-                <img 
-                  src={lot.cover_image_url || 'https://images.unsplash.com/photo-1555215695-3004980ad54e?auto=format&fit=crop&q=80&w=800'} 
-                  alt={lot.title} 
-                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                />
+                {lot.cover_image_url ? (
+                  <img
+                    src={lot.cover_image_url}
+                    alt={lot.title}
+                    className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-slate-800 flex flex-col items-center justify-center gap-2">
+                    <Car size={40} className="text-orange-500" />
+                    <span className="text-white/60 font-bold text-sm">AutoBid</span>
+                  </div>
+                )}
                 <div className="absolute top-4 left-4 flex flex-col gap-2">
                   <Badge className="bg-slate-900/90 backdrop-blur-md text-white border-none px-3 py-1 rounded-lg text-[10px] font-black uppercase tracking-widest w-fit">
                     LOTE #{lot.lot_number}
@@ -205,6 +229,14 @@ const AuctionDetails = () => {
                     <p className="text-sm font-bold text-slate-600">+ {formatCurrency(lot.bid_increment || 500)}</p>
                   </div>
                 </div>
+                {lot.fipe_value && Number(lot.fipe_value) > 0 && (
+                  <div className="mt-3 flex items-center justify-between bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
+                    <span className="text-xs text-slate-500">FIPE: <span className="line-through">{formatCurrency(lot.fipe_value)}</span></span>
+                    <span className="text-xs font-black text-emerald-600">
+                      {Math.round((1 - (lot.current_bid || lot.start_bid || 0) / lot.fipe_value) * 100)}% abaixo
+                    </span>
+                  </div>
+                )}
               </CardContent>
 
               <CardFooter className="p-8 pt-0">

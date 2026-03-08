@@ -6,24 +6,39 @@ import { Card, CardContent } from '@/components/ui/card';
 
 const testimonials = [
   {
-    name: "Ricardo Oliveira",
-    role: "Arrematante Frequente",
-    content: "O AutoBid facilitou muito a minha vida. O sistema de lances em tempo real é muito preciso e a transparência em todo o processo me dá a segurança que preciso para investir.",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=faces",
+    name: "Ricardo C.",
+    role: "Honda Civic 2014",
+    content: "Arrematei um Honda Civic 2014 por R$ 28.000 — a FIPE estava em R$ 47.000. Economia de R$ 19.000! O processo foi transparente do início ao fim.",
+    initials: "RC",
+    bgColor: "bg-orange-100",
+    textColor: "text-orange-600",
+    paidValue: "R$ 28.000",
+    fipeValue: "R$ 47.000",
+    savings: "R$ 19.000",
     rating: 5
   },
   {
-    name: "Juliana Costa",
-    role: "Primeira Compra",
-    content: "Estava com receio de participar de leilões online, mas o suporte do AutoBid foi incrível. Arrematei meu primeiro carro com um preço excelente e toda a documentação foi resolvida rápido.",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=faces",
+    name: "Juliana M.",
+    role: "Toyota Corolla 2019",
+    content: "Era meu primeiro leilão e estava com receio, mas o suporte por WhatsApp me ajudou em cada etapa. Consegui um Corolla com 42% de desconto sobre a FIPE!",
+    initials: "JM",
+    bgColor: "bg-blue-100",
+    textColor: "text-blue-600",
+    paidValue: "R$ 52.000",
+    fipeValue: "R$ 89.500",
+    savings: "R$ 37.500",
     rating: 5
   },
   {
-    name: "Marcos Vinícius",
-    role: "Investidor",
-    content: "Plataforma extremamente intuitiva. Os filtros de busca e as notificações de lances superados me ajudam a não perder nenhuma oportunidade de negócio. Recomendo!",
-    avatar: "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&h=150&fit=crop&crop=faces",
+    name: "Marcos V.",
+    role: "Investidor — 3 veículos arrematados",
+    content: "Já comprei 3 veículos na AutoBid para revenda. A margem é excelente e a documentação sempre está em dia. Plataforma séria e confiável.",
+    initials: "MV",
+    bgColor: "bg-emerald-100",
+    textColor: "text-emerald-600",
+    paidValue: "R$ 35.000",
+    fipeValue: "R$ 58.000",
+    savings: "R$ 23.000",
     rating: 5
   }
 ];
@@ -47,23 +62,38 @@ const Testimonials = () => {
             <Card key={index} className="border-none shadow-xl shadow-slate-100/50 rounded-[2.5rem] bg-slate-50/50 hover:bg-white transition-all duration-500 group">
               <CardContent className="p-10 relative">
                 <Quote className="absolute top-8 right-8 text-slate-200 group-hover:text-orange-100 transition-colors" size={48} />
-                
+
                 <div className="flex gap-1 mb-6">
                   {[...Array(t.rating)].map((_, i) => (
                     <Star key={i} size={16} className="fill-orange-400 text-orange-400" />
                   ))}
                 </div>
 
-                <p className="text-slate-600 leading-relaxed mb-8 italic relative z-10">
+                <p className="text-slate-600 leading-relaxed mb-4 italic relative z-10">
                   "{t.content}"
                 </p>
 
+                {/* Comparativo de economia */}
+                <div className="bg-emerald-50 rounded-xl p-3 mb-6 border border-emerald-100">
+                  <div className="flex items-center justify-between text-xs">
+                    <div>
+                      <span className="text-slate-400 font-bold">Pagou:</span>{' '}
+                      <span className="font-black text-slate-700">{t.paidValue}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-400 font-bold">FIPE:</span>{' '}
+                      <span className="font-bold text-slate-500 line-through">{t.fipeValue}</span>
+                    </div>
+                  </div>
+                  <p className="text-emerald-600 font-black text-sm mt-1 text-center">
+                    Economia de {t.savings}
+                  </p>
+                </div>
+
                 <div className="flex items-center gap-4">
-                  <img 
-                    src={t.avatar} 
-                    alt={t.name} 
-                    className="w-14 h-14 rounded-2xl object-cover shadow-md"
-                  />
+                  <div className={`w-14 h-14 ${t.bgColor} rounded-2xl flex items-center justify-center ${t.textColor} font-bold text-lg shadow-md`}>
+                    {t.initials}
+                  </div>
                   <div>
                     <h4 className="font-bold text-slate-900">{t.name}</h4>
                     <p className="text-xs text-slate-400 font-bold uppercase tracking-wider">{t.role}</p>

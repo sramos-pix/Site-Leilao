@@ -512,7 +512,7 @@ const AdminOverview = () => {
                   recentBids.map((bid) => {
                     const userName = bid.profiles?.full_name || 'Usuário';
                     const userEmail = bid.profiles?.email || `ID: ${bid.user_id?.substring(0, 8)}`;
-                    const isFinished = bid.lots?.status === 'finished';
+                    const isFinished = bid.lots?.force_finished || (bid.lots?.ends_at ? new Date(bid.lots.ends_at) < new Date() : bid.lots?.status === 'finished');
                     const isWinner = bid.lots?.winner_id === bid.user_id;
 
                     return (

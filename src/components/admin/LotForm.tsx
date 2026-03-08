@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Search } from 'lucide-react';
+import { fetchFipeValue } from '@/lib/fipe';
 
 const lotSchema = z.object({
   title: z.string().min(5, 'Título muito curto'),
@@ -18,6 +19,7 @@ const lotSchema = z.object({
   mileage_km: z.coerce.number().min(0),
   start_bid: z.coerce.number().min(1),
   min_increment: z.coerce.number().min(1),
+  fipe_value: z.coerce.number().min(0).optional(),
   condition_notes: z.string().optional(),
   auction_id: z.string(),
 });
@@ -31,16 +33,40 @@ interface LotFormProps {
 
 const LotForm = ({ auctionId, onSuccess }: LotFormProps) => {
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isFetchingFipe, setIsFetchingFipe] = React.useState(false);
   const { toast } = useToast();
-  const { register, handleSubmit, formState: { errors }, reset } = useForm<LotFormValues>({
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue } = useForm<LotFormValues>({
     resolver: zodResolver(lotSchema),
-    defaultValues: { 
-      auction_id: auctionId, 
-      year: 2024, 
+    defaultValues: {
+      auction_id: auctionId,
+      year: 2024,
       mileage_km: 0,
       min_increment: 500
     }
   });
+
+  const brand = watch('brand');
+  const model = watch('model');
+  const year = watch('year');
+
+  const handleFetchFipe = async () => {
+    if (!brand || !model || !year) {
+      toast({ variant: 'destructive', title: 'Preencha Marca, Modelo e Ano antes de buscar o FIPE.' });
+      return;
+    }
+    setIsFetchingFipe(true);
+    try {
+      const value = await fetchFipeValue(brand, model, Number(year));
+      if (value) {
+        setValue('fipe_value', value);
+        toast({ title: `FIPE encontrado: R$ ${value.toLocaleString('pt-BR')}` });
+      } else {
+        toast({ variant: 'destructive', title: 'Não encontrado na tabela FIPE', description: 'Verifique a marca e modelo ou insira manualmente.' });
+      }
+    } finally {
+      setIsFetchingFipe(false);
+    }
+  };
 
   const onSubmit = async (data: LotFormValues) => {
     setIsLoading(true);
@@ -73,11 +99,11 @@ const LotForm = ({ auctionId, onSuccess }: LotFormProps) => {
         </div>
         <div className="space-y-2">
           <Label>Marca</Label>
-          <Input {...register('brand')} />
+          <Input {...register('brand')} placeholder="Ex: VOLKSWAGEN" />
         </div>
         <div className="space-y-2">
           <Label>Modelo</Label>
-          <Input {...register('model')} />
+          <Input {...register('model')} placeholder="Ex: NIVUS" />
         </div>
         <div className="space-y-2">
           <Label>Ano</Label>
@@ -94,6 +120,24 @@ const LotForm = ({ auctionId, onSuccess }: LotFormProps) => {
         <div className="space-y-2">
           <Label>Incremento</Label>
           <Input type="number" {...register('min_increment')} />
+        </div>
+        <div className="space-y-2 col-span-2">
+          <div className="flex items-center justify-between">
+            <Label>Valor FIPE</Label>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={handleFetchFipe}
+              disabled={isFetchingFipe}
+            >
+              {isFetchingFipe ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+              {isFetchingFipe ? 'Buscando...' : 'Buscar FIPE'}
+            </Button>
+          </div>
+          <Input type="number" placeholder="Ex: 47000" {...register('fipe_value')} />
+          <p className="text-[10px] text-slate-400">Preenchido automaticamente ao clicar em "Buscar FIPE". Exibido como comparativo nos cards e na página do lote.</p>
         </div>
       </div>
       <div className="space-y-2">

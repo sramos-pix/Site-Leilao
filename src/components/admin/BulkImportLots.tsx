@@ -7,6 +7,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Upload, Loader2, FileSpreadsheet, CheckCircle2, AlertCircle } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import * as XLSX from 'xlsx';
+import { fetchFipeValue } from '@/lib/fipe';
 
 interface BulkImportLotsProps {
   auctions: any[];
@@ -94,9 +95,17 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           }
         }
 
-        // Determina o status baseado na nova data
+        // Se não tem data, gera uma aleatória entre 3h e 24h no futuro
+        const effectiveEndsAt = endsAtIso
+          || new Date(Date.now() + (3 + Math.random() * 21) * 60 * 60 * 1000).toISOString();
+
+        // Determina o status baseado na data
         const now = new Date();
-        const newStatus = (endsAtIso && new Date(endsAtIso) > now) ? 'active' : 'finished';
+        const newStatus = new Date(effectiveEndsAt) > now ? 'active' : 'finished';
+
+        const descFromCsv = String(row.Descricao || row.descricao || "").trim();
+
+        let startBid = parseFloat(row.LanceInicial || row["Lance Inicial"] || 0);
 
         const lotData: any = {
           auction_id: selectedAuctionId,
@@ -106,14 +115,31 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
           model: String(row.Modelo || row.modelo || "").trim(),
           year: parseInt(row.Ano || row.ano || 2024),
           mileage_km: parseInt(row.KM || row.km || row.Quilometragem || 0),
-          start_bid: parseFloat(row.LanceInicial || row["Lance Inicial"] || 0),
+          start_bid: startBid,
           bid_increment: parseFloat(row.Incremento || 500),
-          description: String(row.Descricao || row.descricao || "").trim(),
           transmission: String(row.Cambio || row["Câmbio"] || "Automático").trim(),
           fuel_type: String(row.Combustivel || row["Combustível"] || "Flex").trim(),
-          ends_at: endsAtIso,
+          ends_at: effectiveEndsAt,
           status: newStatus
         };
+
+        // FIPE: usa o valor do CSV se fornecido, senão busca automaticamente na API
+        const fipeFromCsv = parseFloat(row.FIPE || row.Fipe || row["Valor FIPE"] || row.ValorFIPE || 0) || null;
+        if (fipeFromCsv) {
+          lotData.fipe_value = fipeFromCsv;
+        } else {
+          const fipeApi = await fetchFipeValue(lotData.brand, lotData.model, lotData.year);
+          if (fipeApi) lotData.fipe_value = fipeApi;
+        }
+
+        // Se tiver "% Abaixo FIPE" no CSV, recalcula o lance inicial a partir da FIPE
+        const pctAbaixo = parseFloat(row["% Abaixo FIPE"] || row["% Abaixo"] || row.PctAbaixoFIPE || 0);
+        if (pctAbaixo > 0 && lotData.fipe_value) {
+          lotData.start_bid = Math.round(lotData.fipe_value * (1 - pctAbaixo / 100));
+        }
+
+        // Só sobrescreve description se o CSV fornecer um valor
+        if (descFromCsv) lotData.description = descFromCsv;
 
         // Busca o lote existente
         let existingLot = null;

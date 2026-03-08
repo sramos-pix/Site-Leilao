@@ -179,6 +179,14 @@ const FeaturedAuctions = () => {
                       </p>
                     </div>
                   </div>
+                  {item.fipe_value && Number(item.fipe_value) > 0 && (
+                    <div className="mt-3 flex items-center justify-between bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
+                      <span className="text-xs text-slate-500">FIPE: <span className="line-through">{formatCurrency(item.fipe_value)}</span></span>
+                      <span className="text-xs font-black text-emerald-600">
+                        {Math.round((1 - (item.current_bid || item.start_bid) / item.fipe_value) * 100)}% abaixo
+                      </span>
+                    </div>
+                  )}
                 </CardContent>
 
                 <CardFooter className="p-8 pt-0">

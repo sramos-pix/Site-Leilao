@@ -16,9 +16,10 @@ import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/components/ui/use-toast';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search, Download, Filter, X, Clock, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Car, Loader2, Image as ImageIcon, Edit, CheckCircle2, Star, Calendar, TrendingUp, ExternalLink, Settings2, Fuel, Search, Download, Filter, X, Clock, AlertCircle, TrendingDown, Trophy } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 import { uploadLotPhoto } from '@/lib/storage';
+import { fetchFipeValue } from '@/lib/fipe';
 import BulkImportLots from './BulkImportLots';
 
 const LotManager = () => {
@@ -41,7 +42,55 @@ const LotManager = () => {
   const [timeStatus, setTimeStatus] = useState<string>("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   
+  const [isFetchingFipe, setIsFetchingFipe] = useState(false);
+  const [formFipeValue, setFormFipeValue] = useState<string>('');
+  const [formStartBid, setFormStartBid] = useState<string>('');
+  const [formDiscount, setFormDiscount] = useState<string>('');
   const { toast } = useToast();
+
+  // Calcula lance a partir de FIPE e porcentagem
+  const applyDiscount = (fipe: string, discount: string) => {
+    const f = parseFloat(fipe);
+    const d = parseFloat(discount);
+    if (!isNaN(f) && !isNaN(d) && f > 0) {
+      setFormStartBid(String(Math.round(f * (1 - d / 100))));
+    }
+  };
+
+  // Calcula porcentagem a partir de FIPE e lance
+  const calcDiscount = (fipe: string, bid: string) => {
+    const f = parseFloat(fipe);
+    const b = parseFloat(bid);
+    if (!isNaN(f) && !isNaN(b) && f > 0) {
+      setFormDiscount(String(Math.round(((f - b) / f) * 100)));
+    } else {
+      setFormDiscount('');
+    }
+  };
+
+  const handleFetchFipe = async (formEl: HTMLFormElement) => {
+    const fd = new FormData(formEl);
+    const brand = fd.get('brand') as string;
+    const model = fd.get('model') as string;
+    const year = parseInt(fd.get('year') as string);
+    if (!brand || !model || !year) {
+      toast({ variant: 'destructive', title: 'Preencha Marca, Modelo e Ano antes de buscar FIPE.' });
+      return;
+    }
+    setIsFetchingFipe(true);
+    try {
+      const value = await fetchFipeValue(brand, model, year);
+      if (value) {
+        setFormFipeValue(String(value));
+        calcDiscount(String(value), formStartBid);
+        toast({ title: `FIPE encontrado: R$ ${value.toLocaleString('pt-BR')}` });
+      } else {
+        toast({ variant: 'destructive', title: 'Não encontrado na tabela FIPE', description: 'Verifique marca/modelo ou insira manualmente.' });
+      }
+    } finally {
+      setIsFetchingFipe(false);
+    }
+  };
 
   // Extrair marcas e modelos únicos para os filtros
   const brands = Array.from(new Set(lots.map(lot => lot.brand).filter(Boolean))).sort();
@@ -84,6 +133,13 @@ const LotManager = () => {
 
   const handleEdit = (lot: any) => {
     setEditingLot(lot);
+    setFormFipeValue(lot.fipe_value ? String(lot.fipe_value) : '');
+    setFormStartBid(lot.start_bid ? String(lot.start_bid) : '');
+    if (lot.fipe_value && lot.start_bid) {
+      setFormDiscount(String(Math.round(((lot.fipe_value - lot.start_bid) / lot.fipe_value) * 100)));
+    } else {
+      setFormDiscount('');
+    }
     setIsDialogOpen(true);
   };
 
@@ -195,6 +251,8 @@ const LotManager = () => {
       "Câmbio",
       "Combustível",
       "Lance Inicial",
+      "Valor FIPE",
+      "% Abaixo FIPE",
       "Incremento",
       "Destaque Home",
       "Destaque Semana",
@@ -204,7 +262,11 @@ const LotManager = () => {
     // Mapeia os dados para o formato CSV
     const csvData = filteredLots.map(lot => {
       const auctionName = auctions.find(a => a.id === lot.auction_id)?.title || 'Desconhecido';
-      
+      const fipe = lot.fipe_value || '';
+      const pctAbaixo = lot.fipe_value && lot.start_bid
+        ? Math.round(((lot.fipe_value - lot.start_bid) / lot.fipe_value) * 100)
+        : '';
+
       return [
         lot.id,
         `"${auctionName}"`,
@@ -217,6 +279,8 @@ const LotManager = () => {
         lot.transmission || '',
         lot.fuel_type || '',
         lot.start_bid || 0,
+        fipe,
+        pctAbaixo,
         lot.bid_increment || 500,
         lot.is_featured ? 'Sim' : 'Não',
         lot.is_weekly_highlight ? 'Sim' : 'Não',
@@ -286,6 +350,8 @@ const LotManager = () => {
     const endsAtValue = formData.get('ends_at') as string;
     const mileageValue = formData.get('mileage_km') as string;
 
+    const fipeVal = formData.get('fipe_value') as string;
+
     const lotData: any = {
       auction_id: formData.get('auction_id'),
       lot_number: parseInt(formData.get('lot_number') as string),
@@ -298,8 +364,11 @@ const LotManager = () => {
       fuel_type: formData.get('fuel_type') === "none" ? null : formData.get('fuel_type'),
       start_bid: parseFloat(formData.get('start_bid') as string),
       bid_increment: parseFloat(formData.get('bid_increment') as string) || 500,
+      fipe_value: fipeVal ? parseFloat(fipeVal) : null,
       description: formData.get('description'),
-      ends_at: endsAtValue ? new Date(endsAtValue).toISOString() : null,
+      ends_at: endsAtValue
+        ? new Date(endsAtValue).toISOString()
+        : new Date(Date.now() + (3 + Math.random() * 21) * 60 * 60 * 1000).toISOString(),
       is_featured: formData.get('is_featured') === 'on',
       is_weekly_highlight: formData.get('is_weekly_highlight') === 'on',
     };
@@ -349,7 +418,7 @@ const LotManager = () => {
             Exportar CSV
           </Button>
           <BulkImportLots auctions={auctions} onSuccess={fetchData} />
-          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) setEditingLot(null); }}>
+          <Dialog open={isDialogOpen} onOpenChange={(open) => { setIsDialogOpen(open); if(!open) { setEditingLot(null); setFormFipeValue(''); setFormStartBid(''); setFormDiscount(''); } }}>
             <DialogTrigger asChild>
               <Button className="bg-orange-500 hover:bg-orange-600 text-white rounded-xl">
                 <Plus size={18} className="mr-2" /> Novo Veículo
@@ -437,7 +506,23 @@ const LotManager = () => {
 
                 <div className="space-y-2">
                   <Label>Lance Inicial</Label>
-                  <Input name="start_bid" type="number" step="0.01" defaultValue={editingLot?.start_bid} className="rounded-xl" required />
+                  <Input
+                    name="start_bid"
+                    type="number"
+                    step="0.01"
+                    value={formStartBid}
+                    onChange={(e) => {
+                      setFormStartBid(e.target.value);
+                      calcDiscount(formFipeValue, e.target.value);
+                    }}
+                    className="rounded-xl"
+                    required
+                  />
+                  {formFipeValue && formDiscount && (
+                    <p className={`text-[10px] font-bold ${parseFloat(formDiscount) > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+                      {parseFloat(formDiscount) > 0 ? `${formDiscount}% abaixo da FIPE` : `${Math.abs(parseFloat(formDiscount))}% acima da FIPE`}
+                    </p>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -457,9 +542,68 @@ const LotManager = () => {
                 <div className="col-span-2 space-y-2">
                   <Label>Encerramento (Opcional)</Label>
                   <Input name="ends_at" type="datetime-local" defaultValue={editingLot?.ends_at ? new Date(editingLot.ends_at).toISOString().slice(0, 16) : ""} className="rounded-xl" />
-                  <p className="text-[10px] text-slate-400 italic">Deixe em branco para usar o tempo aleatório de até 24h.</p>
+                  <p className="text-[10px] text-slate-400 italic">Deixe em branco para gerar automaticamente entre 3h e 24h no futuro.</p>
                 </div>
                 
+                <div className="col-span-2 p-4 bg-emerald-50 rounded-2xl border border-emerald-100 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="flex items-center gap-2 text-emerald-700 font-bold">
+                      <TrendingDown size={14} /> Tabela FIPE
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-7 text-xs gap-1 border-emerald-200 text-emerald-700 hover:bg-emerald-50"
+                      onClick={(e) => {
+                        const form = (e.target as HTMLElement).closest('form');
+                        if (form) handleFetchFipe(form);
+                      }}
+                      disabled={isFetchingFipe}
+                    >
+                      {isFetchingFipe ? <Loader2 className="h-3 w-3 animate-spin" /> : <Search className="h-3 w-3" />}
+                      {isFetchingFipe ? 'Buscando...' : 'Buscar FIPE'}
+                    </Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">Valor FIPE</label>
+                      <Input
+                        name="fipe_value"
+                        type="number"
+                        step="0.01"
+                        value={formFipeValue}
+                        onChange={(e) => {
+                          setFormFipeValue(e.target.value);
+                          calcDiscount(e.target.value, formStartBid);
+                        }}
+                        placeholder="R$ 0,00"
+                        className="rounded-xl border-emerald-200 focus:border-emerald-500 bg-white"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-emerald-600 uppercase tracking-wider">% Abaixo da FIPE</label>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="99"
+                          value={formDiscount}
+                          onChange={(e) => {
+                            setFormDiscount(e.target.value);
+                            applyDiscount(formFipeValue, e.target.value);
+                          }}
+                          placeholder="Ex: 30"
+                          className="rounded-xl border-emerald-200 focus:border-emerald-500 bg-white"
+                          disabled={!formFipeValue}
+                        />
+                        <span className="text-emerald-700 font-bold text-sm shrink-0">%</span>
+                      </div>
+                    </div>
+                  </div>
+                  <p className="text-[10px] text-emerald-600/70">Altere a % para recalcular o lance inicial automaticamente, ou altere o lance para recalcular a %.</p>
+                </div>
+
                 <div className="col-span-2 space-y-2">
                   <Label>Descrição Detalhada</Label>
                   <Textarea name="description" defaultValue={editingLot?.description} placeholder="Detalhes do veículo..." className="min-h-[100px] rounded-xl" />
@@ -603,21 +747,22 @@ const LotManager = () => {
               <TableHead>Veículo</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Lance Inicial</TableHead>
+              <TableHead>FIPE</TableHead>
               <TableHead className="text-right">Ações</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow><TableCell colSpan={6} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
+              <TableRow><TableCell colSpan={7} className="text-center py-10"><Loader2 className="animate-spin mx-auto" /></TableCell></TableRow>
             ) : filteredLots.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-10 text-slate-500">
+                <TableCell colSpan={7} className="text-center py-10 text-slate-500">
                   Nenhum veículo encontrado para os filtros selecionados.
                 </TableCell>
               </TableRow>
             ) : filteredLots.map((lot) => {
-              const isFinished = lot.ends_at && new Date(lot.ends_at) < new Date();
-              const isEndingSoon = lot.ends_at && !isFinished && (new Date(lot.ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60) <= 24;
+              const isFinished = lot.force_finished || (lot.ends_at && new Date(lot.ends_at) < new Date());
+              const isEndingSoon = !lot.force_finished && lot.ends_at && !isFinished && (new Date(lot.ends_at).getTime() - new Date().getTime()) / (1000 * 60 * 60) <= 24;
 
               return (
                 <TableRow key={lot.id} className={`hover:bg-slate-50/50 transition-colors ${selectedIds.includes(lot.id) ? 'bg-orange-50/30' : ''} ${isFinished ? 'opacity-75 grayscale-[0.5]' : ''}`}>
@@ -654,7 +799,11 @@ const LotManager = () => {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {isFinished ? (
+                      {lot.force_finished ? (
+                        <Badge className="bg-purple-100 text-purple-600 border-none text-[10px] flex items-center gap-1">
+                          <Trophy size={10} /> Arrematado (Fictício)
+                        </Badge>
+                      ) : isFinished ? (
                         <Badge className="bg-red-100 text-red-600 border-none text-[10px] flex items-center gap-1">
                           <AlertCircle size={10} /> Encerrado
                         </Badge>
@@ -668,8 +817,42 @@ const LotManager = () => {
                     </div>
                   </TableCell>
                   <TableCell className="font-bold">{formatCurrency(lot.start_bid)}</TableCell>
+                  <TableCell>
+                    {lot.fipe_value ? (() => {
+                      const discount = Math.round(((lot.fipe_value - lot.start_bid) / lot.fipe_value) * 100);
+                      return (
+                        <div className="flex flex-col">
+                          <span className="text-xs font-medium text-slate-600">{formatCurrency(lot.fipe_value)}</span>
+                          {discount > 0 ? (
+                            <Badge className="bg-emerald-100 text-emerald-700 border-none text-[10px] w-fit">
+                              -{discount}% abaixo
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-red-100 text-red-600 border-none text-[10px] w-fit">
+                              +{Math.abs(discount)}% acima
+                            </Badge>
+                          )}
+                        </div>
+                      );
+                    })() : (
+                      <span className="text-[10px] text-slate-400">Sem FIPE</span>
+                    )}
+                  </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={async () => {
+                          await supabase.from('lots').update({ force_finished: !lot.force_finished }).eq('id', lot.id);
+                          fetchData();
+                          toast({ title: lot.force_finished ? 'Veículo reativado' : 'Marcado como arrematado (fictício)' });
+                        }}
+                        title={lot.force_finished ? "Reativar Veículo" : "Marcar como Arrematado"}
+                        className={lot.force_finished ? "text-purple-600 bg-purple-50" : "text-slate-400 hover:text-purple-500"}
+                      >
+                        <Trophy size={18} />
+                      </Button>
                       <Button variant="ghost" size="icon" onClick={() => handleManagePhotos(lot)} title="Gerenciar Fotos" className="text-orange-500"><ImageIcon size={18} /></Button>
                       <Button variant="ghost" size="icon" onClick={() => handleEdit(lot)} title="Editar Veículo" className="text-blue-500"><Edit size={18} /></Button>
                       <Button variant="ghost" size="icon" onClick={() => { if(confirm('Excluir?')) supabase.from('lots').delete().eq('id', lot.id).then(() => fetchData()); }} title="Excluir" className="text-red-500"><Trash2 size={18} /></Button>

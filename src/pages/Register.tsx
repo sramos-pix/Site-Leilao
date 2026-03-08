@@ -206,44 +206,48 @@ const Register = () => {
             <form onSubmit={handleNextStep} className="space-y-4">
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  placeholder="Nome completo" 
+                <Input
+                  placeholder="Nome completo"
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
+                  autoComplete="off"
                   required
                 />
               </div>
               <div className="relative">
                 <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  type="email" 
-                  placeholder="Seu melhor e-mail" 
+                <Input
+                  type="email"
+                  placeholder="Seu melhor e-mail"
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="off"
                   required
                 />
               </div>
               <div className="relative">
                 <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  type="password" 
-                  placeholder="Crie uma senha forte" 
+                <Input
+                  type="password"
+                  placeholder="Crie uma senha forte"
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                 />
               </div>
               <div className="relative">
                 <ShieldCheck className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
-                <Input 
-                  type="password" 
-                  placeholder="Confirme sua senha" 
+                <Input
+                  type="password"
+                  placeholder="Confirme sua senha"
                   className="pl-10 h-12 rounded-xl border-slate-200 focus:ring-orange-500"
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
+                  autoComplete="new-password"
                   required
                 />
               </div>

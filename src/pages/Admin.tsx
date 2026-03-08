@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Gavel, LayoutDashboard, Package, Users, Settings, LogOut, CreditCard, MessageSquare, Bell } from "lucide-react";
+import { Gavel, LayoutDashboard, Package, Users, Settings, LogOut, CreditCard, MessageSquare, Bell, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/lib/supabase";
 import { useToast } from "@/components/ui/use-toast";
@@ -97,6 +97,8 @@ const Admin = () => {
     };
   }, [toast]);
 
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     navigate("/");
@@ -105,8 +107,8 @@ const Admin = () => {
   return (
     <AdminGuard>
       <div className="min-h-screen bg-slate-50 flex">
-        <aside className="w-64 bg-slate-900 text-white p-6 flex flex-col sticky top-0 h-screen z-10">
-          <div className="mb-8 px-2">
+        <aside className={`${sidebarOpen ? 'w-64' : 'w-0 overflow-hidden'} bg-slate-900 text-white p-6 flex flex-col sticky top-0 h-screen z-10 transition-all duration-300 ${!sidebarOpen && 'p-0'}`}>
+          <div className={`mb-8 px-2 ${!sidebarOpen && 'hidden'}`}>
             <div className="text-2xl font-black tracking-tighter text-orange-500">AUTO BID</div>
             <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Painel de Controle</div>
           </div>
@@ -190,6 +192,14 @@ const Admin = () => {
         </aside>
 
         <main className={`flex-1 overflow-y-auto ${activeTab === "settings" ? "" : "p-10"}`}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className={`fixed top-4 ${sidebarOpen ? 'left-[17rem]' : 'left-4'} z-20 bg-slate-900 text-white hover:bg-slate-800 rounded-xl h-9 w-9 p-0 transition-all duration-300 shadow-lg`}
+          >
+            {sidebarOpen ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
+          </Button>
           <div className={activeTab === "settings" ? "h-full" : "max-w-7xl mx-auto"}>
             {activeTab === "dashboard" && <AdminOverview />}
             {activeTab === "chat" && <AdminChat />}

@@ -1,11 +1,11 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, Link } from 'react-router-dom';
 import {
   Clock, Gavel, Gauge, Calendar,
-  Settings2, Fuel, Loader2, History, Info, ShieldCheck, TrendingUp, FileText, MapPin, CheckCircle2,
-  ChevronLeft, ChevronRight
+  Settings2, Fuel, Loader2, History, Info, ShieldCheck, TrendingUp, FileText, CheckCircle2,
+  ChevronLeft, ChevronRight, Upload, X
 } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
@@ -41,9 +41,11 @@ const LotDetail = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [bidAmount, setBidAmount] = useState<number>(0);
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [displayBids, setDisplayBids] = useState<any[]>([]);
-  
-  const isFinished = lot?.status === 'finished';
+  const [showVerifyModal, setShowVerifyModal] = useState(false);
+
+  const isFinished = lot?.force_finished || (lot?.ends_at ? new Date(lot.ends_at) < new Date() : lot?.status === 'finished');
 
   const currentPrice = useMemo(() => {
     if (!lot) return 0;
@@ -61,14 +63,32 @@ const LotDetail = () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (mounted) {
         setCurrentUser(session?.user || null);
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('kyc_status')
+            .eq('id', session.user.id)
+            .single();
+          if (mounted) setUserProfile(profile);
+        }
       }
     };
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (mounted) {
         setCurrentUser(session?.user || null);
+        if (session?.user) {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('kyc_status')
+            .eq('id', session.user.id)
+            .single();
+          if (mounted) setUserProfile(profile);
+        } else {
+          setUserProfile(null);
+        }
       }
     });
 
@@ -137,7 +157,7 @@ const LotDetail = () => {
           ? finalBids[finalBids.length - 1].amount - increment
           : currentVal;
 
-        const fakeEmails = ["m***@gmail.com", "a***@uol.com.br", "r***@hotmail.com", "c***@outlook.com", "j***@yahoo.com", "p***@icloud.com", "f***@bol.com.br"];
+        const fakeEmails = ["m***@gmail.com", "a***@gmail.com", "r***@hotmail.com", "c***@outlook.com", "j***@gmail.com", "p***@icloud.com", "f***@outlook.com", "l***@gmail.com", "t***@hotmail.com", "b***@live.com", "d***@gmail.com", "k***@icloud.com"];
         
         const seed = id ? id.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) : 123;
         const random = mulberry32(seed);
@@ -194,6 +214,12 @@ const LotDetail = () => {
   const handleBid = async () => {
     if (!currentUser) {
       toast({ title: "Login necessário", description: "Faça login para dar lances.", variant: "destructive" });
+      return;
+    }
+
+    // Verifica se o usuário completou a verificação de identidade
+    if (!userProfile || userProfile.kyc_status !== 'verified') {
+      setShowVerifyModal(true);
       return;
     }
 
@@ -373,11 +399,11 @@ const LotDetail = () => {
                   <p className="text-[10px] text-blue-600 font-medium">Clique para ler</p>
                 </div>
               </div>
-              <div className="bg-orange-50 border border-orange-100 p-4 rounded-2xl flex items-center gap-3">
-                <div className="bg-orange-100 p-2 rounded-full text-orange-600"><MapPin size={20} /></div>
+              <div className="bg-emerald-50 border border-emerald-100 p-4 rounded-2xl flex items-center gap-3">
+                <div className="bg-emerald-100 p-2 rounded-full text-emerald-600"><ShieldCheck size={20} /></div>
                 <div>
-                  <p className="text-xs font-bold text-orange-800">Visitação Liberada</p>
-                  <p className="text-[10px] text-orange-600 font-medium">Pátio São Paulo - SP</p>
+                  <p className="text-xs font-bold text-emerald-800">Documentação Garantida</p>
+                  <p className="text-[10px] text-emerald-600 font-medium">Verificada pela AutoBid</p>
                 </div>
               </div>
             </div>
@@ -390,9 +416,47 @@ const LotDetail = () => {
                 <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"><Settings2 size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Câmbio</p><p className="text-sm font-bold text-slate-700">{lot.transmission || 'Automático'}</p></div>
                 <div className="bg-white p-4 rounded-2xl border border-slate-100 shadow-sm"><Fuel size={18} className="text-orange-500 mb-2" /><p className="text-[10px] font-bold text-slate-400 uppercase">Combustível</p><p className="text-sm font-bold text-slate-700">{lot.fuel_type || 'Flex'}</p></div>
               </div>
+              {/* Comparativo FIPE */}
+              {lot.fipe_value && Number(lot.fipe_value) > 0 && (
+                <div className="bg-white p-6 rounded-[2.5rem] shadow-sm border border-slate-100">
+                  <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4">
+                    <TrendingUp size={20} className="text-emerald-500" /> Comparativo de Valor
+                  </h3>
+                  <div className="space-y-3">
+                    {/* Barra visual */}
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500 font-bold">Lance Atual</span>
+                        <span className="font-black text-slate-900">{formatCurrency(currentPrice)}</span>
+                      </div>
+                      <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-400 to-emerald-500 rounded-full transition-all"
+                          style={{ width: `${Math.min(100, Math.round((currentPrice / Number(lot.fipe_value)) * 100))}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500 font-bold">Valor FIPE</span>
+                        <span className="font-bold text-slate-400 line-through">{formatCurrency(lot.fipe_value)}</span>
+                      </div>
+                    </div>
+                    {/* Badge de economia */}
+                    <div className="bg-emerald-50 rounded-2xl p-4 text-center border border-emerald-100">
+                      <p className="text-sm text-slate-600">Você economiza</p>
+                      <p className="text-2xl font-black text-emerald-600">
+                        {formatCurrency(Number(lot.fipe_value) - currentPrice)}
+                      </p>
+                      <p className="text-xs font-bold text-emerald-500 mt-1">
+                        {Math.round((1 - currentPrice / Number(lot.fipe_value)) * 100)}% abaixo da tabela FIPE
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="bg-white p-8 rounded-[2.5rem] shadow-sm border border-slate-100">
                 <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2 mb-4"><Info size={20} className="text-orange-500" /> Informações Adicionais</h3>
-                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap text-sm">{lot.description || "Veículo em excelente estado de conservação, periciado e com documentação garantida pela AutoBid. Agende sua visita ao pátio para conferir pessoalmente."}</div>
+                <div className="text-slate-600 leading-relaxed whitespace-pre-wrap text-sm">{lot.description || "Veículo em excelente estado de conservação, periciado e com documentação garantida pela AutoBid. Todas as informações e fotos do lote estão disponíveis nesta página."}</div>
               </div>
             </div>
           </div>
@@ -411,6 +475,14 @@ const LotDetail = () => {
                   <p className="text-[10px] font-bold text-white/60 uppercase tracking-widest">Lance Atual</p>
                   <p className="text-4xl font-black text-white">{formatCurrency(currentPrice)}</p>
                   
+                  {lot.fipe_value && Number(lot.fipe_value) > 0 && (
+                    <div className="flex items-center gap-1.5 text-emerald-400 font-bold text-[11px] mt-1">
+                      <span>FIPE: <span className="line-through opacity-70">{formatCurrency(lot.fipe_value)}</span></span>
+                      <span className="bg-emerald-500/20 px-2 py-0.5 rounded-full text-emerald-300 text-[10px]">
+                        -{Math.round((1 - currentPrice / Number(lot.fipe_value)) * 100)}%
+                      </span>
+                    </div>
+                  )}
                   {!isFinished && (
                     <div className="flex items-center gap-1.5 text-orange-400 font-bold text-[11px] mt-1">
                       <TrendingUp size={12} />
@@ -480,6 +552,66 @@ const LotDetail = () => {
           </div>
         </div>
       </div>
+      {/* Modal de Verificação de Identidade */}
+      {showVerifyModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowVerifyModal(false)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full p-8 relative animate-in fade-in zoom-in-95 duration-200" onClick={(e) => e.stopPropagation()}>
+            <button
+              onClick={() => setShowVerifyModal(false)}
+              className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 transition-colors"
+            >
+              <X size={20} />
+            </button>
+
+            <div className="text-center space-y-4">
+              <div className="mx-auto w-16 h-16 bg-orange-100 rounded-2xl flex items-center justify-center">
+                <ShieldCheck size={32} className="text-orange-500" />
+              </div>
+
+              <h3 className="text-xl font-bold text-slate-900">Verifique sua identidade</h3>
+
+              <p className="text-slate-500 text-sm leading-relaxed">
+                Para dar seu lance, você precisa verificar sua identidade.
+                É <strong className="text-slate-700">rápido e gratuito</strong>!
+              </p>
+
+              <div className="bg-slate-50 rounded-2xl p-4 space-y-3">
+                <div className="flex items-center gap-3 text-sm text-slate-600">
+                  <div className="w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">1</div>
+                  <span>Envie uma foto do seu RG ou CNH</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-slate-600">
+                  <div className="w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">2</div>
+                  <span>Tire uma selfie para confirmação</span>
+                </div>
+                <div className="flex items-center gap-3 text-sm text-slate-600">
+                  <div className="w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-xs font-bold shrink-0">3</div>
+                  <span>Pronto! Comece a dar seus lances</span>
+                </div>
+              </div>
+
+              <Link
+                to="/app/verify"
+                className="block w-full"
+                onClick={() => setShowVerifyModal(false)}
+              >
+                <Button className="w-full h-12 bg-orange-500 hover:bg-orange-600 text-white font-bold rounded-xl shadow-lg shadow-orange-200 transition-all">
+                  <Upload size={18} className="mr-2" />
+                  Verificar Agora
+                </Button>
+              </Link>
+
+              <button
+                onClick={() => setShowVerifyModal(false)}
+                className="text-xs text-slate-400 hover:text-slate-600 transition-colors"
+              >
+                Voltar ao lote
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Footer />
     </div>
   );

@@ -37,6 +37,7 @@ const Vehicles = lazyRetry(() => import("./pages/Vehicles"));
 const HowItWorks = lazyRetry(() => import("./pages/HowItWorks"));
 const Contact = lazyRetry(() => import("./pages/Contact"));
 const FAQ = lazyRetry(() => import("./pages/FAQ"));
+const LandingPage = lazyRetry(() => import("./pages/LandingPage"));
 
 // Área do usuário
 const Dashboard = lazyRetry(() => import("./pages/app/Dashboard"));
@@ -83,6 +84,8 @@ const App = () => (
                 <Route path="/how-it-works" element={<HowItWorks />} />
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/faq" element={<FAQ />} />
+                <Route path="/lp" element={<LandingPage />} />
+                <Route path="/oferta" element={<LandingPage />} />
 
                 {/* App / User Routes */}
                 <Route path="/app/dashboard" element={<Dashboard />} />

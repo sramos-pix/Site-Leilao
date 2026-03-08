@@ -47,7 +47,8 @@ const Dashboard = () => {
       const now = new Date();
       const filteredBids = bidsData?.filter(b => {
         const lot = Array.isArray(b.lots) ? b.lots[0] : b.lots;
-        return lot && new Date(lot.ends_at) > now && lot.status !== 'finished';
+        const lotFinished = lot?.force_finished || (lot?.ends_at ? new Date(lot.ends_at) < now : lot?.status === 'finished');
+        return lot && !lotFinished;
       }) || [];
       
       setActiveBids(filteredBids);

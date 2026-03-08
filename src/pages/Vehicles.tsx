@@ -130,9 +130,11 @@ const Vehicles = () => {
 
   // 2. Depois ordenamos
   const sortedLots = [...filteredLots].sort((a, b) => {
-    // Regra de Ouro: Lotes finalizados SEMPRE vão para o final da lista
-    if (a.status === 'finished' && b.status !== 'finished') return 1;
-    if (a.status !== 'finished' && b.status === 'finished') return -1;
+    // Regra de Ouro: Lotes finalizados (por data) SEMPRE vão para o final da lista
+    const aFinished = a.force_finished || (a.ends_at ? new Date(a.ends_at) < new Date() : a.status === 'finished');
+    const bFinished = b.force_finished || (b.ends_at ? new Date(b.ends_at) < new Date() : b.status === 'finished');
+    if (aFinished && !bFinished) return 1;
+    if (!aFinished && bFinished) return -1;
     
     // Se ambos têm o mesmo status, aplica a ordenação selecionada
     switch (sortBy) {
@@ -300,7 +302,7 @@ const Vehicles = () => {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {sortedLots.map((lot) => {
-              const isFinished = lot.status === 'finished';
+              const isFinished = lot.force_finished || (lot.ends_at ? new Date(lot.ends_at) < new Date() : lot.status === 'finished');
               const isFav = favorites.includes(lot.id);
               const currentPrice = Math.max(lot.current_bid || 0, lot.start_bid || 0);
               

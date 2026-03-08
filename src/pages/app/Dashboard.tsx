@@ -171,7 +171,7 @@ const Dashboard = () => {
   }
 
   const stats = [
-    { label: 'Lances Ativos', value: activeBids.filter(b => b.lot_data?.status !== 'finished').length, icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50', path: null },
+    { label: 'Lances Ativos', value: activeBids.filter(b => !b.lot_data?.force_finished && (b.lot_data?.ends_at ? new Date(b.lot_data.ends_at) > new Date() : b.lot_data?.status !== 'finished')).length, icon: Gavel, color: 'text-blue-600', bg: 'bg-blue-50', path: null },
     { label: 'Arremates', value: winsCount, icon: Trophy, color: 'text-orange-600', bg: 'bg-orange-50', path: '/app/wins' },
     { label: 'Favoritos', value: favoritesCount, icon: Heart, color: 'text-red-600', bg: 'bg-red-50', path: '/app/favorites' },
     { label: 'Saldo', value: 'R$ 0', icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50', path: null },
@@ -249,8 +249,8 @@ const Dashboard = () => {
           <div className="grid gap-4">
             {activeBids.length > 0 ? activeBids.map((bid) => {
               const lot = bid.lot_data;
-              const isWinner = lot?.status === 'finished' && lot?.winner_id === profile?.id;
-              const isFinished = lot?.status === 'finished';
+              const isFinished = lot?.force_finished || (lot?.ends_at ? new Date(lot.ends_at) < new Date() : lot?.status === 'finished');
+              const isWinner = isFinished && lot?.winner_id === profile?.id;
 
               return (
                 <Card key={bid.id} className={cn(

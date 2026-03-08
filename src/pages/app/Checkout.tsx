@@ -152,7 +152,7 @@ const Checkout = () => {
             <div className="space-y-1">
               <p className="text-sm font-bold text-blue-900">Informação Importante</p>
               <p className="text-xs text-blue-700 leading-relaxed">
-                Após o pagamento, o comprovante é processado automaticamente. Você receberá um e-mail com o Termo de Arrematação e as instruções para retirada do veículo em nosso pátio.
+                Após o pagamento, o comprovante é processado automaticamente. Você receberá um e-mail com o Termo de Arrematação e as instruções para coordenação da entrega do veículo.
               </p>
             </div>
           </div>

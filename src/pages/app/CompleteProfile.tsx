@@ -145,6 +145,17 @@ const CompleteProfile = () => {
 
       if (error) throw error;
 
+      // Enviar email de boas-vindas (fire-and-forget — não bloqueia a navegação)
+      supabase.functions.invoke('send-email', {
+        body: {
+          type: 'welcome',
+          to: user.email,
+          payload: {
+            name: userName || user.email?.split('@')[0] || 'Usuário',
+          },
+        },
+      }).catch(() => {}); // ignora erros de email para não prejudicar o UX
+
       toast({
         title: 'Perfil completo!',
         description: 'Suas informações foram salvas com sucesso.',

@@ -8,16 +8,14 @@ import { Loader2 } from 'lucide-react';
 /**
  * AuthCallback.tsx
  * ----------------
- * Página intermediária que recebe o redirect do Google OAuth.
- * Aguarda a troca do código PKCE por uma sessão válida (assíncrono),
- * depois verifica se o perfil do usuário está completo.
+ * Corrigido: race condition onde getSession() processava o código PKCE
+ * antes do onAuthStateChange ser registrado, causando evento perdido.
  *
- * Fluxo:
- *  1. Google redireciona para /auth/callback?code=XXXX
- *  2. Supabase JS troca o code por um token (onAuthStateChange → SIGNED_IN)
- *  3. Se perfil incompleto (sem telefone/CPF) → /app/complete-profile
- *  4. Se perfil completo → /app/dashboard
+ * Estratégia dupla:
+ *  1. getSession() — captura a sessão se o código já foi trocado
+ *  2. onAuthStateChange(SIGNED_IN) — captura se a troca ainda está em andamento
  */
+
 const AuthCallback = () => {
   const navigate = useNavigate();
   const [message, setMessage] = useState('Concluindo login com Google...');
@@ -25,47 +23,59 @@ const AuthCallback = () => {
   useEffect(() => {
     let handled = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const redirectUser = async (userId: string) => {
       if (handled) return;
+      handled = true;
+      setMessage('Login realizado! Verificando seu perfil...');
 
-      if (event === 'SIGNED_IN' && session?.user) {
-        handled = true;
-        setMessage('Login realizado! Verificando seu perfil...');
+      try {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('phone, document_id')
+          .eq('id', userId)
+          .single();
 
-        try {
-          const { data: profile } = await supabase
-            .from('profiles')
-            .select('phone, document_id, city')
-            .eq('id', session.user.id)
-            .single();
+        const isIncomplete = !profile?.phone || !profile?.document_id;
 
-          // Perfil incompleto: usuário Google sem telefone ou CPF
-          const isIncomplete = !profile?.phone || !profile?.document_id;
-
-          if (isIncomplete) {
-            setMessage('Complete seu cadastro para continuar...');
-            navigate('/app/complete-profile', { replace: true });
-          } else {
-            navigate('/app/dashboard', { replace: true });
-          }
-        } catch {
-          // Se não conseguiu buscar perfil, manda pro dashboard mesmo assim
+        if (isIncomplete) {
+          setMessage('Complete seu cadastro para continuar...');
+          navigate('/app/complete-profile', { replace: true });
+        } else {
           navigate('/app/dashboard', { replace: true });
         }
+      } catch {
+        navigate('/app/dashboard', { replace: true });
       }
+    };
 
-      if (event === 'SIGNED_OUT') {
-        handled = true;
-        navigate('/login', { replace: true });
+    // ── ESTRATÉGIA 1: getSession() ──────────────────────────────────────────
+    // O Supabase JS processa o ?code= da URL quando getSession() é chamado.
+    // Se o código já foi trocado antes do componente montar, isso captura a sessão.
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        redirectUser(session.user.id);
       }
     });
 
-    // Fallback: se após 8s ainda não houve evento, redireciona pro login
+    // ── ESTRATÉGIA 2: onAuthStateChange ────────────────────────────────────
+    // Captura o SIGNED_IN se a troca ainda estiver em andamento quando o
+    // componente montou (ou se vier logo depois).
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        redirectUser(session.user.id);
+      }
+      // NOTA: não redireciona em SIGNED_OUT aqui para evitar falso-positivo
+      // durante a inicialização (INITIAL_SESSION com null antes do SIGNED_IN)
+    });
+
+    // ── FALLBACK ────────────────────────────────────────────────────────────
+    // Se após 10s nada aconteceu, provavelmente houve erro — manda pro login
     const fallbackTimer = setTimeout(() => {
       if (!handled) {
+        console.warn('[AuthCallback] Timeout: nenhuma sessão detectada em 10s');
         navigate('/login', { replace: true });
       }
-    }, 8000);
+    }, 10000);
 
     return () => {
       subscription.unsubscribe();
@@ -77,7 +87,8 @@ const AuthCallback = () => {
     <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center gap-4">
       <div className="bg-orange-500 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg shadow-orange-200">
         <svg width="28" height="28" viewBox="0 0 24 24" fill="none" className="text-white">
-          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"
+            stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       </div>
       <div className="flex items-center gap-3 text-slate-700 font-semibold text-lg">

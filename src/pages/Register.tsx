@@ -3,6 +3,16 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Gavel, Mail, Lock, User, Loader2, ArrowRight, Phone, CreditCard, MapPin, ChevronLeft, ShieldCheck, AlertCircle } from 'lucide-react';
+
+// Logo oficial do Google (SVG inline)
+const GoogleLogo = () => (
+  <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+    <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+    <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+    <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+    <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+  </svg>
+);
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
@@ -13,6 +23,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 const Register = () => {
   const [step, setStep] = React.useState(1);
   const [isLoading, setIsLoading] = React.useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = React.useState(false);
   const [isSearchingCep, setIsSearchingCep] = React.useState(false);
   const [errorMessage, setErrorMessage] = React.useState<string | null>(null);
   const navigate = useNavigate();
@@ -34,6 +45,31 @@ const Register = () => {
   const [number, setNumber] = React.useState('');
   const [neighborhood, setNeighborhood] = React.useState('');
   const [complement, setComplement] = React.useState('');
+
+  const handleGoogleSignup = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao continuar com Google',
+        description: 'Não foi possível conectar com sua conta Google. Tente novamente.',
+      });
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
 
   const maskCPF = (value: string) => {
     return value
@@ -214,6 +250,32 @@ const Register = () => {
           )}
 
           {step === 1 ? (
+            <>
+            <Button
+              type="button"
+              onClick={handleGoogleSignup}
+              disabled={isGoogleLoading}
+              className="w-full h-12 mb-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2"
+            >
+              {isGoogleLoading ? (
+                <Loader2 className="animate-spin h-5 w-5" />
+              ) : (
+                <>
+                  <GoogleLogo />
+                  Cadastrar com Google
+                </>
+              )}
+            </Button>
+
+            <div className="relative my-5">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-slate-200" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-slate-500">ou cadastre-se com e-mail</span>
+              </div>
+            </div>
+
             <form onSubmit={handleNextStep} className="space-y-4">
               <div className="relative">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
@@ -262,13 +324,14 @@ const Register = () => {
                   required
                 />
               </div>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="w-full h-12 bg-slate-900 hover:bg-orange-600 text-white font-bold rounded-xl transition-all shadow-lg shadow-slate-200"
               >
                 Próximo Passo <ArrowRight className="ml-2" size={18} />
               </Button>
             </form>
+            </>
           ) : (
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="relative">

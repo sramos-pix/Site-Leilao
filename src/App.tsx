@@ -29,6 +29,8 @@ const lazyRetry = (componentImport: () => Promise<any>) => {
 // Páginas públicas
 const Index = lazyRetry(() => import("./pages/Index"));
 const Login = lazyRetry(() => import("./pages/Login"));
+const ForgotPassword = lazyRetry(() => import("./pages/ForgotPassword"));
+const ResetPassword = lazyRetry(() => import("./pages/ResetPassword"));
 const Register = lazyRetry(() => import("./pages/Register"));
 const Auctions = lazyRetry(() => import("./pages/Auctions"));
 const AuctionDetails = lazyRetry(() => import("./pages/AuctionDetails"));
@@ -38,6 +40,7 @@ const HowItWorks = lazyRetry(() => import("./pages/HowItWorks"));
 const Contact = lazyRetry(() => import("./pages/Contact"));
 const FAQ = lazyRetry(() => import("./pages/FAQ"));
 const Terms = lazyRetry(() => import("./pages/Terms"));
+const Privacy = lazyRetry(() => import("./pages/Privacy"));
 const LandingPage = lazyRetry(() => import("./pages/LandingPage"));
 
 // Área do usuário
@@ -77,6 +80,8 @@ const App = () => (
                 {/* Public Routes */}
                 <Route path="/" element={<Index />} />
                 <Route path="/login" element={<Login />} />
+                <Route path="/forgot-password" element={<ForgotPassword />} />
+                <Route path="/reset-password" element={<ResetPassword />} />
                 <Route path="/register" element={<Register />} />
                 <Route path="/auctions" element={<Auctions />} />
                 <Route path="/auctions/:id" element={<AuctionDetails />} />
@@ -86,6 +91,7 @@ const App = () => (
                 <Route path="/contact" element={<Contact />} />
                 <Route path="/faq" element={<FAQ />} />
                 <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
                 <Route path="/lp" element={<LandingPage />} />
                 <Route path="/oferta" element={<LandingPage />} />
 

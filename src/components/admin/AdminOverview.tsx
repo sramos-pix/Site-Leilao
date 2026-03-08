@@ -64,7 +64,8 @@ const AdminOverview = () => {
     auctions: 0,
     lots: 0,
     users: 0,
-    bids: 0
+    bids: 0,
+    activeLots: 0
   });
   const [onlineUsers, setOnlineUsers] = useState(currentOnlineCount);
   const [onlineUsersList, setOnlineUsersList] = useState<any[]>(currentOnlineUsers || []);
@@ -93,11 +94,12 @@ const AdminOverview = () => {
 
     setIsLoading(true);
     try {
-      const [auctions, lots, users, bidsCount] = await Promise.all([
+      const [auctions, lots, users, bidsCount, activeLots] = await Promise.all([
         supabase.from('auctions').select('*', { count: 'exact', head: true }),
         supabase.from('lots').select('*', { count: 'exact', head: true }),
         supabase.from('profiles').select('*', { count: 'exact', head: true }),
-        supabase.from('bids').select('*', { count: 'exact', head: true })
+        supabase.from('bids').select('*', { count: 'exact', head: true }),
+        supabase.from('lots').select('*', { count: 'exact', head: true }).eq('status', 'active')
       ]);
 
       const { data: bids, error: bidsError } = await supabase
@@ -112,7 +114,8 @@ const AdminOverview = () => {
         auctions: auctions.count || 0,
         lots: lots.count || 0,
         users: users.count || 0,
-        bids: bidsCount.count || 0
+        bids: bidsCount.count || 0,
+        activeLots: activeLots.count || 0
       });
 
       if (bids && bids.length > 0) {
@@ -145,6 +148,24 @@ const AdminOverview = () => {
       isFetchingRef.current = false;
     }
   }, []);
+
+  // Realtime: atualiza automaticamente quando um novo lance é registrado
+  useEffect(() => {
+    const channel = supabase
+      .channel('admin_overview_bids_realtime')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'bids' },
+        () => {
+          fetchStats(true);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [fetchStats]);
 
   useEffect(() => {
     fetchStats(true);
@@ -369,6 +390,7 @@ const AdminOverview = () => {
   const cards = [
     { title: 'Leilões', value: stats.auctions, icon: Gavel, color: 'text-orange-500', bg: 'bg-orange-500/10' },
     { title: 'Veículos/Lotes', value: stats.lots, icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/10' },
+    { title: 'Lotes Ativos', value: stats.activeLots, icon: Activity, color: 'text-emerald-500', bg: 'bg-emerald-500/10' },
     { title: 'Usuários', value: stats.users, icon: Users, color: 'text-green-500', bg: 'bg-green-500/10' },
     { title: 'Total de Lances', value: stats.bids, icon: TrendingUp, color: 'text-purple-500', bg: 'bg-purple-500/10' },
   ];
@@ -464,7 +486,7 @@ const AdminOverview = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         {cards.map((card) => (
           <Card key={card.title} className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
             <CardContent className="p-6">
@@ -485,9 +507,18 @@ const AdminOverview = () => {
       <div className="grid grid-cols-1 gap-6">
         <Card className="border-none shadow-sm rounded-2xl bg-white overflow-hidden">
           <CardHeader className="border-b border-slate-50 bg-slate-50/50">
-            <div className="flex items-center gap-2">
-              <Clock className="text-orange-500" size={20} />
-              <CardTitle className="text-lg">Últimos Lances Realizados</CardTitle>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Clock className="text-orange-500" size={20} />
+                <CardTitle className="text-lg">Últimos Lances Realizados</CardTitle>
+              </div>
+              <div className="flex items-center gap-1.5 text-emerald-600 text-xs font-bold bg-emerald-50 border border-emerald-100 px-2.5 py-1 rounded-full">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                </span>
+                Ao Vivo
+              </div>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -545,7 +576,14 @@ const AdminOverview = () => {
                           </div>
                         </TableCell>
                         <TableCell>
-                          <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="font-black text-orange-600">{formatCurrency(bid.amount)}</span>
+                            {bid.is_auto && (
+                              <span className="text-[10px] bg-blue-50 text-blue-600 font-bold px-1.5 py-0.5 rounded border border-blue-100 uppercase tracking-wide" title="Lance automático">
+                                Auto
+                              </span>
+                            )}
+                          </div>
                         </TableCell>
                         <TableCell className="text-slate-500 text-sm">
                           {formatDate(bid.created_at)}

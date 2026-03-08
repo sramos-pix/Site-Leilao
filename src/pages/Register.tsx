@@ -152,6 +152,17 @@ const Register = () => {
           .eq('id', authData.user.id);
 
         if (profileError) throw profileError;
+
+        // Enviar email de boas-vindas (fire-and-forget — não bloqueia a navegação)
+        supabase.functions.invoke('send-email', {
+          body: {
+            type: 'welcome',
+            to: email,
+            payload: {
+              name: fullName || email.split('@')[0] || 'Usuário',
+            },
+          },
+        }).catch(() => {}); // ignora erros de email para não prejudicar o UX
       }
 
       toast({

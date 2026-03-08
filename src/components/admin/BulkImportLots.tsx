@@ -26,12 +26,33 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
     if (!file) return;
 
     const reader = new FileReader();
+
+    // CSV com ponto-e-vírgula: parseia como texto para preservar datas DD/MM/YYYY
+    if (file.name.toLowerCase().endsWith('.csv')) {
+      reader.onload = (event) => {
+        const text = (event.target?.result as string).replace(/^\uFEFF/, ''); // remove BOM
+        const lines = text.split(/\r?\n/).filter(l => l.trim());
+        if (lines.length < 2) return;
+        const headers = lines[0].split(';').map(h => h.trim());
+        const json = lines.slice(1).map(line => {
+          const values = line.split(';').map(v => v.trim());
+          const row: Record<string, string> = {};
+          headers.forEach((h, i) => { row[h] = values[i] ?? ''; });
+          return row;
+        });
+        setPreviewData(json);
+      };
+      reader.readAsText(file, 'utf-8');
+      return;
+    }
+
+    // Excel (.xlsx / .xls): usa XLSX com cellDates:false para evitar conversão automática
     reader.onload = (event) => {
       const data = new Uint8Array(event.target?.result as ArrayBuffer);
-      const workbook = XLSX.read(data, { type: 'array' });
+      const workbook = XLSX.read(data, { type: 'array', cellDates: false });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json(worksheet);
+      const json = XLSX.utils.sheet_to_json(worksheet, { raw: true, defval: '' });
       setPreviewData(json);
     };
     reader.readAsArrayBuffer(file);

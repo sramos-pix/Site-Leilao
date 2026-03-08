@@ -137,26 +137,25 @@ const AdminUsers = () => {
 
   const handleDeleteUser = async () => {
     if (!userToDelete) return;
-    
+
     try {
       setIsDeleting(true);
-      
-      // Nota: Para deletar do auth.users via client-side, você precisaria de uma Edge Function 
-      // ou o usuário ser deletado via cascata se o profile for deletado (depende da config do banco).
-      // Aqui deletamos o profile.
-      const { error } = await supabase
-        .from("profiles")
-        .delete()
-        .eq("id", userToDelete.id);
+
+      // Chama Edge Function que usa service_role para deletar de auth.users
+      // A cascade (ON DELETE CASCADE) remove automaticamente profiles, bids, etc.
+      const { data, error } = await supabase.functions.invoke("delete-user", {
+        body: { userId: userToDelete.id },
+      });
 
       if (error) throw error;
+      if (data?.error) throw new Error(data.error);
 
       toast.success("Usuário removido com sucesso");
       setUserToDelete(null);
       fetchUsers();
     } catch (error: any) {
       console.error("Erro ao deletar:", error);
-      toast.error("Erro ao remover usuário: " + error.message);
+      toast.error("Erro ao remover usuário: " + (error.message || "Erro desconhecido"));
     } finally {
       setIsDeleting(false);
     }

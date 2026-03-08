@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Clock, Gavel, Heart } from 'lucide-react';
+import { Clock, Gavel, Heart, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -110,18 +110,22 @@ const FeaturedAuctions = () => {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {Array.isArray(featuredLots) && featuredLots.length > 0 ? (
-            featuredLots.map((item) => (
+            featuredLots.map((item) => {
+              const isFinished = item.force_finished || (item.ends_at ? new Date(item.ends_at) < new Date() : item.status === 'finished');
+              return (
               <Card key={item.id} className="group border-none shadow-md hover:shadow-xl transition-all duration-500 rounded-[2.5rem] overflow-hidden bg-white flex flex-col">
-                
-                {/* Container da Imagem corrigido */}
+
+                {/* Container da Imagem */}
                 <div className="relative aspect-[4/3] overflow-hidden">
-                  {/* Link envolvendo apenas a imagem */}
                   <Link to={`/lots/${item.id}`} className="block w-full h-full">
                     {item.cover_image_url ? (
-                      <img 
-                        src={item.cover_image_url} 
+                      <img
+                        src={item.cover_image_url}
                         alt={item.title}
-                        className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                        className={cn(
+                          "w-full h-full object-cover transition-transform duration-700",
+                          isFinished ? "blur-[2px] grayscale-[0.5] brightness-[0.6] scale-105" : "group-hover:scale-110"
+                        )}
                       />
                     ) : (
                       <div className="w-full h-full bg-slate-200 flex items-center justify-center">
@@ -130,60 +134,75 @@ const FeaturedAuctions = () => {
                     )}
                   </Link>
 
-                  {/* Badges (pointer-events-none para não bloquear o clique na imagem) */}
-                  <div className="absolute top-4 left-4 flex gap-2 pointer-events-none">
-                    <Badge className="bg-slate-900 text-white border-none px-3 py-1 flex items-center gap-1 rounded-none text-[11px] font-bold uppercase tracking-tight">
-                      LOTE #{item.lot_number}
-                    </Badge>
-                    <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full text-[11px] font-bold">
-                      <Clock size={12} /> 
-                      <CountdownTimer randomScarcity={true} lotId={item.id} />
-                    </Badge>
-                  </div>
+                  {isFinished ? (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center p-4 text-center bg-slate-900/40 backdrop-blur-[1px] pointer-events-none">
+                      <div className="bg-white/20 backdrop-blur-md border border-white/30 p-2 rounded-full mb-2">
+                        <Lock className="text-white" size={18} />
+                      </div>
+                      <span className="text-white font-black text-base tracking-tighter uppercase drop-shadow-md">
+                        ARREMATADO
+                      </span>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Badges */}
+                      <div className="absolute top-4 left-4 flex gap-2 pointer-events-none">
+                        <Badge className="bg-slate-900 text-white border-none px-3 py-1 flex items-center gap-1 rounded-none text-[11px] font-bold uppercase tracking-tight">
+                          LOTE #{item.lot_number}
+                        </Badge>
+                        <Badge className="bg-red-500 text-white border-none px-3 py-1 flex items-center gap-1 rounded-full text-[11px] font-bold">
+                          <Clock size={12} />
+                          <CountdownTimer randomScarcity={true} lotId={item.id} />
+                        </Badge>
+                      </div>
 
-                  {/* Botão de Favorito (separado do Link principal) */}
-                  <Button 
-                    variant="secondary" 
-                    size="icon" 
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      toggleFavorite(item.id);
-                    }}
-                    className={cn(
-                      "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300 z-10",
-                      userFavorites.includes(item.id) 
-                        ? "bg-red-500 text-white hover:bg-red-600" 
-                        : "bg-white/90 text-slate-600 hover:bg-orange-500 hover:text-white"
-                    )}
-                  >
-                    <Heart size={18} fill={userFavorites.includes(item.id) ? "currentColor" : "none"} />
-                  </Button>
+                      {/* Botão de Favorito */}
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleFavorite(item.id);
+                        }}
+                        className={cn(
+                          "absolute top-4 right-4 rounded-full backdrop-blur-md border-none shadow-sm transition-all duration-300 z-10",
+                          userFavorites.includes(item.id)
+                            ? "bg-red-500 text-white hover:bg-red-600"
+                            : "bg-white/90 text-slate-600 hover:bg-orange-500 hover:text-white"
+                        )}
+                      >
+                        <Heart size={18} fill={userFavorites.includes(item.id) ? "currentColor" : "none"} />
+                      </Button>
+                    </>
+                  )}
                 </div>
 
                 <CardContent className="p-8 flex-1">
                   <Link to={`/lots/${item.id}`}>
-                    <h3 className="text-xl font-bold text-slate-900 mb-4 group-hover:text-orange-600 transition-colors line-clamp-2">
+                    <h3 className={cn("text-xl font-bold mb-4 transition-colors line-clamp-2", isFinished ? "text-slate-400" : "text-slate-900 group-hover:text-orange-600")}>
                       {item.title}
                     </h3>
                   </Link>
                   <div className="flex justify-between items-center mt-auto">
                     <div>
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Lance Atual</p>
-                      <p className="text-2xl font-black text-slate-900">{formatCurrency(item.current_bid || item.start_bid)}</p>
+                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">{isFinished ? 'Vendido por' : 'Lance Atual'}</p>
+                      <p className={cn("text-2xl font-black", isFinished ? "text-slate-500" : "text-slate-900")}>{formatCurrency(item.current_bid || item.start_bid)}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Incremento</p>
-                      <p className="text-sm font-bold text-slate-600">
-                        + {formatCurrency(item.bid_increment || 500)}
-                      </p>
-                    </div>
+                    {!isFinished && (
+                      <div className="text-right">
+                        <p className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">Incremento</p>
+                        <p className="text-sm font-bold text-slate-600">
+                          + {formatCurrency(item.bid_increment || 500)}
+                        </p>
+                      </div>
+                    )}
                   </div>
-                  {item.fipe_value && Number(item.fipe_value) > 0 && (
+                  {!isFinished && item.fipe_value && Number(item.fipe_value) > 0 && (
                     <div className="mt-3 flex items-center justify-between bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
                       <span className="text-xs text-slate-500">FIPE: <span className="line-through">{formatCurrency(item.fipe_value)}</span></span>
                       <span className="text-xs font-black text-emerald-600">
-                        {Math.round((1 - (item.current_bid || item.start_bid) / item.fipe_value) * 100)}% abaixo
+                        {Math.round((1 - Number(item.start_bid) / Number(item.fipe_value)) * 100)}% abaixo
                       </span>
                     </div>
                   )}
@@ -191,14 +210,14 @@ const FeaturedAuctions = () => {
 
                 <CardFooter className="p-8 pt-0">
                   <Link to={`/lots/${item.id}`} className="w-full">
-                    <Button className="w-full bg-slate-900 hover:bg-orange-600 text-white font-bold py-6 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 group/btn">
-                      <Gavel size={18} className="group-hover/btn:rotate-12 transition-transform" />
-                      DAR LANCE AGORA
+                    <Button className={cn("w-full font-bold py-6 rounded-2xl transition-all duration-300 flex items-center justify-center gap-2 group/btn", isFinished ? "bg-slate-200 text-slate-500 hover:bg-slate-300" : "bg-slate-900 hover:bg-orange-600 text-white")}>
+                      {isFinished ? 'Ver Resultado' : <><Gavel size={18} className="group-hover/btn:rotate-12 transition-transform" /> DAR LANCE AGORA</>}
                     </Button>
                   </Link>
                 </CardFooter>
               </Card>
-            ))
+            );
+            })
           ) : (
             <div className="col-span-full text-center py-20 text-slate-400 italic w-full bg-white rounded-[2.5rem] border-2 border-dashed border-slate-100">
               Nenhum destaque da semana encontrado.

@@ -233,7 +233,7 @@ const AuctionDetails = () => {
                   <div className="mt-3 flex items-center justify-between bg-emerald-50 rounded-xl px-3 py-2 border border-emerald-100">
                     <span className="text-xs text-slate-500">FIPE: <span className="line-through">{formatCurrency(lot.fipe_value)}</span></span>
                     <span className="text-xs font-black text-emerald-600">
-                      {Math.round((1 - (lot.current_bid || lot.start_bid || 0) / lot.fipe_value) * 100)}% abaixo
+                      {Math.round((1 - Number(lot.start_bid) / Number(lot.fipe_value)) * 100)}% abaixo
                     </span>
                   </div>
                 )}

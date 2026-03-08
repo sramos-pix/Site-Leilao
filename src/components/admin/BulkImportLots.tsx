@@ -61,16 +61,24 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
         if (rawEndsAt) {
           try {
             let date: Date | null = null;
-            
-            if (typeof rawEndsAt === 'string' && rawEndsAt.includes('/')) {
-              // Formato BR: DD/MM/YYYY HH:mm:ss
+
+            // BRT = UTC-3 fixo (Brasil não usa horário de verão desde 2019)
+            const BRT_OFFSET_MS = 3 * 60 * 60 * 1000;
+
+            if (rawEndsAt instanceof Date) {
+              // XLSX com cellDates:true retorna Date cujo UTC = hora "wall-clock" do serial.
+              // Compensamos o offset BRT para que a hora local salva seja a correta.
+              date = new Date(rawEndsAt.getTime() + BRT_OFFSET_MS);
+
+            } else if (typeof rawEndsAt === 'string' && rawEndsAt.includes('/')) {
+              // Formato BR digitado como texto: DD/MM/YYYY HH:mm:ss
               const parts = rawEndsAt.split(/[\s,]+/);
               const dateParts = parts[0].split('/');
               if (dateParts.length === 3) {
                 const day = parseInt(dateParts[0]);
                 const month = parseInt(dateParts[1]) - 1;
                 const year = parseInt(dateParts[2]);
-                
+
                 let hours = 0, minutes = 0, seconds = 0;
                 if (parts[1]) {
                   const timeParts = parts[1].split(':');
@@ -78,12 +86,18 @@ const BulkImportLots = ({ auctions, onSuccess }: BulkImportLotsProps) => {
                   minutes = parseInt(timeParts[1]) || 0;
                   seconds = parseInt(timeParts[2]) || 0;
                 }
+                // new Date(year, month, day, ...) usa hora local — correto para Brasil
                 date = new Date(year, month, day, hours, minutes, seconds);
               }
+
             } else if (typeof rawEndsAt === 'number') {
-              // Formato Excel (número de série)
-              date = new Date((rawEndsAt - 25569) * 86400 * 1000);
-            } else {
+              // Serial do Excel: a fórmula padrão gera UTC equivalente à hora "wall-clock".
+              // Sem correção, no Brasil (UTC-3) a data exibe 3h antes do esperado.
+              // Adicionamos BRT_OFFSET_MS para que a hora armazenada bata com o que foi digitado.
+              date = new Date((rawEndsAt - 25569) * 86400 * 1000 + BRT_OFFSET_MS);
+
+            } else if (typeof rawEndsAt === 'string') {
+              // ISO ou outro formato string (ex: "2025-03-20T18:00:00")
               date = new Date(rawEndsAt);
             }
 

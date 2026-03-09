@@ -21,6 +21,21 @@ const ForgotPassword = () => {
     setIsLoading(true);
 
     try {
+      // 1. Verificar se o email está cadastrado antes de enviar
+      const { data: checkData, error: checkError } = await supabase.functions.invoke('check-email', {
+        body: { email: email.trim().toLowerCase() },
+      });
+
+      if (checkError) throw checkError;
+      if (checkData?.error) throw new Error(checkData.error);
+
+      if (!checkData?.exists) {
+        setErrorMessage('Este e-mail não está cadastrado na AutoBid BR. Verifique o endereço ou crie uma conta.');
+        setIsLoading(false);
+        return;
+      }
+
+      // 2. Email existe — enviar link de redefinição
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });
